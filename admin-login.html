@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Login — Loom Indica</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <style>
+    :root {
+      --primary: #2d6a4f;
+      --primary-dark: #1b4332;
+      --primary-light: #52b788;
+      --primary-bg: #d8f3dc;
+      --accent: #b7791f;
+      --body-bg: #f0f7f3;
+      --card-bg: #ffffff;
+      --text-primary: #1a2e1d;
+      --text-secondary: #6b7c75;
+      --text-muted: #9aad9f;
+      --border: #d4e8db;
+      --danger: #e53e3e;
+      --shadow: 0 8px 40px rgba(45,106,79,0.12);
+      --shadow-lg: 0 20px 60px rgba(45,106,79,0.15);
+      --radius: 14px;
+      --radius-sm: 8px;
+      --transition: all 0.22s cubic-bezier(.4,0,.2,1);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--body-bg);
+      min-height: 100vh;
+      display: flex;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .bg-decoration { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+    .bg-circle { position: absolute; border-radius: 50%; opacity: 0.06; }
+    .bg-circle-1 { width: 600px; height: 600px; background: var(--primary); top: -200px; left: -200px; }
+    .bg-circle-2 { width: 400px; height: 400px; background: var(--primary-light); bottom: -100px; right: -100px; }
+    .bg-pattern { position: absolute; inset: 0; background-image: radial-gradient(circle, var(--primary) 1px, transparent 1px); background-size: 30px 30px; opacity: 0.04; }
+
+    .left-panel {
+      width: 44%;
+      background: linear-gradient(160deg, var(--primary-dark) 0%, var(--primary) 60%, var(--primary-light) 100%);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 60px 50px;
+      position: relative; overflow: hidden; z-index: 1;
+    }
+    .left-panel::before {
+      content: ''; position: absolute; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    }
+    .left-panel-content { position: relative; z-index: 1; text-align: center; }
+
+    .brand-logo { width: 72px; height: 72px; background: rgba(255,255,255,0.15); backdrop-filter: blur(10px); border: 2px solid rgba(255,255,255,0.25); border-radius: 20px; display: flex; align-items: center; justify-content: center; font-size: 34px; margin: 0 auto 24px; }
+    .brand-name { font-family: 'Playfair Display', serif; font-size: 32px; font-weight: 700; color: #fff; margin-bottom: 4px; }
+    .brand-tagline { font-size: 14px; color: rgba(255,255,255,0.65); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 48px; }
+
+    .left-feature { display: flex; align-items: flex-start; gap: 14px; text-align: left; margin-bottom: 22px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); border-radius: 12px; padding: 14px 18px; }
+    .left-feature-icon { width: 36px; height: 36px; background: rgba(255,255,255,0.15); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+    .left-feature-text h4 { font-size: 14px; font-weight: 600; color: #fff; margin-bottom: 2px; }
+    .left-feature-text p { font-size: 12px; color: rgba(255,255,255,0.6); }
+
+    .right-panel { flex: 1; display: flex; align-items: center; justify-content: center; padding: 40px 30px; position: relative; z-index: 1; }
+
+    .login-card { width: 100%; max-width: 420px; background: var(--card-bg); border-radius: 20px; box-shadow: var(--shadow-lg); padding: 44px 40px; border: 1px solid rgba(45,106,79,0.08); }
+    .login-header { margin-bottom: 32px; }
+    .login-header h1 { font-family: 'Playfair Display', serif; font-size: 26px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px; }
+    .login-header p { font-size: 14px; color: var(--text-secondary); }
+
+    .role-badge { display: inline-flex; align-items: center; gap: 6px; background: var(--primary-bg); color: var(--primary); font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 20px; margin-bottom: 16px; letter-spacing: 0.5px; }
+
+    .form-group { margin-bottom: 20px; }
+    .form-label { display: block; font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 7px; }
+    .input-wrap { position: relative; }
+    .input-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 14px; pointer-events: none; }
+    .form-control { width: 100%; padding: 11px 14px 11px 40px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif; font-size: 14px; color: var(--text-primary); background: #fafcfa; outline: none; transition: var(--transition); }
+    .form-control:focus { border-color: var(--primary-light); background: #fff; box-shadow: 0 0 0 4px rgba(82,183,136,0.1); }
+    .form-control.error { border-color: var(--danger); }
+    .form-control::placeholder { color: var(--text-muted); }
+
+    .eye-toggle { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 14px; transition: var(--transition); }
+    .eye-toggle:hover { color: var(--primary); }
+
+    .form-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+    .checkbox-label { display: flex; align-items: center; gap: 7px; font-size: 13px; color: var(--text-secondary); cursor: pointer; }
+    .checkbox-label input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--primary); cursor: pointer; }
+    .forgot-link { font-size: 13px; color: var(--primary); text-decoration: none; font-weight: 500; }
+    .forgot-link:hover { text-decoration: underline; }
+
+    .error-msg { display: none; background: #fff5f5; border: 1px solid #fed7d7; border-radius: var(--radius-sm); padding: 10px 14px; font-size: 13px; color: var(--danger); margin-bottom: 18px; gap: 8px; align-items: center; }
+    .error-msg.show { display: flex; }
+
+    .btn-login { width: 100%; padding: 13px; background: linear-gradient(135deg, var(--primary), var(--primary-dark)); color: #fff; border: none; border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 700; cursor: pointer; transition: var(--transition); display: flex; align-items: center; justify-content: center; gap: 8px; letter-spacing: 0.3px; }
+    .btn-login:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(45,106,79,0.35); }
+    .btn-login:active { transform: translateY(0); }
+    .btn-login:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
+
+    .super-admin-link { text-align: center; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border); font-size: 13px; color: var(--text-muted); }
+    .super-admin-link a { color: var(--accent); text-decoration: none; font-weight: 600; }
+    .super-admin-link a:hover { text-decoration: underline; }
+
+    .spinner { width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.4); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
+    .toast { background: #fff; border-radius: 10px; box-shadow: 0 8px 30px rgba(0,0,0,0.12); padding: 14px 18px; display: flex; align-items: flex-start; gap: 10px; min-width: 260px; max-width: 340px; border-left: 4px solid var(--primary); animation: slideIn 0.3s ease; }
+    .toast.error { border-left-color: var(--danger); }
+    @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    @keyframes shake { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-8px)} 40%,80%{transform:translateX(8px)} }
+
+    @media (max-width: 768px) {
+      .left-panel { display: none; }
+      .right-panel { padding: 24px 16px; }
+      .login-card { padding: 32px 24px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="bg-decoration">
+  <div class="bg-circle bg-circle-1"></div>
+  <div class="bg-circle bg-circle-2"></div>
+  <div class="bg-pattern"></div>
+</div>
+
+<div class="left-panel">
+  <div class="left-panel-content">
+    <div class="brand-logo">🧵</div>
+    <div class="brand-name">Loom Indica</div>
+    <div class="brand-tagline">Admin Panel</div>
+    <div class="left-feature">
+      <div class="left-feature-icon">📦</div>
+      <div class="left-feature-text"><h4>Order Management</h4><p>Track, process & ship orders in real-time</p></div>
+    </div>
+    <div class="left-feature">
+      <div class="left-feature-icon">🛍️</div>
+      <div class="left-feature-text"><h4>Product Catalogue</h4><p>Manage your entire handwoven collection</p></div>
+    </div>
+    <div class="left-feature">
+      <div class="left-feature-icon">📊</div>
+      <div class="left-feature-text"><h4>Sales Analytics</h4><p>Revenue trends, top products & insights</p></div>
+    </div>
+  </div>
+</div>
+
+<div class="right-panel">
+  <div class="login-card">
+    <div class="login-header">
+      <div class="role-badge"><i class="fa-solid fa-shield-halved"></i> ADMIN ACCESS</div>
+      <h1>Welcome Back</h1>
+      <p>Sign in to manage your Loom Indica store</p>
+    </div>
+
+    <div class="error-msg" id="errorMsg">
+      <i class="fa-solid fa-circle-exclamation"></i>
+      <span id="errorText">Invalid email or password. Please try again.</span>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Email Address</label>
+      <div class="input-wrap">
+        <span class="input-icon"><i class="fa-solid fa-envelope"></i></span>
+        <input type="email" class="form-control" id="emailInput" placeholder="admin@loomindica.com" autocomplete="email">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Password</label>
+      <div class="input-wrap">
+        <span class="input-icon"><i class="fa-solid fa-lock"></i></span>
+        <input type="password" class="form-control" id="passwordInput" placeholder="Enter your password" autocomplete="current-password">
+        <button class="eye-toggle" id="eyeToggle" type="button" tabindex="-1">
+          <i class="fa-solid fa-eye" id="eyeIcon"></i>
+        </button>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <label class="checkbox-label">
+        <input type="checkbox" id="rememberMe"> Remember me
+      </label>
+      <a href="#" class="forgot-link">Forgot password?</a>
+    </div>
+
+    <button class="btn-login" id="loginBtn" onclick="handleLogin()">
+      <i class="fa-solid fa-right-to-bracket"></i> Sign In
+    </button>
+
+    <div class="super-admin-link">
+      Super Admin? <a href="superadmin-login.html">Sign in here →</a>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+/* ================================================================
+   ADMIN LOGIN — REAL API CONNECTION
+   ================================================================
+   Endpoint: POST /api/auth/admin/login/
+   Body:    { email, password }
+   Returns: {
+     success: true,
+     token: "...",
+     admin: {
+       id, name, email, role,
+       permissions: {
+         dashboard:    ["view_dashboard", "view_revenue", ...],
+         products:     ["view_products", "add_product", ...],
+         categories:   [...],
+         inventory:    [...],
+         orders:       [...],
+         customers:    [...],
+         transactions: [...],
+         coupons:      [...],
+         banners:      [...],
+         reports:      [...],
+         settings:     [...]
+       }
+     }
+   }
+================================================================ */
+
+// const BASE_URL = 'http://192.168.29.60:8000/api';
+const BASE_URL = 'http://34.231.15.242:8001/api';
+/* ── Real API call ──────────────────────────────────────────── */
+async function apiLogin(email, password) {
+  const res = await fetch(`${BASE_URL}/auth/login/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password })
+  });
+
+  const data = await res.json();
+  console.log('Login response ...............:', data);
+
+  if (!res.ok) {
+    /* Django REST returns { detail: "..." } or { non_field_errors: [...] } */
+    const msg = data.detail
+      || (data.non_field_errors && data.non_field_errors[0])
+      || data.message
+      || 'Invalid email or password.';
+    return { success: false, message: msg };
+  }
+
+  /*
+    Normalise response — Django REST Framework + Knox / SimpleJWT may
+    return different shapes.  We handle the most common ones:
+
+    Knox:       { token, user: { id, name, email, role, permissions } }
+    SimpleJWT:  { access, refresh, user: { ... } }
+    Custom:     { token, admin: { ... } }   ← as designed in superadmin
+  */
+
+  const token = data.data.access_token || data.access || data.key;
+  const adminRaw = data.data.admin || data.data.user || data.data;
+
+  /* Normalise permissions — may come as snake_case object or array */
+  let permissions = adminRaw.permissions || {};
+
+  /* If backend sends flat array of permission strings like
+     ["products.view_products", "products.add_product", "orders.view_orders"]
+     we convert them to the nested object format our engine expects. */
+  if (Array.isArray(permissions)) {
+    permissions = _flatArrayToNested(permissions);
+  }
+
+  const admin = {
+    id:          adminRaw.id,
+    name:        adminRaw.name || adminRaw.first_name
+                   ? (adminRaw.name || `${adminRaw.first_name} ${adminRaw.last_name}`.trim())
+                   : 'Admin',
+    email:       adminRaw.email || email,
+    role:        adminRaw.role  || 'viewer',
+    permissions,
+  };
+  console.log('Normalised admin object:', admin);
+
+  return { success: true, token, admin };
+}
+
+/* Convert ["products.view_products", "orders.view_orders"] →
+           { products: ["view_products"], orders: ["view_orders"] }  */
+function _flatArrayToNested(flat) {
+  const out = {};
+  flat.forEach(str => {
+    const [mod, key] = str.split('.');
+    if (mod && key) {
+      if (!out[mod]) out[mod] = [];
+      out[mod].push(key);
+    }
+  });
+  return out;
+}
+
+/* ── Login handler ──────────────────────────────────────────── */
+async function handleLogin() {
+  const email    = document.getElementById('emailInput').value.trim();
+  const password = document.getElementById('passwordInput').value;
+  const btn      = document.getElementById('loginBtn');
+  const remember = document.getElementById('rememberMe').checked;
+
+  /* Validation */
+  if (!email)    { showError('Please enter your email address.');    highlightField('emailInput');    return; }
+  if (!password) { showError('Please enter your password.');         highlightField('passwordInput'); return; }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    showError('Please enter a valid email address.'); highlightField('emailInput'); return;
+  }
+
+  /* Loading state */
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div> Signing in…';
+  hideError();
+
+  try {
+    const result = await apiLogin(email, password);
+
+    if (result.success) {
+      /* ── Store session ──────────────────────────────────────
+         Use localStorage when "Remember me" is checked,
+         sessionStorage otherwise (clears on tab close).
+
+         We store:
+           adminToken  – used in every subsequent API request
+                         as  Authorization: Token <token>
+           adminData   – full admin object including permissions;
+                         read by permissions.js on every page load
+      ─────────────────────────────────────────────────────── */
+      console.log('Login successful:', result);
+      // const storage = remember ? localStorage : sessionStorage;
+      const storage = localStorage;  // ← for testing, we use localStorage always
+      console.log("storing the token as ",result.token);
+      storage.setItem('adminToken',  result.token);
+      storage.setItem('adminData',   JSON.stringify(result.admin));
+
+      /* Success UI */
+      btn.innerHTML = '<i class="fa-solid fa-check"></i> Success! Redirecting…';
+      btn.style.background = 'linear-gradient(135deg, #38a169, #2f855a)';
+      showToast('Welcome back, ' + result.admin.name + '!', 'Logged in as ' + result.admin.role, 'success');
+
+      /* Redirect to dashboard after short delay */
+      setTimeout(() => { window.location.href = 'dashboard.html'; }, 1000);
+
+    } else {
+      showError(result.message || 'Invalid email or password.');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> Sign In';
+      shakeCard();
+    }
+
+  } catch (err) {
+    /* Network / CORS / server-down error */
+    console.error('Login error:', err);
+    showError('Could not reach server. Please check your connection and try again.');
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> Sign In';
+  }
+}
+
+/* ── UI helpers ─────────────────────────────────────────────── */
+function showError(msg) {
+  document.getElementById('errorText').textContent = msg;
+  document.getElementById('errorMsg').classList.add('show');
+}
+function hideError() { document.getElementById('errorMsg').classList.remove('show'); }
+
+function highlightField(id) {
+  const el = document.getElementById(id);
+  el.classList.add('error'); el.focus();
+  el.addEventListener('input', () => el.classList.remove('error'), { once: true });
+}
+
+function shakeCard() {
+  const card = document.querySelector('.login-card');
+  card.style.animation = 'shake 0.4s ease';
+  setTimeout(() => card.style.animation = '', 400);
+}
+
+function showToast(title, msg, type = 'success') {
+  const icons = { success:'✅', error:'❌', info:'ℹ️' };
+  const tc = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.innerHTML = `<span style="font-size:18px;">${icons[type]}</span><div><div style="font-size:13px;font-weight:600;">${title}</div><div style="font-size:12px;color:#6b7c75;margin-top:2px;">${msg}</div></div>`;
+  tc.appendChild(toast);
+  setTimeout(() => toast.remove(), 4000);
+}
+
+/* Password toggle */
+document.getElementById('eyeToggle').addEventListener('click', () => {
+  const input = document.getElementById('passwordInput');
+  const icon  = document.getElementById('eyeIcon');
+  input.type  = input.type === 'password' ? 'text' : 'password';
+  icon.className = input.type === 'text' ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye';
+});
+
+/* Enter key */
+document.addEventListener('keydown', e => { if (e.key === 'Enter') handleLogin(); });
+
+/* Hide error on input */
+['emailInput','passwordInput'].forEach(id =>
+  document.getElementById(id).addEventListener('input', hideError)
+);
+
+/* Redirect already-logged-in users */
+const existingToken = sessionStorage.getItem('adminToken') || localStorage.getItem('adminToken');
+// if (existingToken) window.location.href = 'dashboard.html';
+</script>
+</body>
+</html>

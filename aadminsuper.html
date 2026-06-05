@@ -1,0 +1,2000 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Super Admin Panel — Loom Indica</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --primary: #1b4332;
+      --primary-mid: #2d6a4f;
+      --primary-light: #52b788;
+      --primary-bg: #d8f3dc;
+      --accent: #d4a017;
+      --accent-light: #fef9e7;
+      --sidebar-bg: #0f1a13;
+      --sidebar-text: #8aab94;
+      --sidebar-active: #52b788;
+      --sidebar-hover: #182610;
+      --topbar-bg: #ffffff;
+      --body-bg: #f2f7f4;
+      --card-bg: #ffffff;
+      --text-primary: #1a2e1d;
+      --text-secondary: #6b7c75;
+      --text-muted: #9aad9f;
+      --border: #e0eee6;
+      --danger: #e53e3e;
+      --danger-light: #fff5f5;
+      --warning: #dd6b20;
+      --warning-light: #fffaf0;
+      --info: #3182ce;
+      --info-light: #ebf8ff;
+      --success: #38a169;
+      --success-light: #f0fff4;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.07);
+      --shadow: 0 4px 16px rgba(0,0,0,0.08);
+      --shadow-lg: 0 8px 32px rgba(0,0,0,0.12);
+      --radius: 10px;
+      --radius-sm: 6px;
+      --radius-lg: 16px;
+      --sidebar-width: 256px;
+      --topbar-height: 64px;
+      --transition: all 0.22s cubic-bezier(.4,0,.2,1);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'DM Sans', sans-serif; background: var(--body-bg); color: var(--text-primary); font-size: 14px; }
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+
+    /* ===== LAYOUT ===== */
+    .wrapper { display: flex; min-height: 100vh; }
+
+    /* ===== SIDEBAR ===== */
+    .sidebar {
+      width: var(--sidebar-width); background: var(--sidebar-bg);
+      position: fixed; top: 0; left: 0; bottom: 0;
+      z-index: 1000; display: flex; flex-direction: column;
+      transition: var(--transition);
+    }
+    .sidebar-brand {
+      height: var(--topbar-height); display: flex; align-items: center;
+      padding: 0 18px; gap: 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.06); flex-shrink: 0;
+    }
+    .brand-icon {
+      width: 36px; height: 36px; flex-shrink: 0;
+      background: linear-gradient(135deg, var(--primary-light), var(--primary-mid));
+      border-radius: 9px; display: flex; align-items: center; justify-content: center;
+      font-size: 18px; position: relative;
+    }
+    .brand-icon::after { content: '👑'; position: absolute; top: -8px; right: -8px; font-size: 13px; }
+    .brand-text { overflow: hidden; transition: var(--transition); }
+    .brand-name { font-family: 'Playfair Display', serif; font-size: 15px; font-weight: 700; color: #fff; white-space: nowrap; }
+    .brand-sub { font-size: 10px; color: var(--accent); letter-spacing: 1.5px; text-transform: uppercase; white-space: nowrap; font-weight: 600; }
+
+    .sidebar.collapsed { width: 64px; }
+    .sidebar.collapsed .brand-text,
+    .sidebar.collapsed .nav-label,
+    .sidebar.collapsed .nav-section-title { opacity: 0; pointer-events: none; width: 0; }
+
+    .sidebar-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 10px 0; }
+    .nav-section-title {
+      font-size: 10px; font-weight: 600; letter-spacing: 1.5px;
+      text-transform: uppercase; color: var(--sidebar-text);
+      padding: 12px 18px 5px; opacity: 0.5; white-space: nowrap; transition: var(--transition);
+    }
+    .nav-link {
+      display: flex; align-items: center; gap: 11px;
+      padding: 9px 18px; color: var(--sidebar-text);
+      text-decoration: none; cursor: pointer; transition: var(--transition); white-space: nowrap;
+    }
+    .nav-link:hover { background: var(--sidebar-hover); color: #fff; }
+    .nav-link.active { background: rgba(82,183,136,0.12); color: var(--sidebar-active); border-right: 3px solid var(--sidebar-active); }
+    .nav-icon { font-size: 15px; width: 20px; text-align: center; flex-shrink: 0; }
+    .nav-label { font-size: 13px; font-weight: 500; flex: 1; }
+    .nav-badge { background: var(--accent); color: #fff; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 20px; }
+
+    .sidebar-footer {
+      padding: 14px 18px; border-top: 1px solid rgba(255,255,255,0.06);
+      display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+    }
+    .sa-avatar { width: 34px; height: 34px; background: linear-gradient(135deg, var(--accent), #b8860b); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: #fff; flex-shrink: 0; }
+    .sa-info { flex: 1; overflow: hidden; transition: var(--transition); }
+    .sa-name { font-size: 13px; font-weight: 600; color: #fff; white-space: nowrap; }
+    .sa-role { font-size: 10px; color: var(--accent); white-space: nowrap; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+    .sidebar.collapsed .sa-info { opacity: 0; width: 0; }
+
+    /* ===== MAIN ===== */
+    .main-content { margin-left: var(--sidebar-width); flex: 1; display: flex; flex-direction: column; min-height: 100vh; transition: var(--transition); }
+    .main-content.expanded { margin-left: 64px; }
+
+    /* ===== TOPBAR ===== */
+    .topbar {
+      height: var(--topbar-height); background: var(--topbar-bg);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; padding: 0 24px; gap: 14px;
+      position: sticky; top: 0; z-index: 900; box-shadow: var(--shadow-sm);
+    }
+    .topbar-toggle { background: none; border: none; cursor: pointer; color: var(--text-secondary); font-size: 17px; padding: 7px; border-radius: 6px; transition: var(--transition); display: flex; align-items: center; justify-content: center; }
+    .topbar-toggle:hover { background: var(--body-bg); color: var(--primary-mid); }
+    .topbar-title { font-family: 'Playfair Display', serif; font-size: 16px; font-weight: 700; color: var(--text-primary); }
+    .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+    .topbar-chip { display: flex; align-items: center; gap: 6px; background: var(--accent-light); border: 1px solid #f6c90e; color: #92400e; font-size: 11px; font-weight: 700; padding: 4px 12px; border-radius: 20px; letter-spacing: 0.5px; }
+    .topbar-user { display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 4px 8px; border-radius: 20px; transition: var(--transition); }
+    .topbar-user:hover { background: var(--body-bg); }
+    .topbar-avatar { width: 32px; height: 32px; background: linear-gradient(135deg, var(--accent), #b8860b); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: #fff; }
+
+    /* ===== PAGE CONTENT ===== */
+    .page-content { padding: 24px; flex: 1; }
+    .page-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
+    .page-title { font-family: 'Playfair Display', serif; font-size: 22px; font-weight: 700; color: var(--text-primary); }
+    .page-subtitle { font-size: 13px; color: var(--text-secondary); margin-top: 3px; }
+
+    /* ===== CARDS ===== */
+    .card { background: var(--card-bg); border-radius: var(--radius); border: 1px solid var(--border); box-shadow: var(--shadow-sm); overflow: hidden; }
+    .card-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .card-title { font-size: 15px; font-weight: 700; color: var(--text-primary); }
+    .card-body { padding: 20px; }
+
+    /* ===== STAT CARDS ===== */
+    .stat-card { background: var(--card-bg); border-radius: var(--radius); padding: 20px; border: 1px solid var(--border); box-shadow: var(--shadow-sm); display: flex; align-items: center; gap: 16px; transition: var(--transition); }
+    .stat-card:hover { box-shadow: var(--shadow); transform: translateY(-2px); }
+    .stat-icon { width: 50px; height: 50px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
+    .stat-value { font-size: 24px; font-weight: 700; color: var(--text-primary); line-height: 1.2; }
+    .stat-label { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+    .stat-change { font-size: 11px; font-weight: 600; margin-top: 4px; }
+    .stat-change.up { color: var(--success); }
+
+    /* ===== GRID ===== */
+    .grid { display: grid; gap: 20px; }
+    .grid-4 { grid-template-columns: repeat(4, 1fr); }
+    .grid-3 { grid-template-columns: repeat(3, 1fr); }
+    .grid-2 { grid-template-columns: repeat(2, 1fr); }
+    @media (max-width: 1200px) { .grid-4 { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 800px) { .grid-4, .grid-3, .grid-2 { grid-template-columns: 1fr; } }
+
+    /* ===== BUTTONS ===== */
+    .btn { display: inline-flex; align-items: center; gap: 7px; padding: 8px 16px; border: none; border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; transition: var(--transition); text-decoration: none; white-space: nowrap; }
+    .btn-primary { background: var(--primary-mid); color: #fff; }
+    .btn-primary:hover { background: var(--primary); box-shadow: 0 4px 12px rgba(45,106,79,0.3); }
+    .btn-secondary { background: var(--body-bg); color: var(--text-primary); border: 1px solid var(--border); }
+    .btn-secondary:hover { background: var(--border); }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-danger:hover { background: #c53030; }
+    .btn-warning { background: var(--warning); color: #fff; }
+    .btn-success { background: var(--success); color: #fff; }
+    .btn-gold { background: linear-gradient(135deg, var(--accent), #b8860b); color: #fff; }
+    .btn-gold:hover { box-shadow: 0 4px 12px rgba(212,160,23,0.4); }
+    .btn-sm { padding: 5px 11px; font-size: 12px; }
+    .btn-xs { padding: 3px 8px; font-size: 11px; }
+    .btn-outline { background: transparent; border: 1px solid var(--primary-mid); color: var(--primary-mid); }
+    .btn-outline:hover { background: var(--primary-mid); color: #fff; }
+    .btn-danger-soft { background: var(--danger-light); color: var(--danger); border: 1px solid #fecaca; }
+    .btn-danger-soft:hover { background: var(--danger); color: #fff; }
+
+    /* ===== TABLE ===== */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    thead th { padding: 11px 16px; text-align: left; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-secondary); background: var(--body-bg); border-bottom: 1px solid var(--border); white-space: nowrap; }
+    tbody td { padding: 13px 16px; border-bottom: 1px solid var(--border); font-size: 13.5px; vertical-align: middle; }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover td { background: #fafcfa; }
+
+    /* ===== BADGES ===== */
+    .badge { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+    .badge-success { background: var(--success-light); color: var(--success); }
+    .badge-danger { background: var(--danger-light); color: var(--danger); }
+    .badge-warning { background: var(--warning-light); color: var(--warning); }
+    .badge-info { background: var(--info-light); color: var(--info); }
+    .badge-primary { background: var(--primary-bg); color: var(--primary-mid); }
+    .badge-gold { background: var(--accent-light); color: #92400e; border: 1px solid #f6c90e; }
+    .badge-secondary { background: var(--body-bg); color: var(--text-secondary); border: 1px solid var(--border); }
+    .badge-green { background: var(--primary-bg); color: var(--primary-mid); }
+    .badge-amber { background: var(--accent-light); color: var(--accent); }
+    .badge-blue { background: #ebf8ff; color: #2b6cb0; }
+    .badge-red { background: var(--danger-light); color: var(--danger); }
+    .badge-grey { background: #f0f0f0; color: #555; }
+
+    /* ===== FORMS ===== */
+    .form-group { margin-bottom: 18px; }
+    .form-label { display: block; font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px; }
+    .form-label.upper { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-secondary); }
+    .form-label .required { color: var(--danger); margin-left: 2px; }
+    .form-control { width: 100%; padding: 9px 13px; background: var(--card-bg); border: 1.5px solid var(--border); border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif; font-size: 13.5px; color: var(--text-primary); outline: none; transition: var(--transition); }
+    .form-control:focus { border-color: var(--primary-light); box-shadow: 0 0 0 3px rgba(82,183,136,0.12); }
+    .form-control::placeholder { color: var(--text-muted); }
+    .form-hint { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+    .input-group { position: relative; }
+    .input-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 13px; pointer-events: none; }
+    .form-control.with-icon { padding-left: 34px; }
+    .eye-btn { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 13px; transition: var(--transition); }
+    .eye-btn:hover { color: var(--primary-mid); }
+
+    /* ===== MODAL ===== */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 2000; display: flex; align-items: center; justify-content: center; padding: 20px; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+    .modal-overlay.open { opacity: 1; pointer-events: all; }
+    .modal { background: var(--card-bg); border-radius: var(--radius-lg); width: 100%; max-width: 560px; max-height: 90vh; display: flex; flex-direction: column; box-shadow: var(--shadow-lg); transform: translateY(20px); transition: transform 0.25s; }
+    .modal-overlay.open .modal { transform: translateY(0); }
+    .modal-header { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+    .modal-title { font-size: 16px; font-weight: 700; }
+    .modal-close { background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 18px; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: var(--transition); }
+    .modal-close:hover { background: var(--body-bg); color: var(--danger); }
+    .modal-body { padding: 24px; overflow-y: auto; }
+    .modal-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 10px; flex-shrink: 0; }
+
+    /* ===== TOGGLE ===== */
+    .toggle-switch { position: relative; display: inline-flex; width: 38px; height: 20px; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider { position: absolute; inset: 0; background: var(--border); border-radius: 20px; cursor: pointer; transition: var(--transition); }
+    .toggle-slider:before { content: ''; position: absolute; width: 14px; height: 14px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: var(--transition); }
+    .toggle-switch input:checked + .toggle-slider { background: var(--primary-light); }
+    .toggle-switch input:checked + .toggle-slider:before { transform: translateX(18px); }
+    .toggle-switch.small { width: 30px; height: 16px; }
+    .toggle-switch.small .toggle-slider:before { width: 10px; height: 10px; left: 3px; top: 3px; }
+    .toggle-switch.small input:checked + .toggle-slider:before { transform: translateX(14px); }
+
+    /* ===== TABS ===== */
+    .tabs { display: flex; border-bottom: 2px solid var(--border); margin-bottom: 20px; }
+    .tab-btn { background: none; border: none; cursor: pointer; padding: 10px 18px; font-family: 'DM Sans', sans-serif; font-size: 13.5px; font-weight: 500; color: var(--text-secondary); border-bottom: 2px solid transparent; margin-bottom: -2px; transition: var(--transition); }
+    .tab-btn:hover { color: var(--primary-mid); }
+    .tab-btn.active { color: var(--primary-mid); border-bottom-color: var(--primary-mid); font-weight: 700; }
+    .tab-pane { display: none; }
+    .tab-pane.active { display: block; }
+
+    /* ===== PILL TABS (used in roles page) ===== */
+    .pill-tabs { display: flex; gap: 2px; background: var(--border); border-radius: var(--radius); padding: 3px; width: fit-content; margin-bottom: 20px; }
+    .pill-tab-btn { padding: 7px 18px; border-radius: 8px; border: none; background: none; font-size: 13px; font-weight: 500; color: var(--text-secondary); cursor: pointer; transition: var(--transition); font-family: 'DM Sans', sans-serif; }
+    .pill-tab-btn.active { background: var(--card-bg); color: var(--primary); box-shadow: var(--shadow-sm); font-weight: 700; }
+
+    /* ===== GRANULAR PERMISSION BLOCKS ===== */
+    .perm-modules { display: flex; flex-direction: column; gap: 10px; }
+    .perm-module-block { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; transition: var(--transition); }
+    .perm-module-block:hover { border-color: var(--primary-light); }
+    .perm-module-block.expanded .perm-module-body { display: block; }
+    .perm-module-block.expanded .perm-chevron { transform: rotate(90deg); }
+    .perm-module-header { display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: #fafcfa; cursor: pointer; user-select: none; border-bottom: 1px solid transparent; transition: var(--transition); }
+    .perm-module-block.expanded .perm-module-header { border-bottom-color: var(--border); background: var(--primary-bg); }
+    .perm-module-icon { font-size: 16px; width: 28px; text-align: center; }
+    .perm-module-name { font-weight: 700; font-size: 13px; flex: 1; }
+    .perm-module-summary { font-size: 11px; color: var(--text-muted); margin-left: auto; }
+    .perm-chevron { color: var(--text-muted); font-size: 11px; transition: transform var(--transition); }
+    .perm-module-body { display: none; padding: 14px; background: #fff; }
+
+    /* ===== PERMISSION TABLE ===== */
+    .perm-table { width: 100%; border-collapse: collapse; }
+    .perm-table thead th { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-muted); padding: 6px 10px; text-align: left; border-bottom: 1px solid var(--border); background: var(--body-bg); }
+    .perm-table thead th:not(:first-child) { text-align: center; width: 70px; }
+    .perm-table thead th.col-view { color: #3182ce; }
+    .perm-table thead th.col-create { color: #38a169; }
+    .perm-table thead th.col-edit { color: #d69e2e; }
+    .perm-table thead th.col-delete { color: #e53e3e; }
+    .perm-table thead th.col-export { color: #805ad5; }
+    .perm-table tbody tr { border-bottom: 1px solid var(--border); }
+    .perm-table tbody tr:last-child { border-bottom: none; }
+    .perm-table tbody tr:hover { background: var(--body-bg); }
+    .perm-table tbody td { padding: 9px 10px; font-size: 12px; }
+    .perm-table tbody td:not(:first-child) { text-align: center; }
+    .perm-feature-name { font-weight: 500; color: var(--text-primary); }
+    .perm-feature-desc { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+    .perm-check { width: 18px; height: 18px; border: 1.5px solid var(--border); border-radius: 4px; appearance: none; -webkit-appearance: none; cursor: pointer; background: #fff; position: relative; transition: var(--transition); display: inline-block; vertical-align: middle; }
+    .perm-check:checked { background: var(--primary-light); border-color: var(--primary-light); }
+    .perm-check:checked::after { content: '✓'; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #fff; font-size: 11px; font-weight: 700; line-height: 1; }
+    .perm-check.col-view:checked { background: #3182ce; border-color: #3182ce; }
+    .perm-check.col-create:checked { background: #38a169; border-color: #38a169; }
+    .perm-check.col-edit:checked { background: #d69e2e; border-color: #d69e2e; }
+    .perm-check.col-delete:checked { background: #e53e3e; border-color: #e53e3e; }
+    .perm-check.col-export:checked { background: #805ad5; border-color: #805ad5; }
+    .perm-table-footer { display: flex; align-items: center; gap: 8px; padding: 8px 10px 2px; }
+    .check-all-row { font-size: 11px; color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; gap: 5px; }
+    .check-all-row:hover { color: var(--primary); }
+
+    /* ===== ROLES MATRIX ===== */
+    .roles-matrix { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .roles-matrix th { padding: 10px 14px; text-align: center; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; border-bottom: 2px solid var(--border); }
+    .roles-matrix th:first-child { text-align: left; width: 240px; }
+    .roles-matrix td { padding: 9px 14px; border-bottom: 1px solid var(--border); text-align: center; }
+    .roles-matrix td:first-child { text-align: left; font-weight: 500; }
+    .roles-matrix tbody tr:hover { background: var(--body-bg); }
+    .roles-matrix .module-group-row td { background: var(--primary-bg); font-weight: 700; font-size: 12px; text-align: left; color: var(--primary); padding: 7px 14px; }
+    .roles-matrix .feature-indent { padding-left: 28px !important; font-size: 12px; color: var(--text-secondary); font-weight: 400; }
+    .check-icon { color: var(--success); font-size: 14px; }
+    .cross-icon { color: var(--text-muted); font-size: 14px; }
+
+    /* ===== ROLE CARDS ===== */
+    .role-card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin-bottom: 20px; }
+    .role-card { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+    .role-card-top { padding: 14px 16px; display: flex; align-items: center; gap: 10px; }
+    .role-card-icon { width: 36px; height: 36px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 17px; }
+    .role-card-name { font-weight: 700; font-size: 14px; }
+    .role-card-desc { font-size: 11px; color: var(--text-secondary); margin-top: 1px; }
+    .role-card-body { padding: 14px 16px; border-top: 1px solid var(--border); background: #fafcfa; }
+    .role-card-footer { padding: 10px 16px; border-top: 1px solid var(--border); display: flex; gap: 8px; background: #fff; }
+    .role-superadmin .role-card-top { background: linear-gradient(135deg, #1b4332, #2d6a4f); color: #fff; }
+    .role-superadmin .role-card-name, .role-superadmin .role-card-desc { color: #fff; }
+    .role-admin .role-card-top { background: linear-gradient(135deg, #1a365d, #2b6cb0); color: #fff; }
+    .role-admin .role-card-name, .role-admin .role-card-desc { color: #fff; }
+    .role-manager .role-card-top { background: var(--accent-light); }
+    .role-manager .role-card-icon { background: var(--accent); color: #fff; }
+    .role-viewer .role-card-top { background: var(--body-bg); }
+    .role-viewer .role-card-icon { background: var(--border); color: var(--text-secondary); }
+
+    /* ===== CUSTOM PERMS ===== */
+    .custom-perm-list { display: flex; flex-direction: column; gap: 8px; }
+    .custom-perm-item { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--body-bg); transition: var(--transition); }
+    .custom-perm-item:hover { border-color: var(--primary-light); background: #fff; }
+    .custom-perm-item-icon { font-size: 18px; width: 30px; text-align: center; }
+    .custom-perm-item-info { flex: 1; }
+    .custom-perm-item-name { font-weight: 600; font-size: 13px; }
+    .custom-perm-item-key { font-size: 11px; color: var(--text-muted); font-family: monospace; background: var(--border); padding: 1px 5px; border-radius: 3px; }
+    .custom-perm-item-meta { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+    .custom-perm-actions { display: flex; gap: 6px; }
+
+    /* ===== ALERTS ===== */
+    .alert { padding: 10px 14px; border-radius: 8px; font-size: 13px; display: flex; align-items: flex-start; gap: 8px; margin-bottom: 16px; }
+    .alert-info { background: #ebf8ff; border: 1px solid #bee3f8; color: #2b6cb0; }
+    .alert-warning { background: var(--accent-light); border: 1px solid #f6d860; color: #744210; }
+    .alert-success { background: var(--primary-bg); border: 1px solid #9ae6b4; color: var(--primary); }
+    .alert-danger { background: var(--danger-light); border: 1px solid #fecaca; color: var(--danger); }
+
+    /* ===== PERM SUMMARY BOX ===== */
+    .perm-summary-box { background: var(--body-bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px; font-size: 12px; color: var(--text-secondary); line-height: 1.9; min-height: 80px; }
+
+    /* ===== AVATAR ===== */
+    .admin-avatar { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: #fff; flex-shrink: 0; }
+
+    /* ===== ACTIVITY ===== */
+    .activity-row { display: flex; align-items: flex-start; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+    .activity-row:last-child { border-bottom: none; }
+    .activity-icon { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+    .activity-text { font-size: 13px; }
+    .activity-time { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+    /* ===== TOAST ===== */
+    .toast-container { position: fixed; top: 80px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
+    .toast { background: var(--card-bg); border-radius: var(--radius); box-shadow: var(--shadow-lg); padding: 14px 18px; display: flex; align-items: flex-start; gap: 10px; min-width: 270px; max-width: 360px; border-left: 4px solid var(--primary-mid); animation: slideIn 0.3s ease, fadeOut 0.3s ease 3.7s forwards; }
+    .toast.success { border-left-color: var(--success); }
+    .toast.error { border-left-color: var(--danger); }
+    .toast.warning { border-left-color: var(--warning); }
+    @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+
+    /* ===== PAGINATION ===== */
+    .pagination { display: flex; align-items: center; gap: 4px; padding: 14px 20px; border-top: 1px solid var(--border); justify-content: flex-end; flex-wrap: wrap; }
+    .page-info { font-size: 12px; color: var(--text-secondary); margin-right: auto; }
+    .page-btn { min-width: 30px; height: 30px; border: 1px solid var(--border); background: var(--card-bg); border-radius: var(--radius-sm); cursor: pointer; font-size: 12px; color: var(--text-primary); display: flex; align-items: center; justify-content: center; transition: var(--transition); font-family: 'DM Sans', sans-serif; }
+    .page-btn:hover { border-color: var(--primary-mid); color: var(--primary-mid); }
+    .page-btn.active { background: var(--primary-mid); color: #fff; border-color: var(--primary-mid); }
+
+    /* ===== SPINNER ===== */
+    .spinner { width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--primary-mid); border-radius: 50%; animation: spin 0.7s linear infinite; display: inline-block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ===== MISC ===== */
+    .mb-20 { margin-bottom: 20px; }
+    .mb-16 { margin-bottom: 16px; }
+    .mb-12 { margin-bottom: 12px; }
+    .mt-12 { margin-top: 12px; }
+    .hidden { display: none !important; }
+    .text-muted { color: var(--text-muted); }
+    .text-danger { color: var(--danger); }
+    .fw-600 { font-weight: 600; }
+    .fw-700 { font-weight: 700; }
+    .section-divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+
+    /* pwd checks */
+    .pwd-check { font-size: 12px; color: var(--text-muted); }
+
+    /* perm quick actions panel */
+    .perm-quick-actions { position: sticky; top: 88px; }
+  </style>
+</head>
+<body>
+<div class="wrapper">
+
+  <!-- ===== SIDEBAR ===== -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon">🧵</div>
+      <div class="brand-text">
+        <div class="brand-name">Loom Indica</div>
+        <div class="brand-sub">Super Admin</div>
+      </div>
+    </div>
+
+    <div class="sidebar-scroll">
+      <div class="nav-section-title">Overview</div>
+      <a href="#" class="nav-link active" onclick="showSection('dashboard')">
+        <span class="nav-icon"><i class="fa-solid fa-gauge-high"></i></span>
+        <span class="nav-label">Dashboard</span>
+      </a>
+
+      <div class="nav-section-title">Admin Management</div>
+      <a href="#" class="nav-link" onclick="showSection('admins')">
+        <span class="nav-icon"><i class="fa-solid fa-user-shield"></i></span>
+        <span class="nav-label">All Admins</span>
+        <span class="nav-badge" id="adminCountBadge">–</span>
+      </a>
+      <a href="#" class="nav-link" onclick="showSection('create-admin')">
+        <span class="nav-icon"><i class="fa-solid fa-user-plus"></i></span>
+        <span class="nav-label">Create Admin</span>
+      </a>
+      <a href="#" class="nav-link" onclick="showSection('roles')">
+        <span class="nav-icon"><i class="fa-solid fa-lock"></i></span>
+        <span class="nav-label">Roles & Permissions</span>
+      </a>
+
+      <div class="nav-section-title">Store Overview</div>
+      <a href="#" class="nav-link" onclick="showSection('store-stats')">
+        <span class="nav-icon"><i class="fa-solid fa-chart-line"></i></span>
+        <span class="nav-label">Store Analytics</span>
+      </a>
+
+      <div class="nav-section-title">System</div>
+      <a href="#" class="nav-link" onclick="showSection('activity-log')">
+        <span class="nav-icon"><i class="fa-solid fa-list-check"></i></span>
+        <span class="nav-label">Activity Log</span>
+      </a>
+      <a href="#" class="nav-link" onclick="showSection('settings')">
+        <span class="nav-icon"><i class="fa-solid fa-gear"></i></span>
+        <span class="nav-label">System Settings</span>
+      </a>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="sa-avatar">S</div>
+      <div class="sa-info">
+        <div class="sa-name" id="saName">Super Admin</div>
+        <div class="sa-role">Root Access</div>
+      </div>
+      <a href="superadmin-login.html" title="Logout" style="color:var(--sidebar-text);font-size:14px;" onclick="logout()">
+        <i class="fa-solid fa-right-from-bracket"></i>
+      </a>
+    </div>
+  </aside>
+
+  <!-- ===== MAIN CONTENT ===== -->
+  <div class="main-content" id="mainContent">
+
+    <!-- TOPBAR -->
+    <header class="topbar">
+      <button class="topbar-toggle" id="sidebarToggle"><i class="fa-solid fa-bars"></i></button>
+      <span class="topbar-title" id="topbarTitle">Dashboard</span>
+      <div class="topbar-right">
+        <div class="topbar-chip"><i class="fa-solid fa-crown"></i> SUPER ADMIN</div>
+        <div class="topbar-user" id="saTopUser">
+          <div class="topbar-avatar">S</div>
+          <span style="font-size:13px;font-weight:600;">Super Admin</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- ======================================================
+         SECTION: DASHBOARD
+    ====================================================== -->
+    <section class="page-content" id="sec-dashboard">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Super Admin Dashboard</h1>
+          <p class="page-subtitle" id="greetMsg">Good morning! Here's your system overview.</p>
+        </div>
+        <button class="btn btn-gold" onclick="showSection('create-admin')">
+          <i class="fa-solid fa-user-plus"></i> Create Admin
+        </button>
+      </div>
+
+      <div class="grid grid-4 mb-20" id="dashStatsGrid">
+        <div class="stat-card"><div class="stat-icon" style="background:#d8f3dc;"><span>👤</span></div><div><div class="stat-value" id="statAdmins">–</div><div class="stat-label">Active Admins</div><div class="stat-change up" id="statAdminsChg">–</div></div></div>
+        <div class="stat-card"><div class="stat-icon" style="background:#ebf8ff;"><span>📦</span></div><div><div class="stat-value" id="statOrders">–</div><div class="stat-label">Total Orders</div><div class="stat-change up" id="statOrdersChg">–</div></div></div>
+        <div class="stat-card"><div class="stat-icon" style="background:#fef9e7;"><span>💰</span></div><div><div class="stat-value" id="statRevenue">–</div><div class="stat-label">Total Revenue</div><div class="stat-change up" id="statRevenueChg">–</div></div></div>
+        <div class="stat-card"><div class="stat-icon" style="background:#f0fff4;"><span>🛍️</span></div><div><div class="stat-value" id="statProducts">–</div><div class="stat-label">Products</div><div class="stat-change up" id="statProductsChg">–</div></div></div>
+      </div>
+
+      <div class="grid grid-2 mb-20">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Admin Accounts</div>
+            <button class="btn btn-sm btn-gold" onclick="showSection('create-admin')"><i class="fa-solid fa-plus"></i> Add</button>
+          </div>
+          <div id="dashAdminList" style="padding:4px 0;"><div style="padding:30px;text-align:center;"><div class="spinner" style="margin:auto;"></div></div></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Recent Activity</div></div>
+          <div class="card-body" id="dashActivity">
+            <div class="activity-row"><div class="activity-icon" style="background:#d8f3dc;">👤</div><div><div class="activity-text">Admin <strong>Rahul Kumar</strong> created</div><div class="activity-time">2 hours ago</div></div></div>
+            <div class="activity-row"><div class="activity-icon" style="background:#fef9e7;">🔑</div><div><div class="activity-text">Permissions updated for <strong>Priya Manager</strong></div><div class="activity-time">5 hours ago</div></div></div>
+            <div class="activity-row"><div class="activity-icon" style="background:#fff5f5;">🚫</div><div><div class="activity-text">Admin <strong>Old Account</strong> deactivated</div><div class="activity-time">Yesterday</div></div></div>
+            <div class="activity-row"><div class="activity-icon" style="background:#ebf8ff;">🔐</div><div><div class="activity-text">Super Admin logged in from new IP</div><div class="activity-time">Yesterday</div></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-2">
+        <div class="card">
+          <div class="card-header"><div class="card-title">Monthly Revenue (Store Overview)</div></div>
+          <div class="card-body" style="height:260px;"><canvas id="revenueChart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Admin Login Activity (Last 7 Days)</div></div>
+          <div class="card-body" style="height:260px;"><canvas id="loginChart"></canvas></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================================================
+         SECTION: ALL ADMINS
+    ====================================================== -->
+    <section class="page-content hidden" id="sec-admins">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Admin Accounts</h1>
+          <p class="page-subtitle">Manage all admins and their access</p>
+        </div>
+        <button class="btn btn-gold" onclick="showSection('create-admin')"><i class="fa-solid fa-user-plus"></i> Create New Admin</button>
+      </div>
+
+      <div class="card">
+        <div style="display:flex;gap:12px;align-items:center;padding:16px 20px;border-bottom:1px solid var(--border);flex-wrap:wrap;background:var(--body-bg);">
+          <input type="text" class="form-control" id="adminSearch" placeholder="🔍  Search by name or email…" style="max-width:280px;" oninput="renderAdminsTable()">
+          <select class="form-control" id="roleFilter" style="width:auto;" onchange="renderAdminsTable()">
+            <option value="">All Roles</option>
+            <option value="admin">Admin</option>
+            <option value="manager">Manager</option>
+            <option value="viewer">Viewer</option>
+          </select>
+          <select class="form-control" id="statusFilter" style="width:auto;" onchange="renderAdminsTable()">
+            <option value="">All Status</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+          <button class="btn btn-secondary btn-sm" onclick="resetAdminFilters()"><i class="fa-solid fa-rotate-left"></i> Reset</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Admin</th><th>Email</th><th>Phone</th><th>Role</th><th>Status</th><th>Created</th><th>Last Login</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="adminsTableBody">
+              <tr><td colspan="8" style="text-align:center;padding:40px;"><div class="spinner" style="margin:auto;"></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="pagination" id="adminsPagination"></div>
+      </div>
+    </section>
+
+    <!-- ======================================================
+         SECTION: CREATE / EDIT ADMIN
+    ====================================================== -->
+    <section class="page-content hidden" id="sec-create-admin">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title" id="adminFormTitle">Create New Admin</h1>
+          <p class="page-subtitle" id="adminFormSubtitle">Fill in the details and assign granular permissions</p>
+        </div>
+        <button class="btn btn-secondary" onclick="showSection('admins')"><i class="fa-solid fa-arrow-left"></i> Back to Admins</button>
+      </div>
+
+      <div class="grid grid-2" style="align-items:start;">
+
+        <!-- LEFT: Basic Info + Credentials + Settings -->
+        <div>
+          <div class="card mb-20">
+            <div class="card-header"><div class="card-title">👤 Basic Information</div></div>
+            <div class="card-body">
+              <div class="grid grid-2" style="gap:16px;">
+                <div class="form-group">
+                  <label class="form-label">First Name <span class="required" style="color:var(--danger);">*</span></label>
+                  <div class="input-group"><i class="fa-solid fa-user input-icon"></i><input type="text" class="form-control with-icon" id="adminFirstName" placeholder="Rahul"></div>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Last Name <span class="required" style="color:var(--danger);">*</span></label>
+                  <input type="text" class="form-control" id="adminLastName" placeholder="Kumar">
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Email Address <span class="required" style="color:var(--danger);">*</span></label>
+                <div class="input-group"><i class="fa-solid fa-envelope input-icon"></i><input type="email" class="form-control with-icon" id="adminEmail" placeholder="rahul@loomindica.com"></div>
+                <div class="form-hint">Used to log in to the admin panel</div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Phone Number <span class="required" style="color:var(--danger);">*</span></label>
+                <div class="input-group"><i class="fa-solid fa-phone input-icon"></i><input type="tel" class="form-control with-icon" id="adminPhone" placeholder="9876543210" maxlength="10"></div>
+              </div>
+              <div class="grid grid-2" style="gap:16px;">
+                <div class="form-group">
+                  <label class="form-label">Department</label>
+                  <input type="text" class="form-control" id="adminDept" placeholder="e.g. Operations">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Location / City</label>
+                  <input type="text" class="form-control" id="adminCity" placeholder="e.g. Bhopal">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card mb-20">
+            <div class="card-header"><div class="card-title">🔑 Login Credentials</div></div>
+            <div class="card-body">
+              <div class="form-group">
+                <label class="form-label">Password <span class="required" style="color:var(--danger);">*</span></label>
+                <div class="input-group">
+                  <i class="fa-solid fa-lock input-icon"></i>
+                  <input type="password" class="form-control with-icon" id="adminPassword" placeholder="Minimum 8 characters">
+                  <button class="eye-btn" onclick="togglePwd('adminPassword','eyeAdmin')"><i class="fa-solid fa-eye" id="eyeAdmin"></i></button>
+                </div>
+                <div id="pwdStrengthBar" style="height:4px;background:var(--border);border-radius:10px;margin-top:6px;">
+                  <div id="pwdStrengthFill" style="height:100%;border-radius:10px;width:0%;transition:var(--transition);"></div>
+                </div>
+                <div class="form-hint" id="pwdStrengthText">Enter password to check strength</div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Confirm Password <span class="required" style="color:var(--danger);">*</span></label>
+                <div class="input-group"><i class="fa-solid fa-lock input-icon"></i><input type="password" class="form-control with-icon" id="adminPasswordConfirm" placeholder="Repeat password"></div>
+              </div>
+              <div style="background:var(--body-bg);border-radius:var(--radius-sm);padding:12px;">
+                <div style="font-size:12px;font-weight:700;margin-bottom:6px;color:var(--text-secondary);">Password requirements:</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;" id="pwdChecks">
+                  <div class="pwd-check" data-rule="length">✗ At least 8 characters</div>
+                  <div class="pwd-check" data-rule="upper">✗ One uppercase letter</div>
+                  <div class="pwd-check" data-rule="number">✗ One number</div>
+                  <div class="pwd-check" data-rule="special">✗ One special character</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card mb-20">
+            <div class="card-header"><div class="card-title">⚙️ Account Settings</div></div>
+            <div class="card-body">
+              <div style="display:flex;flex-direction:column;gap:14px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;">
+                  <div><div style="font-size:13px;font-weight:600;">Account Active</div><div style="font-size:12px;color:var(--text-muted);">Admin can log in immediately</div></div>
+                  <label class="toggle-switch"><input type="checkbox" id="adminActive" checked><div class="toggle-slider"></div></label>
+                </div>
+                <div style="display:flex;align-items:center;justify-content:space-between;">
+                  <div><div style="font-size:13px;font-weight:600;">Send Credentials via Email</div><div style="font-size:12px;color:var(--text-muted);">Email login details to admin</div></div>
+                  <label class="toggle-switch"><input type="checkbox" id="sendCredentials" checked><div class="toggle-slider"></div></label>
+                </div>
+                <div style="display:flex;align-items:center;justify-content:space-between;">
+                  <div><div style="font-size:13px;font-weight:600;">Force Password Change on First Login</div><div style="font-size:12px;color:var(--text-muted);">Admin must reset password</div></div>
+                  <label class="toggle-switch"><input type="checkbox" id="forceReset"><div class="toggle-slider"></div></label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Credential Preview -->
+          <div class="card" id="credPreviewCard" style="background:var(--primary);border:none;display:none;">
+            <div class="card-body">
+              <div style="color:rgba(255,255,255,0.7);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Credentials to Share</div>
+              <div style="background:rgba(255,255,255,0.1);border-radius:8px;padding:12px;font-family:monospace;font-size:13px;color:#fff;">
+                <div>Email: <span id="previewEmail" style="color:#a7f3d0;">—</span></div>
+                <div style="margin-top:4px;">Password: <span id="previewPwd" style="color:#a7f3d0;">—</span></div>
+                <div style="margin-top:4px;">Portal: <span style="color:#a7f3d0;">admin-login.html</span></div>
+              </div>
+              <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:8px;">Share these with the admin securely</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT: Role + Granular Permissions -->
+        <div>
+          <!-- Role selector -->
+          <div class="card mb-20">
+            <div class="card-header"><div class="card-title">🎭 Role & Access Level</div></div>
+            <div class="card-body">
+              <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label">Role <span class="required" style="color:var(--danger);">*</span></label>
+                <select class="form-control" id="adminRole" onchange="applyCreateRoleDefaults()">
+                  <option value="">Select Role</option>
+                  <option value="admin">Admin — Full Store Access</option>
+                  <option value="manager">Manager — Orders & Customers</option>
+                  <option value="viewer">Viewer — Read Only</option>
+                  <option value="custom">Custom — Define Below</option>
+                </select>
+                <div class="form-hint">Role sets the default permissions. You can customise below per module.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Granular Permission Modules -->
+          <div class="card mb-20">
+            <div class="card-header">
+              <div class="card-title">🔐 Module Permissions</div>
+              <div style="display:flex;gap:8px;">
+                <button class="btn btn-sm btn-secondary" onclick="setCreatePerms(true)"><i class="fa-solid fa-check-double"></i> All</button>
+                <button class="btn btn-sm btn-secondary" onclick="setCreatePerms(false)"><i class="fa-solid fa-ban"></i> None</button>
+                <button class="btn btn-xs btn-secondary" onclick="expandAllCreate()">Expand</button>
+              </div>
+            </div>
+            <div style="padding:14px;">
+              <!-- Permission summary badge strip -->
+              <div id="createPermSummary" class="perm-summary-box mb-12">Select a role or toggle permissions to see summary.</div>
+              <div class="perm-modules" id="createPermModules">
+                <!-- Rendered by JS -->
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ACTION BUTTONS -->
+      <div style="display:flex;gap:12px;justify-content:flex-end;padding:8px 0 24px;">
+        <button class="btn btn-secondary" onclick="showSection('admins')">Cancel</button>
+        <button class="btn btn-gold" id="createAdminBtn" onclick="submitAdminForm()">
+          <i class="fa-solid fa-user-plus"></i> <span id="createBtnText">Create Admin</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- ======================================================
+         SECTION: ROLES & PERMISSIONS (Full Granular Page)
+    ====================================================== -->
+    <section class="page-content hidden" id="sec-roles">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Roles & Permissions</h1>
+          <p class="page-subtitle">Manage roles, feature-level permissions, and custom permission keys</p>
+        </div>
+        <button class="btn btn-gold" onclick="openModal('addPermModal')"><i class="fa-solid fa-plus"></i> Add Custom Permission</button>
+      </div>
+
+      <div class="pill-tabs" id="rolesPillTabs">
+        <button class="pill-tab-btn active" onclick="switchRolesTab('overview', this)">Role Overview</button>
+        <button class="pill-tab-btn" onclick="switchRolesTab('matrix', this)">Permission Matrix</button>
+        <button class="pill-tab-btn" onclick="switchRolesTab('custom', this)">Custom Permissions</button>
+      </div>
+
+      <!-- TAB: ROLE OVERVIEW -->
+      <div id="rtab-overview">
+        <div class="role-card-grid">
+          <div class="card role-card role-superadmin">
+            <div class="role-card-top"><div class="role-card-icon">👑</div><div><div class="role-card-name">Super Admin</div><div class="role-card-desc">Root access — unrestricted</div></div></div>
+            <div class="role-card-body"><div style="font-size:13px;color:var(--text-secondary);margin-bottom:10px;">Full control over all modules, settings, and admin management. Cannot be restricted.</div><div style="display:flex;flex-wrap:wrap;gap:5px;"><span class="badge badge-green">All Modules</span><span class="badge badge-green">All Actions</span><span class="badge badge-green">System Settings</span></div></div>
+            <div class="role-card-footer"><span style="font-size:12px;color:var(--text-muted);">System role — cannot be edited</span></div>
+          </div>
+          <div class="card role-card role-admin">
+            <div class="role-card-top"><div class="role-card-icon">🛠️</div><div><div class="role-card-name">Admin</div><div class="role-card-desc">Full store access</div></div></div>
+            <div class="role-card-body"><div style="font-size:13px;color:var(--text-secondary);margin-bottom:10px;">Manages products, orders, customers, coupons, banners, analytics, and settings. No super-admin controls.</div><div style="display:flex;flex-wrap:wrap;gap:5px;"><span class="badge badge-green">Products ✓</span><span class="badge badge-green">Orders ✓</span><span class="badge badge-green">Customers ✓</span><span class="badge badge-green">Transactions ✓</span><span class="badge badge-green">Reports ✓</span></div></div>
+            <div class="role-card-footer"><button class="btn btn-sm btn-secondary" onclick="switchRolesTab('matrix', document.querySelectorAll('.pill-tab-btn')[1])">View Matrix</button><button class="btn btn-sm btn-primary" onclick="editRole('admin')">Edit Permissions</button></div>
+          </div>
+          <div class="card role-card role-manager">
+            <div class="role-card-top"><div class="role-card-icon" style="background:var(--accent);color:#fff;">🗂️</div><div><div class="role-card-name">Manager</div><div class="role-card-desc">Operations — limited access</div></div></div>
+            <div class="role-card-body"><div style="font-size:13px;color:var(--text-secondary);margin-bottom:10px;">Day-to-day operations. Manages orders, customers, and coupons. Cannot modify products, categories, or settings.</div><div style="display:flex;flex-wrap:wrap;gap:5px;"><span class="badge badge-grey">Products ✗</span><span class="badge badge-green">Orders ✓</span><span class="badge badge-green">Customers ✓</span><span class="badge badge-amber">Reports (View)</span><span class="badge badge-grey">Settings ✗</span></div></div>
+            <div class="role-card-footer"><button class="btn btn-sm btn-secondary" onclick="switchRolesTab('matrix', document.querySelectorAll('.pill-tab-btn')[1])">View Matrix</button><button class="btn btn-sm btn-primary" onclick="editRole('manager')">Edit Permissions</button></div>
+          </div>
+          <div class="card role-card role-viewer">
+            <div class="role-card-top"><div class="role-card-icon">👁️</div><div><div class="role-card-name">Viewer</div><div class="role-card-desc">Read-only access</div></div></div>
+            <div class="role-card-body"><div style="font-size:13px;color:var(--text-secondary);margin-bottom:10px;">View-only. Suitable for reporting, auditing, or monitoring staff. No create/edit/delete access on any module.</div><div style="display:flex;flex-wrap:wrap;gap:5px;"><span class="badge badge-blue">Products (View)</span><span class="badge badge-blue">Orders (View)</span><span class="badge badge-blue">Customers (View)</span><span class="badge badge-blue">Reports (View)</span></div></div>
+            <div class="role-card-footer"><button class="btn btn-sm btn-secondary" onclick="switchRolesTab('matrix', document.querySelectorAll('.pill-tab-btn')[1])">View Matrix</button><button class="btn btn-sm btn-primary" onclick="editRole('viewer')">Edit Permissions</button></div>
+          </div>
+        </div>
+        <div class="alert alert-info">
+          <i class="fa-solid fa-circle-info"></i>
+          <span>Role permissions set the <strong>default</strong> when creating an admin. Individual feature permissions can be overridden per admin in the Create Admin form.</span>
+        </div>
+      </div>
+
+      <!-- TAB: PERMISSION MATRIX -->
+      <div id="rtab-matrix" class="hidden">
+        <div class="card">
+          <div class="card-header">
+            <div><div class="card-title">📋 Full Permission Matrix</div><div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">Feature-level access across all roles</div></div>
+            <button class="btn btn-sm btn-secondary" onclick="showToast('Matrix exported','','success')"><i class="fa-solid fa-download"></i> Export</button>
+          </div>
+          <div style="overflow-x:auto;">
+            <table class="roles-matrix" id="permMatrix"><thead><tr><th>Feature</th><th style="color:var(--primary-light);">👑 Super Admin</th><th style="color:#3182ce;">🛠️ Admin</th><th style="color:var(--accent);">🗂️ Manager</th><th style="color:var(--text-secondary);">👁️ Viewer</th></tr></thead><tbody id="matrixBody"></tbody></table>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB: CUSTOM PERMISSIONS -->
+      <div id="rtab-custom" class="hidden">
+        <div class="grid grid-2" style="align-items:start;">
+          <div>
+            <div class="card mb-16">
+              <div class="card-header">
+                <div><div class="card-title">🗝️ Custom Permission Keys</div><div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">Extra permissions beyond standard CRUD</div></div>
+                <button class="btn btn-sm btn-gold" onclick="openModal('addPermModal')"><i class="fa-solid fa-plus"></i> Add</button>
+              </div>
+              <div style="padding:14px;"><div class="custom-perm-list" id="customPermList"></div></div>
+            </div>
+            <div class="alert alert-warning">
+              <i class="fa-solid fa-triangle-exclamation"></i>
+              <span>Deleting a custom permission key will revoke it from all admins who currently hold it.</span>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><div class="card-title">🎭 Assign Custom Perms to Roles</div></div>
+            <div style="padding:14px;" id="assignCustomPerms"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================================================
+         SECTION: ACTIVITY LOG
+    ====================================================== -->
+    <section class="page-content hidden" id="sec-activity-log">
+      <div class="page-header">
+        <div><h1 class="page-title">Activity Log</h1><p class="page-subtitle">All admin and super admin actions</p></div>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Time</th><th>Actor</th><th>Role</th><th>Action</th><th>Details</th><th>IP</th></tr></thead>
+            <tbody id="activityLogBody"><tr><td colspan="6" style="text-align:center;padding:40px;"><div class="spinner" style="margin:auto;"></div></td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================================================
+         SECTION: SETTINGS
+    ====================================================== -->
+    <section class="page-content hidden" id="sec-settings">
+      <div class="page-header"><div><h1 class="page-title">System Settings</h1><p class="page-subtitle">Super admin system configuration</p></div></div>
+      <div class="grid grid-2" style="align-items:start;">
+        <div class="card">
+          <div class="card-header"><div class="card-title">🔐 Super Admin Password</div></div>
+          <div class="card-body">
+            <div class="form-group"><label class="form-label">Current Password</label><div class="input-group"><i class="fa-solid fa-lock input-icon"></i><input type="password" class="form-control with-icon" placeholder="Current password"></div></div>
+            <div class="form-group"><label class="form-label">New Password</label><div class="input-group"><i class="fa-solid fa-lock input-icon"></i><input type="password" class="form-control with-icon" placeholder="New password"></div></div>
+            <div class="form-group"><label class="form-label">Confirm New Password</label><div class="input-group"><i class="fa-solid fa-lock input-icon"></i><input type="password" class="form-control with-icon" placeholder="Repeat new password"></div></div>
+            <!-- REPLACE: PATCH /api/superadmin/change-password/ -->
+            <button class="btn btn-primary" onclick="showToast('Password updated successfully','','success')">Update Password</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">🔔 Notification Settings</div></div>
+          <div class="card-body">
+            <div style="display:flex;flex-direction:column;gap:16px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;"><div><div style="font-size:13px;font-weight:600;">New Admin Created Alert</div><div style="font-size:12px;color:var(--text-muted);">Email me when a new admin is created</div></div><label class="toggle-switch"><input type="checkbox" checked><div class="toggle-slider"></div></label></div>
+              <div style="display:flex;align-items:center;justify-content:space-between;"><div><div style="font-size:13px;font-weight:600;">Failed Login Attempts</div><div style="font-size:12px;color:var(--text-muted);">Alert on 3+ failed login attempts</div></div><label class="toggle-switch"><input type="checkbox" checked><div class="toggle-slider"></div></label></div>
+              <div style="display:flex;align-items:center;justify-content:space-between;"><div><div style="font-size:13px;font-weight:600;">New IP Login Alert</div><div style="font-size:12px;color:var(--text-muted);">Alert when admin logs in from new IP</div></div><label class="toggle-switch"><input type="checkbox"><div class="toggle-slider"></div></label></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- STORE STATS SECTION -->
+    <section class="page-content hidden" id="sec-store-stats">
+      <div class="page-header"><div><h1 class="page-title">Store Analytics</h1><p class="page-subtitle">High-level store performance view</p></div></div>
+      <div style="text-align:center;padding:60px 20px;color:var(--text-muted);">
+        <div style="font-size:48px;margin-bottom:12px;">📊</div>
+        <h3 style="font-size:16px;font-weight:600;color:var(--text-primary);">Detailed Analytics</h3>
+        <p style="font-size:13px;">Full analytics visible in the main Admin Panel</p>
+        <a href="dashboard.html" class="btn btn-primary" style="margin-top:20px;">Open Admin Panel</a>
+      </div>
+    </section>
+
+  </div><!-- end main-content -->
+</div><!-- end wrapper -->
+
+<!-- ===== MODALS ===== -->
+
+<!-- Edit Admin Modal -->
+<div class="modal-overlay" id="editAdminModal">
+  <div class="modal" style="max-width:520px;">
+    <div class="modal-header"><h3 class="modal-title">Edit Admin</h3><button class="modal-close" onclick="closeModal('editAdminModal')">×</button></div>
+    <div class="modal-body">
+      <div class="grid grid-2" style="gap:16px;">
+        <div class="form-group"><label class="form-label">First Name</label><input type="text" class="form-control" id="editFirstName"></div>
+        <div class="form-group"><label class="form-label">Last Name</label><input type="text" class="form-control" id="editLastName"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Email</label><input type="email" class="form-control" id="editEmail"></div>
+      <div class="form-group"><label class="form-label">Phone</label><input type="tel" class="form-control" id="editPhone"></div>
+      <div class="form-group"><label class="form-label">Role</label>
+        <select class="form-control" id="editRole" onchange="applyEditRoleDefaults()">
+          <option value="admin">Admin</option><option value="manager">Manager</option><option value="viewer">Viewer</option><option value="custom">Custom</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">Status</label>
+        <select class="form-control" id="editStatus"><option value="active">Active</option><option value="inactive">Inactive</option></select>
+      </div>
+      <!-- Compact perm section in edit modal -->
+      <div class="form-group">
+        <label class="form-label">Module Permissions</label>
+        <div id="editPermModules" style="display:flex;flex-direction:column;gap:8px;"><!-- JS rendered --></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Reset Password <span style="font-weight:400;color:var(--text-muted);">(leave blank to keep current)</span></label>
+        <div class="input-group"><i class="fa-solid fa-lock input-icon"></i><input type="password" class="form-control with-icon" id="editPassword" placeholder="New password…"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('editAdminModal')">Cancel</button>
+      <!-- REPLACE: PATCH /api/superadmin/admins/<id>/ -->
+      <button class="btn btn-gold" onclick="saveAdminEdit()"><i class="fa-solid fa-floppy-disk"></i> Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Admin Modal -->
+<div class="modal-overlay" id="deleteAdminModal">
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-header"><h3 class="modal-title">Delete Admin?</h3><button class="modal-close" onclick="closeModal('deleteAdminModal')">×</button></div>
+    <div class="modal-body"><p style="color:var(--text-secondary);">Are you sure you want to delete admin <strong id="deleteAdminName"></strong>? This action cannot be undone.</p></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('deleteAdminModal')">Cancel</button>
+      <!-- REPLACE: DELETE /api/superadmin/admins/<id>/ -->
+      <button class="btn btn-danger" id="confirmDeleteAdminBtn"><i class="fa-solid fa-trash"></i> Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Custom Permission Modal -->
+<div class="modal-overlay" id="addPermModal">
+  <div class="modal" style="max-width:600px;">
+    <div class="modal-header"><h3 class="modal-title">➕ Add Custom Permission</h3><button class="modal-close" onclick="closeModal('addPermModal')">×</button></div>
+    <div class="modal-body">
+      <div class="alert alert-info" style="margin-bottom:16px;">
+        <i class="fa-solid fa-circle-info"></i>
+        <span>Custom permissions add extra feature keys beyond the standard View/Create/Edit/Delete. Use them for special actions like <code>process_refund</code> or <code>approve_cod_token</code>.</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px;">
+        <div class="form-group"><label class="form-label upper">Permission Name *</label><input type="text" class="form-control" id="newPermName" placeholder="e.g. Process Refund"></div>
+        <div class="form-group"><label class="form-label upper">Permission Key *</label><input type="text" class="form-control" id="newPermKey" placeholder="e.g. process_refund"><div class="form-hint">Auto-generated. Lowercase, underscores only.</div></div>
+        <div class="form-group"><label class="form-label upper">Module</label>
+          <select class="form-control" id="newPermModule">
+            <option value="">— General —</option><option value="products">Products</option><option value="categories">Categories</option><option value="inventory">Inventory</option><option value="orders">Orders</option><option value="customers">Customers</option><option value="transactions">Transactions</option><option value="coupons">Coupons</option><option value="banners">Banners & Offers</option><option value="reports">Reports</option><option value="settings">Settings</option>
+          </select>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+        <div class="form-group"><label class="form-label upper">Icon / Emoji</label><input type="text" class="form-control" id="newPermIcon" placeholder="e.g. 💸" maxlength="4"></div>
+        <div class="form-group"><label class="form-label upper">Risk Level</label>
+          <select class="form-control" id="newPermRisk"><option value="low">Low — Safe read or cosmetic action</option><option value="medium">Medium — Modifies data</option><option value="high">High — Financial or irreversible</option></select>
+        </div>
+      </div>
+      <div class="form-group" style="margin-bottom:14px;"><label class="form-label upper">Description</label><input type="text" class="form-control" id="newPermDesc" placeholder="What can this permission do?"></div>
+      <div><label class="form-label upper">Grant by default to roles</label>
+        <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:6px;">
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;"><input type="checkbox" id="grantAdmin"> Admin</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;"><input type="checkbox" id="grantManager"> Manager</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;"><input type="checkbox" id="grantViewer"> Viewer</label>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('addPermModal')">Cancel</button>
+      <!-- REPLACE: POST /api/superadmin/permissions/custom/ -->
+      <button class="btn btn-gold" onclick="saveCustomPerm()"><i class="fa-solid fa-save"></i> Save Permission</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Role Permissions Modal -->
+<div class="modal-overlay" id="editRoleModal">
+  <div class="modal" style="max-width:740px;">
+    <div class="modal-header"><h3 class="modal-title" id="editRoleTitle">Edit Role Permissions</h3><button class="modal-close" onclick="closeModal('editRoleModal')">×</button></div>
+    <div class="modal-body" id="editRoleBody"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('editRoleModal')">Cancel</button>
+      <!-- REPLACE: PATCH /api/superadmin/roles/<role>/permissions/ -->
+      <button class="btn btn-primary" onclick="saveRolePerms()"><i class="fa-solid fa-save"></i> Save Role Permissions</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+// ============================================================
+//  API LAYER — Replace endpoints with your real Django APIs
+// ============================================================
+
+const BASE_URL = 'http://182.70.253.15:8011/api';
+const token = () =>localStorage.getItem('superAdminToken') || '';
+const headers = () => ({'Content-Type':'application/json','Authorization':`Token ${token()}`});
+
+if (!token()) window.location.href = 'superadmin-login.html';
+
+const SA_API = {
+  /**
+   * GET /api/superadmin/admins/
+   * Headers: { Authorization: Bearer <superAdminToken> }
+   * Returns: [{ id, firstName, lastName, email, phone, role, permissions:{module:{featureKey:bool}}, status, dept, city, createdAt, lastLogin }]
+   */
+  async getAdmins() {
+    await delay(400);
+    return [...ADMINS_STORE];
+  },
+
+  /**
+   * POST /api/superadmin/admins/create/
+   * Body: { firstName, lastName, email, password, phone, role, permissions, isActive, sendCredentials, forceReset, dept, city }
+   * Returns: { success: true, admin: {...} }
+   */
+  async createAdmin(data) {
+    await delay(700);
+    const admin = { id: Date.now(), ...data, createdAt: new Date().toISOString().split('T')[0], lastLogin: null, loginCount: 0 };
+    ADMINS_STORE.push(admin);
+    ACTIVITY_LOG.unshift({ time: new Date().toISOString(), actor: 'Super Admin', role: 'superadmin', action: 'Admin Created', details: `Created ${data.firstName} ${data.lastName} (${data.role})`, ip: '127.0.0.1' });
+    return { success: true, admin };
+  },
+ 
+
+
+
+  /**
+   * PATCH /api/superadmin/admins/<id>/
+   * Body: { firstName, lastName, email, phone, role, permissions, status, password? }
+   * Returns: { success: true }
+   */
+  async updateAdmin(id, data) {
+    await delay(500);
+    const idx = ADMINS_STORE.findIndex(a => a.id === id);
+    if (idx > -1) ADMINS_STORE[idx] = { ...ADMINS_STORE[idx], ...data };
+    ACTIVITY_LOG.unshift({ time: new Date().toISOString(), actor: 'Super Admin', role: 'superadmin', action: 'Admin Updated', details: `Updated admin ID ${id}`, ip: '127.0.0.1' });
+    return { success: true };
+  },
+
+
+
+  /**
+   * DELETE /api/superadmin/admins/<id>/
+   * Returns: { success: true }
+   */
+  async deleteAdmin(id) {
+    await delay(500);
+    const admin = ADMINS_STORE.find(a => a.id === id);
+    ADMINS_STORE.splice(ADMINS_STORE.findIndex(a => a.id === id), 1);
+    ACTIVITY_LOG.unshift({ time: new Date().toISOString(), actor: 'Super Admin', role: 'superadmin', action: 'Admin Deleted', details: `Deleted ${admin?.firstName} ${admin?.lastName}`, ip: '127.0.0.1' });
+    return { success: true };
+  },
+
+  /**
+   * PATCH /api/superadmin/admins/<id>/toggle-status/
+   * Returns: { success: true, status: 'active'|'inactive' }
+   */
+  async toggleAdminStatus(id) {
+    await delay(300);
+    const idx = ADMINS_STORE.findIndex(a => a.id === id);
+    if (idx > -1) ADMINS_STORE[idx].status = ADMINS_STORE[idx].status === 'active' ? 'inactive' : 'active';
+    return { success: true, status: ADMINS_STORE[idx]?.status };
+  },
+
+  /**
+   * GET /api/superadmin/activity-log/
+   * Returns: [{ time, actor, role, action, details, ip }]
+   */
+  async getActivityLog() {
+    await delay(400);
+    return [...ACTIVITY_LOG];
+  },
+
+  /**
+   * GET /api/superadmin/stats/
+   * Returns: { totalAdmins, totalOrders, totalRevenue, totalProducts }
+   */
+  async getStats() {
+    await delay(400);
+    return { totalAdmins: ADMINS_STORE.filter(a => a.status === 'active').length, totalOrders: 1284, totalRevenue: 284500, totalProducts: 342 };
+  },
+
+  /**
+   * PATCH /api/superadmin/roles/<role>/permissions/
+   * Body: { permissions: { module: [featureKey, ...] } }
+   * Returns: { success: true }
+   */
+  async saveRolePermissions(role, permissions) {
+    await delay(400);
+    ROLE_DEFAULTS[role] = permissions;
+    return { success: true };
+  },
+
+  /**
+   * POST /api/superadmin/permissions/custom/
+   * Body: { name, key, icon, module, risk, desc, roles }
+   * Returns: { success: true }
+   */
+  async saveCustomPermission(data) {
+    await delay(300);
+    return { success: true };
+  },
+
+  /**
+   * DELETE /api/superadmin/permissions/custom/<key>/
+   * Returns: { success: true }
+   */
+  async deleteCustomPermission(key) {
+    await delay(300);
+    return { success: true };
+  }
+};
+
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ============================================================
+//  PERMISSION MODULES DEFINITION
+// ============================================================
+const MODULES = [
+  { key: 'dashboard', icon: '📊', name: 'Dashboard', features: [
+    { key: 'view_dashboard', name: 'View Dashboard', desc: 'Access main dashboard with stats & charts', cols: ['view'] },
+    { key: 'export_report', name: 'Export Reports', desc: 'Download dashboard report as PDF/CSV', cols: ['view','export'] },
+    { key: 'view_revenue', name: 'View Revenue Data', desc: 'See revenue totals and charts', cols: ['view'] },
+    { key: 'view_notifications', name: 'View Notifications', desc: 'Access system alerts (low stock, pending orders)', cols: ['view'] },
+  ]},
+  { key: 'products', icon: '🛍️', name: 'Products', features: [
+    { key: 'view_products', name: 'View Products', desc: 'Browse product listing and details', cols: ['view'] },
+    { key: 'add_product', name: 'Add Product', desc: 'Create new product with all details', cols: ['view','create'] },
+    { key: 'edit_product', name: 'Edit Product', desc: 'Modify product info, images, pricing', cols: ['view','edit'] },
+    { key: 'delete_product', name: 'Delete Product', desc: 'Permanently remove a product', cols: ['view','delete'] },
+    { key: 'publish_product', name: 'Publish / Unpublish', desc: 'Toggle product visibility on storefront', cols: ['view','edit'] },
+    { key: 'combo_suggestion', name: 'Manage Combo Suggestions', desc: 'Enable/disable combo pairing for products', cols: ['view','edit'] },
+    { key: 'export_products', name: 'Export Products', desc: 'Download product list as CSV', cols: ['view','export'] },
+  ]},
+  { key: 'categories', icon: '🗂️', name: 'Categories', features: [
+    { key: 'view_categories', name: 'View Categories', desc: 'See category tree and hierarchy', cols: ['view'] },
+    { key: 'add_category', name: 'Add Category', desc: 'Create head or sub-category', cols: ['view','create'] },
+    { key: 'edit_category', name: 'Edit Category', desc: 'Rename or reorder categories', cols: ['view','edit'] },
+    { key: 'delete_category', name: 'Delete Category', desc: 'Remove category and all descendants', cols: ['view','delete'] },
+    { key: 'reorder_categories', name: 'Reorder / Sort', desc: 'Change display order of categories', cols: ['view','edit'] },
+  ]},
+  { key: 'inventory', icon: '📦', name: 'Inventory', features: [
+    { key: 'view_inventory', name: 'View Inventory', desc: 'See stock levels and product statuses', cols: ['view'] },
+    { key: 'edit_stock', name: 'Update Stock Quantity', desc: 'Edit individual product stock qty', cols: ['view','edit'] },
+    { key: 'bulk_stock_update', name: 'Bulk Stock Update', desc: 'Update multiple products stock at once', cols: ['view','edit'] },
+    { key: 'edit_pricing', name: 'Edit Pricing (MRP / Selling)', desc: 'Change MRP, selling price, discount', cols: ['view','edit'] },
+    { key: 'set_low_stock_threshold', name: 'Set Low Stock Alert Threshold', desc: 'Configure low stock warning level', cols: ['view','edit'] },
+    { key: 'export_inventory', name: 'Export Inventory', desc: 'Download inventory CSV', cols: ['view','export'] },
+  ]},
+  { key: 'orders', icon: '🧾', name: 'Orders', features: [
+    { key: 'view_orders', name: 'View Orders', desc: 'Browse all orders and details', cols: ['view'] },
+    { key: 'create_order', name: 'Create Manual Order', desc: 'Place order on behalf of customer', cols: ['view','create'] },
+    { key: 'update_order_status', name: 'Update Order Status', desc: 'Mark as Processing / Shipped / Delivered', cols: ['view','edit'] },
+    { key: 'cancel_order', name: 'Cancel Order', desc: 'Cancel a pending or processing order', cols: ['view','edit'] },
+    { key: 'manage_returns', name: 'Manage Returns / Cancellations', desc: 'Process return requests and refunds', cols: ['view','edit'] },
+    { key: 'update_tracking', name: 'Update Tracking ID', desc: 'Add or edit shipment tracking number', cols: ['view','edit'] },
+    { key: 'export_orders', name: 'Export Orders', desc: 'Download order CSV/PDF', cols: ['view','export'] },
+  ]},
+  { key: 'customers', icon: '👥', name: 'Customers', features: [
+    { key: 'view_customers', name: 'View Customers', desc: 'Browse customer list and profiles', cols: ['view'] },
+    { key: 'view_customer_orders', name: 'View Customer Orders & History', desc: 'Access per-customer order history', cols: ['view'] },
+    { key: 'edit_customer_notes', name: 'Add/Edit Admin Notes', desc: 'Add internal notes to a customer profile', cols: ['view','edit'] },
+    { key: 'block_customer', name: 'Block / Unblock Customer', desc: 'Restrict or restore customer account access', cols: ['view','edit'] },
+    { key: 'export_customers', name: 'Export Customer List', desc: 'Download customer CSV', cols: ['view','export'] },
+  ]},
+  { key: 'transactions', icon: '💳', name: 'Transactions', features: [
+    { key: 'view_transactions', name: 'View Transactions', desc: 'See all payment records', cols: ['view'] },
+    { key: 'view_transaction_detail', name: 'View Transaction Details', desc: 'Open full transaction info & gateway ref', cols: ['view'] },
+    { key: 'process_refund', name: 'Process Refund', desc: 'Initiate full or partial refund via gateway', cols: ['view','edit'] },
+    { key: 'export_transactions', name: 'Export Transactions', desc: 'Download transaction CSV/PDF', cols: ['view','export'] },
+  ]},
+  { key: 'coupons', icon: '🎟️', name: 'Coupons', features: [
+    { key: 'view_coupons', name: 'View Coupons', desc: 'See coupon list and stats', cols: ['view'] },
+    { key: 'create_coupon', name: 'Create Coupon', desc: 'Add flat/% discount or cashback coupons', cols: ['view','create'] },
+    { key: 'edit_coupon', name: 'Edit Coupon', desc: 'Modify value, expiry, usage limits', cols: ['view','edit'] },
+    { key: 'delete_coupon', name: 'Delete Coupon', desc: 'Permanently remove a coupon', cols: ['view','delete'] },
+    { key: 'category_coupon', name: 'Manage Category-Specific Coupons', desc: 'Create coupons restricted to categories', cols: ['view','create','edit'] },
+    { key: 'cashback_coupon', name: 'Manage Cashback Coupons', desc: 'Create & manage cashback type coupons', cols: ['view','create','edit'] },
+  ]},
+  { key: 'banners', icon: '🖼️', name: 'Banners & Offers', features: [
+    { key: 'view_banners', name: 'View Banners', desc: 'See active and inactive banners', cols: ['view'] },
+    { key: 'create_banner', name: 'Create Banner', desc: 'Upload and publish a new banner', cols: ['view','create'] },
+    { key: 'edit_banner', name: 'Edit Banner', desc: 'Update banner image, link, or order', cols: ['view','edit'] },
+    { key: 'delete_banner', name: 'Delete Banner', desc: 'Remove a banner permanently', cols: ['view','delete'] },
+    { key: 'schedule_banner', name: 'Schedule Banner', desc: 'Set start/end dates for banner display', cols: ['view','edit'] },
+  ]},
+  { key: 'reports', icon: '📈', name: 'Reports & Analytics', features: [
+    { key: 'view_reports', name: 'View Reports', desc: 'Access all analytics charts and summaries', cols: ['view'] },
+    { key: 'view_revenue_report', name: 'View Revenue Reports', desc: 'See detailed revenue breakdowns', cols: ['view'] },
+    { key: 'view_product_report', name: 'View Product Performance', desc: 'Top products, sales by category', cols: ['view'] },
+    { key: 'view_customer_report', name: 'View Customer Analytics', desc: 'New vs returning customers, LTV', cols: ['view'] },
+    { key: 'export_reports', name: 'Export Reports', desc: 'Download any report as CSV or PDF', cols: ['view','export'] },
+  ]},
+  { key: 'settings', icon: '⚙️', name: 'Settings', features: [
+    { key: 'view_settings', name: 'View Settings', desc: 'Access settings page', cols: ['view'] },
+    { key: 'edit_store_info', name: 'Edit Store Information', desc: 'Update store name, logo, contact', cols: ['view','edit'] },
+    { key: 'manage_payment_config', name: 'Payment Gateway Config', desc: 'Manage Razorpay/PhonePe API keys', cols: ['view','edit'] },
+    { key: 'manage_shipping_config', name: 'Shipping Config', desc: 'Manage shipping partners and rates', cols: ['view','edit'] },
+    { key: 'manage_email_config', name: 'Email / SMS Config', desc: 'SMTP and notification settings', cols: ['view','edit'] },
+    { key: 'manage_tax_config', name: 'Tax / GST Config', desc: 'Configure GST rates and tax rules', cols: ['view','edit'] },
+  ]},
+];
+
+// ============================================================
+//  ROLE DEFAULT PERMISSIONS
+// ============================================================
+const ROLE_DEFAULTS = {
+  admin: {
+    dashboard:    ['view_dashboard','export_report','view_revenue','view_notifications'],
+    products:     ['view_products','add_product','edit_product','delete_product','publish_product','combo_suggestion','export_products'],
+    categories:   ['view_categories','add_category','edit_category','delete_category','reorder_categories'],
+    inventory:    ['view_inventory','edit_stock','bulk_stock_update','edit_pricing','set_low_stock_threshold','export_inventory'],
+    orders:       ['view_orders','create_order','update_order_status','cancel_order','manage_returns','update_tracking','export_orders'],
+    customers:    ['view_customers','view_customer_orders','edit_customer_notes','block_customer','export_customers'],
+    transactions: ['view_transactions','view_transaction_detail','process_refund','export_transactions'],
+    coupons:      ['view_coupons','create_coupon','edit_coupon','delete_coupon','category_coupon','cashback_coupon'],
+    banners:      ['view_banners','create_banner','edit_banner','delete_banner','schedule_banner'],
+    reports:      ['view_reports','view_revenue_report','view_product_report','view_customer_report','export_reports'],
+    settings:     ['view_settings','edit_store_info','manage_payment_config','manage_shipping_config','manage_email_config','manage_tax_config'],
+  },
+  manager: {
+    dashboard:    ['view_dashboard','view_notifications'],
+    products:     ['view_products'],
+    categories:   ['view_categories'],
+    inventory:    ['view_inventory','edit_stock'],
+    orders:       ['view_orders','update_order_status','cancel_order','manage_returns','update_tracking','export_orders'],
+    customers:    ['view_customers','view_customer_orders','edit_customer_notes','block_customer'],
+    transactions: ['view_transactions','view_transaction_detail'],
+    coupons:      ['view_coupons','create_coupon','edit_coupon'],
+    banners:      ['view_banners'],
+    reports:      ['view_reports','view_revenue_report'],
+    settings:     [],
+  },
+  viewer: {
+    dashboard:    ['view_dashboard','view_notifications'],
+    products:     ['view_products'],
+    categories:   ['view_categories'],
+    inventory:    ['view_inventory'],
+    orders:       ['view_orders'],
+    customers:    ['view_customers','view_customer_orders'],
+    transactions: ['view_transactions'],
+    coupons:      ['view_coupons'],
+    banners:      ['view_banners'],
+    reports:      ['view_reports','view_revenue_report','view_product_report','view_customer_report'],
+    settings:     ['view_settings'],
+  },
+  custom: {},
+};
+
+// ============================================================
+//  MOCK DATA
+// ============================================================
+let ADMINS_STORE = [
+  { id: 2, firstName: 'Rahul', lastName: 'Kumar', email: 'rahul@loomindica.com', phone: '9876543210', role: 'admin', permissions: ROLE_DEFAULTS.admin, status: 'active', dept: 'Operations', city: 'Bhopal', createdAt: '2024-01-15', lastLogin: '2024-04-18', loginCount: 42 },
+  { id: 3, firstName: 'Priya', lastName: 'Sharma', email: 'priya@loomindica.com', phone: '9812345678', role: 'manager', permissions: ROLE_DEFAULTS.manager, status: 'active', dept: 'Sales', city: 'Indore', createdAt: '2024-02-10', lastLogin: '2024-04-17', loginCount: 28 },
+  { id: 4, firstName: 'Anil', lastName: 'Verma', email: 'anil@loomindica.com', phone: '9701234567', role: 'viewer', permissions: ROLE_DEFAULTS.viewer, status: 'inactive', dept: 'Accounts', city: 'Delhi', createdAt: '2024-03-05', lastLogin: '2024-03-20', loginCount: 8 },
+];
+
+let ACTIVITY_LOG = [
+  { time: '2024-04-18T10:30:00', actor: 'Rahul Kumar', role: 'admin', action: 'Product Created', details: 'Added "Bagh Print Saree"', ip: '103.12.44.88' },
+  { time: '2024-04-18T09:15:00', actor: 'Priya Sharma', role: 'manager', action: 'Order Updated', details: 'Order #10045 → Shipped', ip: '45.78.99.11' },
+  { time: '2024-04-17T16:00:00', actor: 'Super Admin', role: 'superadmin', action: 'Admin Created', details: 'Created Priya Sharma (manager)', ip: '127.0.0.1' },
+  { time: '2024-04-17T11:00:00', actor: 'Anil Verma', role: 'viewer', action: 'Login', details: 'Logged in from Chrome/Windows', ip: '192.168.1.10' },
+  { time: '2024-04-16T14:30:00', actor: 'Super Admin', role: 'superadmin', action: 'Admin Deactivated', details: 'Deactivated Anil Verma', ip: '127.0.0.1' },
+];
+
+let CUSTOM_PERMS = [
+  { key: 'bulk_export_all', name: 'Bulk Export All Data', icon: '📤', module: 'reports', desc: 'Export all store data in one ZIP', risk: 'high', roles: ['admin'] },
+  { key: 'token_cod_approve', name: 'Approve COD Token Payments', icon: '🪙', module: 'orders', desc: 'Approve/reject token amounts for COD orders', risk: 'medium', roles: ['admin','manager'] },
+  { key: 'stitching_manage', name: 'Manage Stitching Orders', icon: '🧵', module: 'orders', desc: 'Handle stitching option add-ons in orders', risk: 'low', roles: ['admin','manager'] },
+];
+
+let editingAdminId = null;
+let deleteAdminId = null;
+
+// ============================================================
+//  NAVIGATION
+// ============================================================
+const sections = ['dashboard','admins','create-admin','roles','store-stats','activity-log','settings'];
+const sectionTitles = {
+  dashboard: 'Dashboard', admins: 'Admin Accounts', 'create-admin': 'Create Admin',
+  roles: 'Roles & Permissions', 'store-stats': 'Store Analytics',
+  'activity-log': 'Activity Log', settings: 'System Settings'
+};
+
+function showSection(name) {
+  sections.forEach(s => document.getElementById('sec-' + s).classList.add('hidden'));
+  document.getElementById('sec-' + name)?.classList.remove('hidden');
+  document.getElementById('topbarTitle').textContent = sectionTitles[name] || name;
+  document.querySelectorAll('.sidebar .nav-link').forEach(l => {
+    l.classList.toggle('active', l.getAttribute('onclick')?.includes("'" + name + "'"));
+  });
+  if (name === 'dashboard') loadDashboard();
+  if (name === 'admins') renderAdminsTable();
+  if (name === 'activity-log') loadActivityLog();
+  if (name === 'create-admin') { resetAdminForm(); renderCreatePermModules(); }
+}
+
+// ============================================================
+//  DASHBOARD
+// ============================================================
+async function loadDashboard() {
+  const stats = await SA_API.getStats();
+  document.getElementById('statAdmins').textContent = stats.totalAdmins;
+  document.getElementById('statOrders').textContent = stats.totalOrders.toLocaleString();
+  document.getElementById('statRevenue').textContent = '₹' + (stats.totalRevenue/100000).toFixed(2) + 'L';
+  document.getElementById('statProducts').textContent = stats.totalProducts;
+  document.getElementById('statAdminsChg').textContent = ADMINS_STORE.length + ' total accounts';
+  document.getElementById('statOrdersChg').textContent = '↑ 12.4% vs last month';
+  document.getElementById('statRevenueChg').textContent = '↑ 8.7% vs last month';
+  document.getElementById('statProductsChg').textContent = '+5 this week';
+  document.getElementById('adminCountBadge').textContent = ADMINS_STORE.length;
+  renderDashAdminList();
+  renderCharts();
+  const hr = new Date().getHours();
+  document.getElementById('greetMsg').textContent = `${hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening'}! Here's your system overview.`;
+}
+
+function renderDashAdminList() {
+  const list = document.getElementById('dashAdminList');
+  list.innerHTML = ADMINS_STORE.slice(0,5).map(a => `
+    <div style="display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid var(--border);">
+      <div class="admin-avatar" style="background:${avatarColor(a.id)};">${a.firstName[0]}${a.lastName[0]}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13px;font-weight:600;">${a.firstName} ${a.lastName}</div>
+        <div style="font-size:11px;color:var(--text-muted);">${a.email}</div>
+      </div>
+      <span class="badge ${a.status === 'active' ? 'badge-success' : 'badge-secondary'}">${a.status}</span>
+      <span class="badge badge-primary">${a.role}</span>
+    </div>`).join('');
+}
+
+let chartsRendered = false;
+function renderCharts() {
+  if (chartsRendered) return;
+  chartsRendered = true;
+  const rCtx = document.getElementById('revenueChart')?.getContext('2d');
+  if (rCtx) new Chart(rCtx, {
+    type: 'bar',
+    data: { labels: ['Nov','Dec','Jan','Feb','Mar','Apr'], datasets: [{ label: 'Revenue', data: [180000,240000,210000,195000,265000,284500], backgroundColor: 'rgba(45,106,79,0.75)', borderRadius: 6 }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { ticks: { callback: v => '₹'+(v/1000)+'k', font:{size:11} }, grid:{color:'rgba(0,0,0,0.04)'} }, x: { grid:{display:false}, ticks:{font:{size:11}} } } }
+  });
+  const lCtx = document.getElementById('loginChart')?.getContext('2d');
+  if (lCtx) new Chart(lCtx, {
+    type: 'line',
+    data: { labels: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'], datasets: [{ label: 'Logins', data: [8,12,6,10,15,4,7], borderColor: '#d4a017', backgroundColor: 'rgba(212,160,23,0.08)', fill: true, tension: 0.4, pointBackgroundColor: '#d4a017', pointRadius: 4, borderWidth: 2.5 }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend:{display:false} }, scales: { y:{beginAtZero:true,grid:{color:'rgba(0,0,0,0.04)'},ticks:{font:{size:11}}}, x:{grid:{display:false},ticks:{font:{size:11}}} } }
+  });
+}
+
+// ============================================================
+//  ADMINS TABLE
+// ============================================================
+async function renderAdminsTable() {
+  const admins = await SA_API.getAdmins();
+  const search = document.getElementById('adminSearch')?.value.toLowerCase() || '';
+  const roleF = document.getElementById('roleFilter')?.value || '';
+  const statusF = document.getElementById('statusFilter')?.value || '';
+  let filtered = admins.filter(a => {
+    const matchSearch = !search || (a.firstName+' '+a.lastName).toLowerCase().includes(search) || a.email.toLowerCase().includes(search);
+    return matchSearch && (!roleF || a.role === roleF) && (!statusF || a.status === statusF);
+  });
+  const tbody = document.getElementById('adminsTableBody');
+  if (!filtered.length) { tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text-muted);">No admins found.</td></tr>`; return; }
+  tbody.innerHTML = filtered.map(a => {
+    const totalPerms = Object.values(a.permissions || {}).reduce((s,arr) => s + (arr?.length||0), 0);
+    return `
+    <tr>
+      <td>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="admin-avatar" style="background:${avatarColor(a.id)};font-size:12px;">${a.firstName[0]}${a.lastName[0]}</div>
+          <div>
+            <div style="font-weight:600;">${a.firstName} ${a.lastName}</div>
+            <div style="font-size:11px;color:var(--text-muted);">${a.dept||'—'} · ${a.city||'—'}</div>
+          </div>
+        </div>
+      </td>
+      <td style="font-size:12px;">${a.email}</td>
+      <td style="font-size:12px;color:var(--text-secondary);">${a.phone}</td>
+      <td>
+        <span class="badge badge-primary">${a.role}</span>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:3px;">${totalPerms} permissions</div>
+      </td>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="badge ${a.status === 'active' ? 'badge-success' : 'badge-secondary'}">${a.status}</span>
+          <label class="toggle-switch" title="Toggle Status"><input type="checkbox" ${a.status === 'active' ? 'checked' : ''} onchange="toggleStatus(${a.id}, this)"><div class="toggle-slider"></div></label>
+        </div>
+      </td>
+      <td style="font-size:12px;color:var(--text-secondary);">${formatDate(a.createdAt)}</td>
+      <td style="font-size:12px;color:var(--text-secondary);">${a.lastLogin ? formatDate(a.lastLogin) : '<span style="color:var(--text-muted);">Never</span>'}</td>
+      <td>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-sm btn-secondary" title="Edit" onclick="openEditAdmin(${a.id})"><i class="fa-solid fa-pen"></i></button>
+          <button class="btn btn-sm btn-danger" title="Delete" onclick="openDeleteAdmin(${a.id}, '${a.firstName} ${a.lastName}')"><i class="fa-solid fa-trash"></i></button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function resetAdminFilters() {
+  document.getElementById('adminSearch').value = '';
+  document.getElementById('roleFilter').value = '';
+  document.getElementById('statusFilter').value = '';
+  renderAdminsTable();
+}
+
+async function toggleStatus(id, checkbox) {
+  const result = await SA_API.toggleAdminStatus(id);
+  showToast('Status updated', `Admin is now ${result.status}.`, 'success');
+  renderAdminsTable();
+}
+
+// ============================================================
+//  GRANULAR PERMISSION RENDER (Create Admin)
+// ============================================================
+function renderCreatePermModules(granted = {}) {
+  const container = document.getElementById('createPermModules');
+  if (!container) return;
+  container.innerHTML = '';
+  MODULES.forEach(mod => {
+    const grantedKeys = granted[mod.key] || [];
+    const totalFeatures = mod.features.length;
+    const grantedCount = mod.features.filter(f => grantedKeys.includes(f.key)).length;
+    const allGranted = grantedCount === totalFeatures;
+    const block = document.createElement('div');
+    block.className = 'perm-module-block';
+    block.id = `cmod_${mod.key}`;
+    block.innerHTML = `
+      <div class="perm-module-header" onclick="toggleCreateModule('${mod.key}')">
+        <span class="perm-module-icon">${mod.icon}</span>
+        <span class="perm-module-name">${mod.name}</span>
+        <span class="perm-module-summary" id="csummary_${mod.key}">${grantedCount}/${totalFeatures} granted</span>
+        <label class="toggle-switch small" onclick="event.stopPropagation()">
+          <input type="checkbox" id="cmaster_${mod.key}" ${allGranted ? 'checked' : ''} onchange="masterToggleCreate('${mod.key}', this.checked)">
+          <div class="toggle-slider"></div>
+        </label>
+        <i class="fa-solid fa-chevron-right perm-chevron"></i>
+      </div>
+      <div class="perm-module-body">
+        <table class="perm-table">
+          <thead><tr>
+            <th>Feature</th>
+            <th class="col-view">View</th>
+            <th class="col-create">Create</th>
+            <th class="col-edit">Edit</th>
+            <th class="col-delete">Delete</th>
+            <th class="col-export">Export</th>
+          </tr></thead>
+          <tbody>
+            ${mod.features.map(f => `
+              <tr>
+                <td><div class="perm-feature-name">${f.name}</div><div class="perm-feature-desc">${f.desc}</div></td>
+                ${['view','create','edit','delete','export'].map(col => `
+                  <td>${f.cols.includes(col)
+                    ? `<input type="checkbox" class="perm-check col-${col}" data-module="${mod.key}" data-key="${f.key}" data-col="${col}" ${grantedKeys.includes(f.key) ? 'checked' : ''} onchange="onCreatePermChange('${mod.key}')">`
+                    : `<span style="color:var(--border);font-size:12px;">—</span>`
+                  }</td>`).join('')}
+              </tr>`).join('')}
+          </tbody>
+        </table>
+        <div class="perm-table-footer">
+          <label class="check-all-row" onclick="grantAllInCreateModule('${mod.key}', true)"><i class="fa-solid fa-check-double"></i> Grant all</label>
+          <label class="check-all-row" style="margin-left:12px;" onclick="grantAllInCreateModule('${mod.key}', false)"><i class="fa-solid fa-xmark"></i> Revoke all</label>
+        </div>
+      </div>`;
+    container.appendChild(block);
+  });
+  updateCreateSummary();
+}
+
+function toggleCreateModule(key) {
+  document.getElementById(`cmod_${key}`)?.classList.toggle('expanded');
+}
+
+function expandAllCreate() {
+  document.querySelectorAll('#createPermModules .perm-module-block').forEach(b => b.classList.add('expanded'));
+}
+
+function masterToggleCreate(moduleKey, checked) {
+  MODULES.find(m => m.key === moduleKey)?.features.forEach(f => {
+    document.querySelectorAll(`#createPermModules input.perm-check[data-module="${moduleKey}"][data-key="${f.key}"]`).forEach(cb => cb.checked = checked);
+  });
+  updateCreateModuleSummary(moduleKey);
+  updateCreateSummary();
+}
+
+function grantAllInCreateModule(moduleKey, grant) {
+  masterToggleCreate(moduleKey, grant);
+  const master = document.getElementById(`cmaster_${moduleKey}`);
+  if (master) master.checked = grant;
+}
+
+function onCreatePermChange(moduleKey) {
+  updateCreateModuleSummary(moduleKey);
+  updateCreateSummary();
+}
+
+function updateCreateModuleSummary(moduleKey) {
+  const mod = MODULES.find(m => m.key === moduleKey);
+  const checks = document.querySelectorAll(`#createPermModules input.perm-check[data-module="${moduleKey}"]`);
+  const total = mod.features.length;
+  const granted = [...checks].filter(c => c.checked).length;
+  const el = document.querySelector(`#csummary_${moduleKey}`);
+  if (el) el.textContent = `${granted}/${total} granted`;
+  const master = document.getElementById(`cmaster_${moduleKey}`);
+  if (master) master.checked = granted === total;
+}
+
+function updateCreateSummary() {
+  const lines = [];
+  console.log("----------------------------------------------");
+  MODULES.forEach(mod => {
+    const checks = document.querySelectorAll(`#createPermModules input.perm-check[data-module="${mod.key}"]`);
+    const granted = [...checks].filter(c => c.checked).length;
+    
+    console.log("the checked is : ",checks);
+    console.log("Granted : ",granted);
+    const total = mod.features.length;
+    if (granted > 0) lines.push(`${mod.icon} <strong>${mod.name}</strong>: ${granted}/${total}`);
+  });
+  console.log("----------------------------------------------");
+  const el = document.getElementById('createPermSummary');
+  if (el) el.innerHTML = lines.length ? lines.join(' &nbsp;·&nbsp; ') : '<span style="color:var(--text-muted);">No permissions granted yet.</span>';
+}
+
+function setCreatePerms(grant) {
+  MODULES.forEach(mod => {
+    mod.features.forEach(f => {
+      document.querySelectorAll(`#createPermModules input.perm-check[data-key="${f.key}"]`).forEach(cb => cb.checked = grant);
+    });
+    updateCreateModuleSummary(mod.key);
+    const master = document.getElementById(`cmaster_${mod.key}`);
+    if (master) master.checked = grant;
+  });
+  updateCreateSummary();
+}
+
+// Collect permissions from create form as structured object
+function collectCreatePermissions() {
+  const perms = {};
+  MODULES.forEach(mod => {
+    const granted = [];
+    mod.features.forEach(f => {
+      const checked = document.querySelector(`#createPermModules input.perm-check[data-module="${mod.key}"][data-key="${f.key}"]`)?.checked;
+      if (checked) granted.push(f.key);
+    });
+    if (granted.length) perms[mod.key] = granted;
+  });
+  return perms;
+}
+
+// ============================================================
+//  CREATE ADMIN FORM
+// ============================================================
+function resetAdminForm() {
+  editingAdminId = null;
+  document.getElementById('adminFormTitle').textContent = 'Create New Admin';
+  document.getElementById('adminFormSubtitle').textContent = 'Fill in the details and assign granular permissions';
+  document.getElementById('createBtnText').textContent = 'Create Admin';
+  ['adminFirstName','adminLastName','adminEmail','adminPhone','adminDept','adminCity','adminPassword','adminPasswordConfirm'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  document.getElementById('adminRole').value = '';
+  document.getElementById('adminActive').checked = true;
+  document.getElementById('sendCredentials').checked = true;
+  document.getElementById('forceReset').checked = false;
+  document.getElementById('credPreviewCard').style.display = 'none';
+}
+
+function applyCreateRoleDefaults() {
+  const role = document.getElementById('adminRole').value;
+  const granted = (role && ROLE_DEFAULTS[role]) ? ROLE_DEFAULTS[role] : {};
+  renderCreatePermModules(granted);
+  if (role) MODULES.slice(0,3).forEach(m => document.getElementById(`cmod_${m.key}`)?.classList.add('expanded'));
+}
+
+// Password strength
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('adminPassword')?.addEventListener('input', checkPasswordStrength);
+  document.getElementById('adminEmail')?.addEventListener('input', updateCredPreview);
+  document.getElementById('adminPassword')?.addEventListener('input', updateCredPreview);
+  document.getElementById('newPermName')?.addEventListener('input', function() {
+    document.getElementById('newPermKey').value = this.value.toLowerCase().replace(/[^a-z0-9]/g,'_').replace(/_+/g,'_').replace(/^_|_$/g,'');
+  });
+  renderCreatePermModules();
+});
+
+function checkPasswordStrength() {
+  const pwd = document.getElementById('adminPassword').value;
+  const rules = { length: pwd.length >= 8, upper: /[A-Z]/.test(pwd), number: /[0-9]/.test(pwd), special: /[^A-Za-z0-9]/.test(pwd) };
+  document.querySelectorAll('.pwd-check').forEach(el => {
+    const rule = el.dataset.rule;
+    el.style.color = rules[rule] ? 'var(--success)' : 'var(--text-muted)';
+    el.textContent = (rules[rule] ? '✓ ' : '✗ ') + el.textContent.replace(/^[✓✗]\s/, '');
+  });
+  const score = Object.values(rules).filter(Boolean).length;
+  const colors = ['','var(--danger)','var(--warning)','#d4a017','var(--success)'];
+  const labels = ['','Weak','Fair','Good','Strong'];
+  document.getElementById('pwdStrengthFill').style.width = (score * 25) + '%';
+  document.getElementById('pwdStrengthFill').style.background = colors[score];
+  document.getElementById('pwdStrengthText').textContent = score > 0 ? labels[score]+' password' : 'Enter password to check strength';
+}
+
+function updateCredPreview() {
+  const email = document.getElementById('adminEmail').value;
+  const pwd = document.getElementById('adminPassword').value;
+  const card = document.getElementById('credPreviewCard');
+  if (email && pwd) {
+    document.getElementById('previewEmail').textContent = email;
+    document.getElementById('previewPwd').textContent = '••••••••';
+    card.style.display = '';
+  } else { card.style.display = 'none'; }
+}
+
+function togglePwd(inputId, iconId) {
+  const input = document.getElementById(inputId);
+  const icon = document.getElementById(iconId);
+  input.type = input.type === 'password' ? 'text' : 'password';
+  icon.className = input.type === 'text' ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye';
+}
+
+async function submitAdminForm() {
+  const firstName = document.getElementById('adminFirstName').value.trim();
+  const lastName = document.getElementById('adminLastName').value.trim();
+  const email = document.getElementById('adminEmail').value.trim();
+  const phone = document.getElementById('adminPhone').value.trim();
+  const password = document.getElementById('adminPassword').value;
+  const confirmPwd = document.getElementById('adminPasswordConfirm').value;
+  const role = document.getElementById('adminRole').value;
+
+  if (!firstName || !lastName) { showToast('Missing field', 'Please enter first and last name.', 'error'); return; }
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showToast('Invalid email', 'Please enter a valid email.', 'error'); return; }
+  if (!phone || phone.length < 10) { showToast('Invalid phone', 'Please enter a valid 10-digit phone.', 'error'); return; }
+  if (!role) { showToast('Missing field', 'Please select a role.', 'error'); return; }
+  if (!editingAdminId) {
+    if (!password) { showToast('Missing field', 'Please enter a password.', 'error'); return; }
+    if (password !== confirmPwd) { showToast('Password mismatch', 'Passwords do not match.', 'error'); return; }
+    if (password.length < 8) { showToast('Weak password', 'Password must be at least 8 characters.', 'error'); return; }
+  }
+
+  const permissions = collectCreatePermissions();
+  const btn = document.getElementById('createAdminBtn');
+  btn.disabled = true;
+  const origHTML = btn.innerHTML;
+  btn.innerHTML = '<div class="spinner" style="border-color:rgba(255,255,255,0.3);border-top-color:#fff;"></div> Saving…';
+
+  try {
+    const data = {
+      firstName, lastName, email, phone, role, permissions,
+      dept: document.getElementById('adminDept').value,
+      city: document.getElementById('adminCity').value,
+      status: document.getElementById('adminActive').checked ? 'active' : 'inactive',
+      sendCredentials: document.getElementById('sendCredentials').checked,
+      forceReset: document.getElementById('forceReset').checked,
+      ...(password && { password }),
+    };
+    const result = await SA_API.createAdmin(data);
+    if (result.success) {
+      showToast('Admin created! 🎉', `${firstName} ${lastName} can now log in.`, 'success');
+      document.getElementById('adminCountBadge').textContent = ADMINS_STORE.length;
+      setTimeout(() => showSection('admins'), 1200);
+    } else { showToast('Error', result.message || 'Failed to create admin.', 'error'); }
+  } catch (e) { showToast('Error', 'Server error.', 'error'); }
+  finally { btn.disabled = false; btn.innerHTML = origHTML; }
+}
+
+// ============================================================
+//  EDIT ADMIN
+// ============================================================
+function renderEditPermModules(grantedPerms = {}) {
+  const container = document.getElementById('editPermModules');
+  if (!container) return;
+  container.innerHTML = '';
+  MODULES.forEach(mod => {
+    const grantedKeys = grantedPerms[mod.key] || [];
+    const block = document.createElement('div');
+    block.style.cssText = 'border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:6px;';
+    const grantedCount = mod.features.filter(f => grantedKeys.includes(f.key)).length;
+    block.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;padding:9px 12px;background:#fafcfa;cursor:pointer;font-size:13px;font-weight:600;" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
+        <span>${mod.icon}</span><span style="flex:1;">${mod.name}</span>
+        <span style="font-size:11px;color:var(--text-muted);">${grantedCount}/${mod.features.length}</span>
+        <i class="fa-solid fa-chevron-down" style="font-size:10px;color:var(--text-muted);"></i>
+      </div>
+      <div style="display:none;padding:10px 12px;background:#fff;">
+        ${mod.features.map(f => `
+          <label style="display:flex;align-items:center;gap:8px;font-size:12px;padding:5px 0;border-bottom:1px solid var(--border);cursor:pointer;">
+            <input type="checkbox" class="edit-perm-check" data-module="${mod.key}" data-key="${f.key}" ${grantedKeys.includes(f.key) ? 'checked' : ''}>
+            <div><div style="font-weight:500;">${f.name}</div><div style="font-size:11px;color:var(--text-muted);">${f.desc}</div></div>
+          </label>`).join('')}
+      </div>`;
+    container.appendChild(block);
+  });
+}
+
+function applyEditRoleDefaults() {
+  const role = document.getElementById('editRole').value;
+  if (role && ROLE_DEFAULTS[role]) renderEditPermModules(ROLE_DEFAULTS[role]);
+}
+
+function collectEditPermissions() {
+  const perms = {};
+  MODULES.forEach(mod => {
+    const granted = [];
+    mod.features.forEach(f => {
+      const checked = document.querySelector(`#editPermModules input.edit-perm-check[data-module="${mod.key}"][data-key="${f.key}"]`)?.checked;
+      if (checked) granted.push(f.key);
+    });
+    if (granted.length) perms[mod.key] = granted;
+  });
+  return perms;
+}
+
+function openEditAdmin(id) {
+  const admin = ADMINS_STORE.find(a => a.id === id);
+  if (!admin) return;
+  editingAdminId = id;
+  document.getElementById('editFirstName').value = admin.firstName;
+  document.getElementById('editLastName').value = admin.lastName;
+  document.getElementById('editEmail').value = admin.email;
+  document.getElementById('editPhone').value = admin.phone;
+  document.getElementById('editRole').value = admin.role;
+  document.getElementById('editStatus').value = admin.status;
+  document.getElementById('editPassword').value = '';
+  renderEditPermModules(admin.permissions || ROLE_DEFAULTS[admin.role] || {});
+  openModal('editAdminModal');
+}
+
+async function saveAdminEdit() {
+  const data = {
+    firstName: document.getElementById('editFirstName').value.trim(),
+    lastName: document.getElementById('editLastName').value.trim(),
+    email: document.getElementById('editEmail').value.trim(),
+    phone: document.getElementById('editPhone').value.trim(),
+    role: document.getElementById('editRole').value,
+    status: document.getElementById('editStatus').value,
+    permissions: collectEditPermissions(),
+  };
+  const newPwd = document.getElementById('editPassword').value;
+  if (newPwd) data.password = newPwd;
+  await SA_API.updateAdmin(editingAdminId, data);
+  closeModal('editAdminModal');
+  showToast('Admin updated', `${data.firstName} ${data.lastName} has been updated.`, 'success');
+  renderAdminsTable();
+}
+
+// ============================================================
+//  DELETE ADMIN
+// ============================================================
+function openDeleteAdmin(id, name) {
+  deleteAdminId = id;
+  document.getElementById('deleteAdminName').textContent = name;
+  openModal('deleteAdminModal');
+}
+document.getElementById('confirmDeleteAdminBtn').addEventListener('click', async () => {
+  if (!deleteAdminId) return;
+  await SA_API.deleteAdmin(deleteAdminId);
+  closeModal('deleteAdminModal');
+  showToast('Admin deleted', 'Admin account removed.', 'success');
+  document.getElementById('adminCountBadge').textContent = ADMINS_STORE.length;
+  renderAdminsTable();
+  deleteAdminId = null;
+});
+
+// ============================================================
+//  ACTIVITY LOG
+// ============================================================
+async function loadActivityLog() {
+  const logs = await SA_API.getActivityLog();
+  document.getElementById('activityLogBody').innerHTML = logs.map(l => `
+    <tr>
+      <td style="font-size:11px;color:var(--text-muted);white-space:nowrap;">${new Date(l.time).toLocaleString('en-IN')}</td>
+      <td style="font-weight:600;">${l.actor}</td>
+      <td><span class="badge ${l.role === 'superadmin' ? 'badge-gold' : l.role === 'admin' ? 'badge-primary' : 'badge-secondary'}">${l.role}</span></td>
+      <td>${l.action}</td>
+      <td style="font-size:12px;color:var(--text-secondary);">${l.details}</td>
+      <td style="font-size:11px;font-family:monospace;color:var(--text-muted);">${l.ip}</td>
+    </tr>`).join('');
+}
+
+// ============================================================
+//  ROLES & PERMISSIONS PAGE
+// ============================================================
+function switchRolesTab(tab, btn) {
+  ['overview','matrix','custom'].forEach(t => document.getElementById(`rtab-${t}`)?.classList.add('hidden'));
+  document.querySelectorAll('.pill-tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(`rtab-${tab}`)?.classList.remove('hidden');
+  if (btn) btn.classList.add('active');
+  if (tab === 'matrix') renderMatrix();
+  if (tab === 'custom') { renderCustomPerms(); renderAssignCustomPerms(); }
+}
+
+function renderMatrix() {
+  const tbody = document.getElementById('matrixBody');
+  tbody.innerHTML = '';
+  MODULES.forEach(mod => {
+    const gr = tbody.insertRow();
+    gr.className = 'module-group-row';
+    gr.innerHTML = `<td colspan="5">${mod.icon} ${mod.name}</td>`;
+    mod.features.forEach(f => {
+      const tr = tbody.insertRow();
+      const roles = ['admin','manager','viewer'];
+      tr.innerHTML = `
+        <td class="feature-indent">${f.name}</td>
+        <td><i class="fa-solid fa-check check-icon"></i></td>
+        ${roles.map(role => {
+          const granted = (ROLE_DEFAULTS[role][mod.key] || []).includes(f.key);
+          return granted ? `<td><i class="fa-solid fa-check check-icon"></i></td>` : `<td><i class="fa-solid fa-minus cross-icon"></i></td>`;
+        }).join('')}`;
+    });
+  });
+}
+
+function editRole(role) {
+  document.getElementById('editRoleTitle').textContent = `Edit Permissions — ${role.charAt(0).toUpperCase()+role.slice(1)}`;
+  const body = document.getElementById('editRoleBody');
+  const granted = ROLE_DEFAULTS[role];
+  body.innerHTML = `
+    <div class="alert alert-warning">
+      <i class="fa-solid fa-triangle-exclamation"></i>
+      Changes here update the DEFAULT permissions for ALL new admins with this role. Existing admins are not affected.
+    </div>
+    <div id="roleEditModules"></div>`;
+  const container = document.getElementById('roleEditModules');
+  MODULES.forEach(mod => {
+    const grantedKeys = granted[mod.key] || [];
+    const block = document.createElement('div');
+    block.className = 'perm-module-block mb-12';
+    block.innerHTML = `
+      <div class="perm-module-header" onclick="this.parentElement.classList.toggle('expanded')">
+        <span class="perm-module-icon">${mod.icon}</span>
+        <span class="perm-module-name">${mod.name}</span>
+        <i class="fa-solid fa-chevron-right perm-chevron"></i>
+      </div>
+      <div class="perm-module-body">
+        ${mod.features.map(f => `
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;padding:7px 0;border-bottom:1px solid var(--border);cursor:pointer;">
+            <input type="checkbox" class="perm-check col-view" data-role="${role}" data-mod="${mod.key}" data-fkey="${f.key}" ${grantedKeys.includes(f.key) ? 'checked' : ''}>
+            <div><div style="font-weight:500;">${f.name}</div><div style="font-size:11px;color:var(--text-muted);">${f.desc}</div></div>
+          </label>`).join('')}
+      </div>`;
+    block.classList.add('expanded');
+    container.appendChild(block);
+  });
+  openModal('editRoleModal');
+}
+
+async function saveRolePerms() {
+  const checks = document.querySelectorAll('#roleEditModules input[type=checkbox]');
+  const newPerms = {};
+  checks.forEach(cb => {
+    const { role, mod, fkey } = cb.dataset;
+    if (!newPerms[mod]) newPerms[mod] = [];
+    if (cb.checked) newPerms[mod].push(fkey);
+    if (!ROLE_DEFAULTS[role]) ROLE_DEFAULTS[role] = {};
+    if (!ROLE_DEFAULTS[role][mod]) ROLE_DEFAULTS[role][mod] = [];
+    if (cb.checked && !ROLE_DEFAULTS[role][mod].includes(fkey)) ROLE_DEFAULTS[role][mod].push(fkey);
+    if (!cb.checked) ROLE_DEFAULTS[role][mod] = ROLE_DEFAULTS[role][mod].filter(k => k !== fkey);
+  });
+  await SA_API.saveRolePermissions(checks[0]?.dataset.role, newPerms);
+  closeModal('editRoleModal');
+  renderMatrix();
+  showToast('Role permissions saved', 'Default permissions updated for new admins.', 'success');
+}
+
+// ============================================================
+//  CUSTOM PERMISSIONS
+// ============================================================
+function renderCustomPerms() {
+  const list = document.getElementById('customPermList');
+  if (!list) return;
+  if (!CUSTOM_PERMS.length) { list.innerHTML = '<div style="font-size:13px;color:var(--text-muted);padding:12px;">No custom permissions yet. Click Add to create one.</div>'; return; }
+  list.innerHTML = '';
+  CUSTOM_PERMS.forEach((p, i) => {
+    const riskBadge = { low:'<span class="badge badge-green">Low</span>', medium:'<span class="badge badge-amber">Medium</span>', high:'<span class="badge badge-red">High</span>' }[p.risk];
+    const item = document.createElement('div');
+    item.className = 'custom-perm-item';
+    item.innerHTML = `
+      <div class="custom-perm-item-icon">${p.icon || '🔑'}</div>
+      <div class="custom-perm-item-info">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="custom-perm-item-name">${p.name}</span>
+          <span class="custom-perm-item-key">${p.key}</span>
+          ${riskBadge}
+        </div>
+        <div class="custom-perm-item-meta">${p.desc}${p.module ? ` · Module: ${p.module}` : ''} · Roles: ${p.roles.join(', ') || 'none'}</div>
+      </div>
+      <div class="custom-perm-actions">
+        <button class="btn btn-xs btn-secondary" onclick="editCustomPerm(${i})"><i class="fa-solid fa-pen"></i></button>
+        <button class="btn btn-xs btn-danger-soft" onclick="deleteCustomPerm(${i})"><i class="fa-solid fa-trash"></i></button>
+      </div>`;
+    list.appendChild(item);
+  });
+}
+
+function renderAssignCustomPerms() {
+  const container = document.getElementById('assignCustomPerms');
+  if (!container) return;
+  container.innerHTML = '';
+  ['admin','manager','viewer'].forEach(role => {
+    const div = document.createElement('div');
+    div.style.cssText = 'margin-bottom:16px;';
+    div.innerHTML = `<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-secondary);margin-bottom:8px;">${role === 'admin' ? '🛠️' : role === 'manager' ? '🗂️' : '👁️'} ${role.charAt(0).toUpperCase()+role.slice(1)}</div>`;
+    if (!CUSTOM_PERMS.length) { div.innerHTML += '<div style="font-size:12px;color:var(--text-muted);">No custom permissions yet.</div>'; }
+    CUSTOM_PERMS.forEach(p => {
+      const checked = (p.roles||[]).includes(role);
+      const row = document.createElement('label');
+      row.style.cssText = 'display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:6px;cursor:pointer;';
+      row.innerHTML = `<input type="checkbox" ${checked ? 'checked' : ''} onchange="toggleCustomPermRole('${p.key}','${role}',this.checked)"> <span>${p.icon||'🔑'} ${p.name}</span> <span class="custom-perm-item-key" style="font-size:10px;">${p.key}</span>`;
+      div.appendChild(row);
+    });
+    container.appendChild(div);
+  });
+}
+
+function toggleCustomPermRole(permKey, role, checked) {
+  const perm = CUSTOM_PERMS.find(p => p.key === permKey);
+  if (!perm) return;
+  if (checked && !perm.roles.includes(role)) perm.roles.push(role);
+  if (!checked) perm.roles = perm.roles.filter(r => r !== role);
+  showToast('Permissions updated', `${permKey} assignment changed.`, 'success');
+}
+
+async function deleteCustomPerm(i) {
+  if (!confirm(`Delete permission "${CUSTOM_PERMS[i].name}"? This will revoke it from all admins.`)) return;
+  const key = CUSTOM_PERMS[i].key;
+  CUSTOM_PERMS.splice(i, 1);
+  await SA_API.deleteCustomPermission(key);
+  renderCustomPerms();
+  renderAssignCustomPerms();
+  showToast('Permission deleted', '', 'success');
+}
+
+function editCustomPerm(i) {
+  const p = CUSTOM_PERMS[i];
+  document.getElementById('newPermName').value = p.name;
+  document.getElementById('newPermKey').value = p.key;
+  document.getElementById('newPermModule').value = p.module || '';
+  document.getElementById('newPermIcon').value = p.icon || '';
+  document.getElementById('newPermRisk').value = p.risk || 'low';
+  document.getElementById('newPermDesc').value = p.desc || '';
+  document.getElementById('grantAdmin').checked = (p.roles||[]).includes('admin');
+  document.getElementById('grantManager').checked = (p.roles||[]).includes('manager');
+  document.getElementById('grantViewer').checked = (p.roles||[]).includes('viewer');
+  openModal('addPermModal');
+}
+
+async function saveCustomPerm() {
+  const name = document.getElementById('newPermName').value.trim();
+  const key = document.getElementById('newPermKey').value.trim();
+  if (!name || !key) { showToast('Required fields missing', 'Name and Key are required.', 'error'); return; }
+  const roles = [];
+  if (document.getElementById('grantAdmin').checked) roles.push('admin');
+  if (document.getElementById('grantManager').checked) roles.push('manager');
+  if (document.getElementById('grantViewer').checked) roles.push('viewer');
+  const perm = { name, key, icon: document.getElementById('newPermIcon').value.trim() || '🔑', module: document.getElementById('newPermModule').value, risk: document.getElementById('newPermRisk').value, desc: document.getElementById('newPermDesc').value.trim(), roles };
+  const existing = CUSTOM_PERMS.findIndex(p => p.key === key);
+  if (existing >= 0) CUSTOM_PERMS[existing] = perm; else CUSTOM_PERMS.push(perm);
+  await SA_API.saveCustomPermission(perm);
+  renderCustomPerms();
+  renderAssignCustomPerms();
+  closeModal('addPermModal');
+  showToast(`Permission "${name}" saved`, '', 'success');
+}
+
+// ============================================================
+//  UTILITIES
+// ============================================================
+function openModal(id) { document.getElementById(id)?.classList.add('open'); }
+function closeModal(id) { document.getElementById(id)?.classList.remove('open'); }
+document.addEventListener('click', e => { if (e.target.classList.contains('modal-overlay')) e.target.classList.remove('open'); });
+
+function showToast(title, msg = '', type = 'success') {
+  const icons = { success:'✅', error:'❌', warning:'⚠️', info:'ℹ️' };
+  const tc = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.innerHTML = `<span style="font-size:18px;">${icons[type]||'ℹ️'}</span><div><div style="font-size:13px;font-weight:600;">${title}</div>${msg ? `<div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">${msg}</div>` : ''}</div>`;
+  tc.appendChild(toast);
+  setTimeout(() => toast.remove(), 4200);
+}
+
+function formatDate(d) { return new Date(d).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' }); }
+function avatarColor(id) { const colors = ['#2d6a4f','#3182ce','#805ad5','#b7791f','#e53e3e','#dd6b20','#38a169']; return colors[id % colors.length]; }
+function logout() { sessionStorage.removeItem('superAdminToken'); sessionStorage.removeItem('superAdminData'); }
+
+// Sidebar toggle
+document.getElementById('sidebarToggle').addEventListener('click', () => {
+  const sidebar = document.getElementById('sidebar');
+  const main = document.getElementById('mainContent');
+  sidebar.classList.toggle('collapsed');
+  main.classList.toggle('expanded', sidebar.classList.contains('collapsed'));
+});
+
+// Init
+loadDashboard();
+</script>
+</body>
+</html>

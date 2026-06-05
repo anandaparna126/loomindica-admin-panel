@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Orders – LoomIndica Admin</title>
+  <link rel="stylesheet" href="admin.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    .page-content  { min-width: 0; overflow-x: hidden; }
+    .main-content  { min-width: 0; overflow-x: hidden; }
+    .card          { min-width: 0; }
+    .table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%; }
+    .data-table    { min-width: 860px; width: 100%; border-collapse: collapse; }
+    .order-status-tabs { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:20px; }
+    .status-tab { padding:8px 18px; border-radius:20px; font-size:13px; font-weight:600; cursor:pointer; transition:var(--transition); border:1.5px solid var(--border); background:#fff; color:var(--text-muted); white-space:nowrap; }
+    .status-tab.active { background:var(--primary); color:#fff; border-color:var(--primary); }
+    .status-tab .count { font-size:11px; background:rgba(255,255,255,.3); padding:1px 6px; border-radius:10px; margin-left:4px; }
+    .status-tab:not(.active) .count { background:var(--border); color:var(--text-muted); }
+    .order-detail-row { background:var(--body-bg); }
+    .order-items-mini { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+    .order-item-chip  { background:#fff; border:1px solid var(--border); border-radius:8px; padding:4px 10px; font-size:12px; }
+    .return-section   { background:#FEF3C7; border:1px solid #F59E0B; border-radius:10px; padding:14px 16px; margin-top:14px; }
+    .readonly-notice  { display:inline-flex; align-items:center; gap:6px; background:#FEF9C3; border:1px solid #FDE047; color:#854D0E; font-size:12px; font-weight:600; padding:4px 12px; border-radius:20px; }
+    .page-header { display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:20px; }
+    .page-header .d-flex { flex-wrap:wrap; }
+    .sidebar.collapsed { width:64px; }
+    .sidebar.collapsed .brand-text,
+    .sidebar.collapsed .nav-label,
+    .sidebar.collapsed .nav-section-title { opacity:0; pointer-events:none; width:0; }
+
+    /* ── Shiprocket Delivery Section ── */
+    .delivery-section { background:linear-gradient(135deg,#f0f7ff 0%,#e8f4fd 100%); border:1.5px solid #93c5fd; border-radius:12px; padding:16px 18px; margin-top:16px; }
+    .delivery-section-title { font-weight:700; font-size:13px; color:#1d4ed8; margin-bottom:14px; display:flex; align-items:center; gap:8px; letter-spacing:.3px; }
+    .delivery-steps { display:flex; flex-direction:column; gap:10px; }
+    .delivery-step { display:flex; align-items:center; gap:12px; background:#fff; border:1.5px solid #dbeafe; border-radius:10px; padding:12px 14px; transition:.2s; }
+    .delivery-step.step-done { border-color:#86efac; background:#f0fdf4; }
+    .delivery-step.step-auto { border-color:#c4b5fd; background:#faf5ff; opacity:.9; }
+    .delivery-step.step-loading { border-color:#fde68a; background:#fffbeb; opacity:.8; pointer-events:none; }
+    .step-num { width:28px; height:28px; border-radius:50%; background:#dbeafe; color:#1d4ed8; font-weight:700; font-size:13px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .delivery-step.step-done .step-num { background:#bbf7d0; color:#15803d; }
+    .delivery-step.step-auto .step-num { background:#e9d5ff; color:#6d28d9; }
+    .step-body { flex:1; min-width:0; }
+    .step-title { font-weight:600; font-size:13px; color:var(--text-main,#1e293b); }
+    .step-meta { font-size:11.5px; color:var(--text-muted,#64748b); margin-top:2px; word-break:break-all; }
+    .step-actions { display:flex; gap:6px; align-items:center; flex-shrink:0; }
+    .step-badge { font-size:11px; font-weight:600; padding:3px 10px; border-radius:20px; }
+    .step-badge.done   { background:#dcfce7; color:#15803d; }
+    .step-badge.pending{ background:#fee2e2; color:#991b1b; }
+    .step-badge.auto   { background:#ede9fe; color:#6d28d9; }
+    .step-badge.na     { background:#f1f5f9; color:#64748b; }
+    .delivery-divider  { display:flex; align-items:center; gap:8px; font-size:11px; font-weight:600; color:#94a3b8; padding:2px 4px; }
+    .delivery-divider::before,.delivery-divider::after { content:''; flex:1; border-top:1px dashed #cbd5e1; }
+  </style>
+</head>
+<body>
+<div class="mobile-overlay"></div>
+<div id="toast-container"></div>
+<div class="admin-shell">
+
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand"><div class="brand-icon">LI</div><div class="brand-text"><h3>LoomIndica</h3><span>Admin Panel</span></div></div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Main</div>
+      <div class="nav-item"><a href="dashboard.html"    class="nav-link" data-label="Dashboard"><span class="nav-icon">📊</span><span class="nav-label">Dashboard</span></a></div>
+      <div class="nav-section-label">Catalogue</div>
+      <div class="nav-item"><a href="products.html"     class="nav-link" data-label="Products"><span class="nav-icon">🛍️</span><span class="nav-label">Products</span></a></div>
+      <div class="nav-item"><a href="categories.html"   class="nav-link" data-label="Categories"><span class="nav-icon">🗂️</span><span class="nav-label">Categories</span></a></div>
+      <div class="nav-item"><a href="inventory.html"    class="nav-link" data-label="Inventory"><span class="nav-icon">📦</span><span class="nav-label">Inventory</span>
+        <!-- <span class="nav-badge">8</span> -->
+      </a></div>
+      <div class="nav-section-label">Sales</div>
+      <div class="nav-item"><a href="orders.html"       class="nav-link active" data-label="Orders"><span class="nav-icon">🧾</span><span class="nav-label">Orders</span>
+        <!-- <span class="nav-badge">24</span> -->
+      </a></div>
+      <div class="nav-item"><a href="customers.html"    class="nav-link" data-label="Customers"><span class="nav-icon">👥</span><span class="nav-label">Customers</span></a></div>
+      <div class="nav-item"><a href="transactions.html" class="nav-link" data-label="Transactions"><span class="nav-icon">💳</span><span class="nav-label">Transactions</span></a></div>
+      <div class="nav-section-label">Marketing</div>
+      <div class="nav-item"><a href="coupons.html"      class="nav-link" data-label="Coupons"><span class="nav-icon">🎟️</span><span class="nav-label">Coupons</span></a></div>
+      <div class="nav-item"><a href="banners.html"      class="nav-link" data-label="Banners"><span class="nav-icon">🖼️</span><span class="nav-label">Banners &amp; Offers</span></a></div>
+      <div class="nav-item"><a href="blogs.html"   class="nav-link" data-label="Blog"><span class="nav-icon">✍️</span><span class="nav-label">Blog</span></a></div>
+      <div class="nav-section-label">Analytics</div>
+      <div class="nav-item"><a href="reports.html"      class="nav-link" data-label="Reports"><span class="nav-icon">📈</span><span class="nav-label">Reports</span></a></div>
+      <div class="nav-section-label">System</div>
+      <div class="nav-item"><a href="settings.html"     class="nav-link" data-label="Settings"><span class="nav-icon">⚙️</span><span class="nav-label">Settings</span></a></div>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="sidebar-user">
+        <div class="user-avatar" id="sidebarAvatarLetter">A</div>
+        <div class="user-info"><strong id="sidebarName">Admin</strong><span id="sidebarRole">—</span></div>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main-content" id="mainContent">
+    <header class="topbar">
+      <button class="topbar-toggle" id="sidebarToggle">☰</button>
+      <div class="topbar-search"><i>🔍</i><input type="text" placeholder="Search by Order ID, customer…" oninput="filterOrders(this.value)"></div>
+      <div class="topbar-actions">
+        <div class="dropdown">
+          <div class="topbar-user" data-dropdown>
+            <div class="avatar" id="topbarAvatar">A</div>
+            <div class="topbar-user-info"><strong id="topbarName">Admin</strong><span id="topbarRole">—</span></div>
+          </div>
+          <div class="dropdown-menu">
+            <div class="dropdown-item danger" data-logout>🚪 Logout</div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="page-content" id="pageContent">
+      <div class="page-header">
+        <div class="page-header-left">
+          <h1>Orders</h1>
+          <div class="breadcrumb"><span>Home</span><i>›</i><span>Sales</span><i>›</i><span>Orders</span></div>
+        </div>
+        <div class="d-flex gap-8 align-center">
+          <div id="readonlyNotice" class="readonly-notice" style="display:none;">👁️ View Only</div>
+          <button class="btn btn-secondary btn-sm" id="exportBtn" onclick="exportOrders()">📥 Export</button>
+          <button class="btn btn-primary btn-sm" id="createOrderBtn" onclick="showToast('info','Manual Order','Manual order creation coming soon')">+ Create Order</button>
+        </div>
+      </div>
+
+      <div class="grid-4 stagger mb-24" id="orderSummary"></div>
+
+      <div class="order-status-tabs" id="statusTabs">
+        <div class="status-tab active" data-status="all"        onclick="switchTab('all', this)">All Orders      <span class="count" id="cnt-all">—</span></div>
+        <div class="status-tab"        data-status="pending"    onclick="switchTab('pending', this)">⏳ Pending   <span class="count" id="cnt-pending">—</span></div>
+        <div class="status-tab"        data-status="processing" onclick="switchTab('processing', this)">🔄 Processing <span class="count" id="cnt-processing">—</span></div>
+        <div class="status-tab"        data-status="shipped"    onclick="switchTab('shipped', this)">🚚 Shipped    <span class="count" id="cnt-shipped">—</span></div>
+        <div class="status-tab"        data-status="delivered"  onclick="switchTab('delivered', this)">✓ Delivered  <span class="count" id="cnt-delivered">—</span></div>
+        <div class="status-tab"        data-status="cancelled"  onclick="switchTab('cancelled', this)">✕ Cancelled  <span class="count" id="cnt-cancelled">—</span></div>
+        <div class="status-tab"        data-status="returned"   onclick="switchTab('returned', this)">↩ Returned   <span class="count" id="cnt-returned">—</span></div>
+      </div>
+
+      <div class="card">
+        <div class="table-wrapper">
+          <table class="data-table" id="ordersTable">
+            <thead>
+              <tr>
+                <th>Order ID</th><th>Customer</th><th>Phone</th><th>Items</th>
+                <th>Amount</th><th>Payment</th><th>Status</th><th>Date</th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="ordersBody">
+              <tr><td colspan="9" style="text-align:center;padding:40px;color:var(--text-muted)">Loading orders…</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="card-footer" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+          <div style="font-size:13px;color:var(--text-muted)">Showing <strong id="ordersShownCount">—</strong> orders</div>
+          <div class="pagination">
+            <button class="page-btn">‹</button>
+            <button class="page-btn active">1</button>
+            <button class="page-btn">2</button>
+            <button class="page-btn">›</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ORDER DETAIL MODAL -->
+<div class="modal-overlay" id="orderDetailModal">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <h3 id="orderDetailTitle">Order Details</h3>
+      <button class="modal-close" onclick="closeModal('orderDetailModal')">✕</button>
+    </div>
+    <div class="modal-body" id="orderDetailBody"></div>
+    <div class="modal-footer" id="orderModalFooter">
+      <button class="btn btn-secondary" onclick="closeModal('orderDetailModal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<script src="permissions.js"></script>
+<script src="admin.js"></script>
+<script>
+
+let allOrders      = [];
+let currentStatus  = 'all';
+let currentOrderId = null;
+
+/* ── STEP 2: initPage — always runs first ──────────────────── */
+function initPage() {
+  PermGuard.init({ module: 'orders', loginUrl: 'admin-login.html' });
+
+  /* Populate topbar + sidebar with real admin name from session */
+  const admin  = PermGuard.getAdmin?.() || {};
+  const name   = (admin.firstName || admin.name || 'Admin').trim();
+  const role   = admin.role || '—';
+  const letter = name[0]?.toUpperCase() || 'A';
+  document.getElementById('topbarName').textContent          = name;
+  document.getElementById('topbarRole').textContent          = role;
+  document.getElementById('topbarAvatar').textContent        = letter;
+  document.getElementById('sidebarName').textContent         = name;
+  document.getElementById('sidebarRole').textContent         = role;
+  document.getElementById('sidebarAvatarLetter').textContent = letter;
+
+  /* Gate header buttons */
+  PermGuard.guard('#exportBtn',      'orders', 'export_orders');
+  PermGuard.guard('#createOrderBtn', 'orders', 'create_order');
+
+  /* Show View Only badge if no write permissions at all */
+  const hasAnyWrite =
+    perm('orders','update_order_status') || perm('orders','cancel_order') ||
+    perm('orders','update_tracking')     || perm('orders','manage_returns') ||
+    perm('orders','create_order');
+  if (!hasAnyWrite) document.getElementById('readonlyNotice').style.display = 'inline-flex';
+}
+
+/* ── Load orders ──────────────────────────────────────────── */
+async function loadOrders() {
+  const datas = await API.get('/orders');
+  const data = datas.data;
+  console.log('Orders API response:', data);
+  allOrders  = data.orders || [];
+  document.getElementById('orderSummary').innerHTML = `
+    <div class="stat-card purple"><div class="stat-top"><div class="stat-icon purple">🧾</div></div><div class="stat-value">${data.total}</div><div class="stat-label">Total Orders</div></div>
+    <div class="stat-card amber"><div class="stat-top"><div class="stat-icon amber">⏳</div></div><div class="stat-value">${data.pending}</div><div class="stat-label">Pending</div></div>
+    <div class="stat-card blue"><div class="stat-top"><div class="stat-icon blue">🚚</div></div><div class="stat-value">${data.shipped}</div><div class="stat-label">Shipped</div></div>
+    <div class="stat-card green"><div class="stat-top"><div class="stat-icon green">✓</div></div><div class="stat-value">${data.delivered}</div><div class="stat-label">Delivered</div></div>
+  `;
+  document.getElementById('cnt-all').textContent        = data.total;
+  document.getElementById('cnt-pending').textContent    = data.pending;
+  document.getElementById('cnt-processing').textContent = data.processing || 0;
+  document.getElementById('cnt-shipped').textContent    = data.shipped;
+  document.getElementById('cnt-delivered').textContent  = data.delivered;
+  document.getElementById('cnt-cancelled').textContent  = data.cancelled;
+  document.getElementById('cnt-returned').textContent   = data.returned;
+  renderOrders(allOrders);
+}
+
+/* ── Render table rows ────────────────────────────────────── */
+function renderOrders(orders) {
+  const tbody = document.getElementById('ordersBody');
+  document.getElementById('ordersShownCount').textContent = orders.length;
+  if (!orders.length) {
+    tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><i>📋</i><h3>No orders found</h3><p>No orders in this category yet</p></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = orders.map(o => `
+    <tr>
+      <td><a style="color:var(--primary);font-weight:700;cursor:pointer" onclick="viewOrder('${o.id}')">${o.id}</a></td>
+      <td><strong>${o.customer}</strong></td>
+      <td style="font-size:12.5px;color:var(--text-muted)">${o.phone}</td>
+      <td><span class="badge badge-gray">${o.items} item${o.items>1?'s':''}</span></td>
+      <td><strong>${o.amount}</strong></td>
+      <td><span class="badge ${o.payment==='COD'?'badge-warning':'badge-info'}">${o.payment}</span></td>
+      <td>${statusBadge(o.status)}</td>
+      <td style="font-size:12.5px;color:var(--text-muted)">${o.date}</td>
+      <td>
+        <div class="action-btns">
+          <button class="btn btn-secondary btn-sm btn-icon" onclick="viewOrder('${o.id}')" title="View Details">👁️</button>
+          <button class="btn btn-secondary btn-sm btn-icon" title="Print Invoice" onclick="showToast('info','Invoice','Generating invoice for ${o.id}')">🖨️</button>
+        </div>
+      </td>
+    </tr>`).join('');
+}
+
+/* ── View order modal ─────────────────────────────────────── */
+function viewOrder(orderId) {
+  console.log('Viewing order:', orderId); 
+  currentOrderId = Number(orderId);
+  
+  const order = allOrders.find(o => o.id == orderId);
+  
+  
+
+
+  console.log('all orders:', allOrders);
+  console.log('Order details:', order);
+  if (!order) return;
+  document.getElementById('orderDetailTitle').textContent = `Order – ${orderId}`;
+
+  document.getElementById('orderDetailBody').innerHTML = `
+    <div class="form-row cols-2 mb-16">
+      <div>
+        <div class="form-label">Customer</div>
+        <div style="font-weight:600;font-size:15px">${order.customer}</div>
+        <div style="font-size:13px;color:var(--text-muted)">${order.phone}</div>
+      </div>
+      <div><div class="form-label">Order Status</div><div>${statusBadge(order.status)}</div></div>
+    </div>
+    <div class="form-row cols-3 mb-16">
+      <div><div class="form-label">Order Date</div><div style="font-weight:600">${order.date}</div></div>
+      <div><div class="form-label">Items</div><div style="font-weight:600">${order.items} items</div></div>
+      <div><div class="form-label">Total Amount</div><div style="font-weight:700;font-size:18px;color:var(--primary)">${order.amount}</div></div>
+    </div>
+    <div class="form-row cols-2 mb-20">
+      <div><div class="form-label">Payment Mode</div><div class="badge ${order.payment==='COD'?'badge-warning':'badge-info'}" style="margin-top:4px">${order.payment}</div></div>
+      <div><div class="form-label">Payment Status</div><div class="badge badge-success" style="margin-top:4px">✓ Paid</div></div>
+    </div>
+    <div class="form-group">
+      <div class="form-label">Order Timeline</div>
+      <div class="order-timeline mt-8">
+        <div class="timeline-item done"><h4>Order Placed</h4><p>${order.date} · Payment received</p></div>
+        <div class="timeline-item ${['processing','shipped','delivered'].includes(order.status)?'done':''}"><h4>Processing</h4><p>Being prepared for dispatch</p></div>
+        <div class="timeline-item ${['shipped','delivered'].includes(order.status)?'done':order.status==='shipped'?'active':''}"><h4>Shipped</h4><p>Out for delivery</p></div>
+        <div class="timeline-item ${order.status==='delivered'?'done':''}"><h4>Delivered</h4><p>Successfully delivered</p></div>
+      </div>
+    </div>
+
+    <!-- PERM: update_tracking — gated below after DOM build -->
+    <div class="form-group mt-16" id="trackingSection">
+      <div class="form-label">Tracking ID</div>
+      <div class="d-flex gap-8">
+        <input class="form-control" id="trackingInput" placeholder="Enter shipment tracking number" style="max-width:280px">
+        <button class="btn btn-primary btn-sm" onclick="saveTracking()">Save</button>
+      </div>
+    </div>
+
+    <!-- PERM: manage_delivery — Shiprocket AWB / Label / Manifest -->
+    <div id="deliverySection" style="display:none;" class="delivery-section">
+      <div class="delivery-section-title">🚀 Shiprocket Fulfillment
+        <span style="font-size:11px;font-weight:500;color:#3b82f6;margin-left:auto;">
+          3 manual steps required · rest auto via webhook
+        </span>
+      </div>
+      <div class="delivery-steps">
+
+        <!-- Step 1: Order Create (Automatic) -->
+        <div class="delivery-step step-auto step-done" id="stepOrderCreate">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <div class="step-title">Shiprocket Order Created <span style="font-size:10px;font-weight:500;color:#7c3aed;">(Automatic ✅)</span></div>
+            <div class="step-meta" id="srOrderMeta">Loading Shiprocket order info…</div>
+          </div>
+          <div class="step-actions">
+            <span class="step-badge auto" id="srOrderBadge">Auto</span>
+          </div>
+        </div>
+
+        <div class="delivery-divider">MANUAL STEPS (Admin Action Required)</div>
+
+        <!-- Step 2: Assign AWB -->
+        <div class="delivery-step" id="stepAwb">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <div class="step-title">Assign AWB &amp; Courier</div>
+            <div class="step-meta" id="awbMeta">AWB not yet assigned</div>
+          </div>
+          <div class="step-actions">
+            <span class="step-badge pending" id="awbBadge">Pending</span>
+            <button class="btn btn-primary btn-sm" id="awbBtn" onclick="assignAwb()">Assign AWB</button>
+          </div>
+        </div>
+
+        <!-- Step 3: Generate Label -->
+        <div class="delivery-step" id="stepLabel">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <div class="step-title">Generate Shipping Label</div>
+            <div class="step-meta" id="labelMeta">Label not generated</div>
+          </div>
+          <div class="step-actions">
+            <span class="step-badge pending" id="labelBadge">Pending</span>
+            <button class="btn btn-primary btn-sm" id="labelBtn" onclick="generateLabel()" disabled>Generate Label</button>
+          </div>
+        </div>
+
+        <!-- Step 4: Generate Manifest -->
+        <div class="delivery-step" id="stepManifest">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <div class="step-title">Generate Manifest</div>
+            <div class="step-meta" id="manifestMeta">Manifest not generated</div>
+          </div>
+          <div class="step-actions">
+            <span class="step-badge pending" id="manifestBadge">Pending</span>
+            <button class="btn btn-primary btn-sm" id="manifestBtn" onclick="generateManifest()" disabled>Generate Manifest</button>
+          </div>
+        </div>
+
+        <div class="delivery-divider">AFTER COURIER PICKUP</div>
+
+        <!-- Step 5: Webhook Auto Tracking -->
+        <div class="delivery-step step-auto" id="stepWebhook">
+          <div class="step-num">5</div>
+          <div class="step-body">
+            <div class="step-title">Live Tracking Updates <span style="font-size:10px;font-weight:500;color:#7c3aed;">(Automatic via Webhook ✅)</span></div>
+            <div class="step-meta" id="webhookMeta">
+              Shiprocket → Webhook → Status auto-updates:
+              <span style="margin-left:4px;">
+                <span style="background:#dbeafe;color:#1d4ed8;padding:1px 7px;border-radius:10px;font-size:11px;">picked up</span>
+                → <span style="background:#fef9c3;color:#854d0e;padding:1px 7px;border-radius:10px;font-size:11px;">shipped</span>
+                → <span style="background:#fef3c7;color:#92400e;padding:1px 7px;border-radius:10px;font-size:11px;">out for delivery</span>
+                → <span style="background:#dcfce7;color:#15803d;padding:1px 7px;border-radius:10px;font-size:11px;">delivered</span>
+              </span>
+            </div>
+          </div>
+          <div class="step-actions">
+            <span class="step-badge auto">Auto</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- PERM: manage_returns — shown only for returned/cancelled + perm check below -->
+    <div id="returnSection" style="display:none;" class="return-section">
+      <div class="form-label" style="color:#92400E;margin-bottom:10px;">↩ Return / Refund Management</div>
+      <div class="d-flex gap-8" style="flex-wrap:wrap">
+        <select class="form-control" id="returnActionSelect" style="width:auto">
+          <option value="">Select action…</option>
+          <option value="approve_return">Approve Return</option>
+          <option value="reject_return">Reject Return</option>
+          <option value="process_refund">Process Refund (₹50 deducted)</option>
+        </select>
+        <button class="btn btn-warning btn-sm" onclick="processReturn()">Apply</button>
+      </div>
+    </div>
+
+    <!-- Admin note — visible to all, disabled without update_order_status -->
+    <div class="form-group mt-12">
+      <div class="form-label">Admin Note</div>
+      <textarea class="form-control" rows="2" id="adminNoteInput"
+        placeholder="Internal note about this order…"
+        ${perm('orders','update_order_status') ? '' : 'disabled title="No permission to add notes"'}>
+      </textarea>
+    </div>
+  `;
+
+  /* Gate modal-internal elements AFTER body is built */
+  PermGuard.guard('#trackingSection', 'orders', 'update_tracking');
+  if (['returned','cancelled'].includes(order.status) && perm('orders','manage_returns')) {
+    document.getElementById('returnSection').style.display = 'block';
+  }
+
+  /* ── Show Shiprocket delivery section — always visible to admin ── */
+  document.getElementById('deliverySection').style.display = 'block';
+  
+  refreshDeliveryUI(order);
+
+  /* Build modal footer based on permissions */
+  buildModalFooter();
+  openModal('orderDetailModal');
+}
+
+/* ── Modal footer — injected dynamically based on perms ───── */
+function buildModalFooter() {
+  const footer = document.getElementById('orderModalFooter');
+  footer.innerHTML = `<button class="btn btn-secondary" onclick="closeModal('orderDetailModal')">Close</button>`;
+
+  if (!perm('orders', 'update_order_status')) return;
+
+  const cancelOption = perm('orders','cancel_order')
+    ? `<option value="cancelled">✕ Cancel Order</option>` : '';
+
+  footer.innerHTML += `
+    <select class="form-control" style="width:auto" id="statusUpdateSelect">
+      <option value="">Update Status…</option>
+      <option value="processing">🔄 Mark Processing</option>
+      <option value="shipped">🚚 Mark Shipped</option>
+      <option value="delivered">✓ Mark Delivered</option>
+      ${cancelOption}
+    </select>
+    <button class="btn btn-primary" onclick="updateOrderStatus()">Update</button>
+  `;
+}
+
+/* ── Update order status ──────────────────────────────────── */
+async function updateOrderStatus() {
+  if (!perm('orders','update_order_status')) {
+    showToast('error','Access Denied','No permission to update order status.'); return;
+  }
+  const newStatus = document.getElementById('statusUpdateSelect')?.value;
+  if (!newStatus || !currentOrderId) {
+    showToast('warning','Select Status','Please select a status to update'); return;
+  }
+  if (newStatus === 'cancelled' && !perm('orders','cancel_order')) {
+    showToast('error','Access Denied','No permission to cancel orders.'); return;
+  }
+  try {
+    /* REPLACE: PUT /api/orders/<currentOrderId>/ · Body: { status: newStatus } */
+   const orderByID = await API.put(`/orders/${currentOrderId}/`, { status: newStatus });
+   console.log('Order update response:', orderByID);
+    const order = allOrders.find(o => o.id === currentOrderId);
+    if (order) order.status = newStatus;
+    closeModal('orderDetailModal');
+    showToast('success','Order Updated',`Order ${currentOrderId} marked as ${newStatus}`);
+    const filtered = currentStatus==='all' ? allOrders : allOrders.filter(o=>o.status===currentStatus);
+    renderOrders(filtered);
+  } catch { showToast('error','Error','Failed to update order status'); }
+}
+
+/* ── Save tracking ID ─────────────────────────────────────── */
+async function saveTracking() {
+  if (!perm('orders','update_tracking')) {
+    showToast('error','Access Denied','No permission to update tracking.'); return;
+  }
+  const trackingId = document.getElementById('trackingInput')?.value?.trim();
+  if (!trackingId) { showToast('warning','Empty','Please enter a tracking ID.'); return; }
+  try {
+    /* REPLACE: PATCH /api/orders/<currentOrderId>/tracking/ · Body: { tracking_id } */
+    await API.put(`/orders/${currentOrderId}/tracking`, { tracking_id: trackingId });
+    showToast('success','Saved','Tracking ID updated successfully');
+  } catch { showToast('error','Error','Failed to save tracking ID'); }
+}
+
+/* ── Process return / refund ──────────────────────────────── */
+async function processReturn() {
+  if (!perm('orders','manage_returns')) {
+    showToast('error','Access Denied','No permission to manage returns.'); return;
+  }
+  const action = document.getElementById('returnActionSelect')?.value;
+  if (!action) { showToast('warning','Select','Please select a return action.'); return; }
+  try {
+    await API.post(`/orders/${currentOrderId}/returns/`, { action });
+    showToast('success','Done','Return action applied successfully');
+    closeModal('orderDetailModal');
+  } catch { showToast('error','Error','Failed to process return'); }
+}
+
+/* ── Export orders ────────────────────────────────────────── */
+async function exportOrders() {
+  if (!perm('orders','export_orders')) {
+    showToast('error','Access Denied','No permission to export orders.'); return;
+  }
+  /* REPLACE: GET /api/orders/export/?status=<currentStatus>&format=csv */
+  showToast('info','Export','Preparing order export…');
+}
+
+/* ── Tab switch & search filter ───────────────────────────── */
+function switchTab(status, el) {
+  document.querySelectorAll('.status-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  currentStatus = status;
+  renderOrders(status==='all' ? allOrders : allOrders.filter(o=>o.status===status));
+}
+
+function filterOrders(q) {
+  const base = currentStatus==='all' ? allOrders : allOrders.filter(o => o.status === currentStatus);
+  renderOrders(base.filter(o => o.id.toLowerCase().includes(q.toLowerCase()) || o.customer.toLowerCase().includes(q.toLowerCase())));
+}
+document.getElementById('sidebarToggle').addEventListener('click', () => {
+  const s=document.getElementById('sidebar'), m=document.getElementById('mainContent');
+  m.classList.toggle('expanded', s.classList.toggle('collapsed'));
+});
+
+/* ══════════════════════════════════════════════════════════
+   SHIPROCKET DELIVERY — AWB → LABEL → MANIFEST
+   ══════════════════════════════════════════════════════════ */
+
+/* Refresh UI state based on order's saved delivery data */
+function refreshDeliveryUI(order) {
+  const srOrderId   = order.id    || order.shiprocket_order_id || null;
+  const srShipId    = order.shipment_id || order.shiprocket_shipment_id || null;
+  const awb         = order.awb_code       || order.sr_awb_code  || null;
+  const courier     = order.courier_name   || null;
+  const labelUrl    = order.label_url      || null;
+  const manUrl      = order.manifest_url   || null;
+
+  /* ── Step 1: Shiprocket order info (always shown) ── */
+  const srMeta = document.getElementById('srOrderMeta');
+  const srBadge = document.getElementById('srOrderBadge');
+  console.log("the server response for shiprocket:", order);
+  if (srOrderId) {
+    let metaParts = [];
+    if (srOrderId)  metaParts.push(`SR Order: <strong>${srOrderId}</strong>`);
+    if (srShipId)   metaParts.push(`Shipment: <strong>${srShipId}</strong>`);
+    srMeta.innerHTML = metaParts.join(' &nbsp;·&nbsp; ');
+    srBadge.className  = 'step-badge done';
+    srBadge.textContent = 'Created';
+  } else {
+    srMeta.innerHTML = '<span style="color:#ef4444">⚠ Shiprocket order not yet created — place order first</span>';
+    srBadge.className  = 'step-badge pending';
+    srBadge.textContent = 'Missing';
+    document.getElementById('stepOrderCreate').classList.remove('step-done');
+  }
+
+  /* ── AWB step ── */
+  if (awb) {
+    _markStepDone('stepAwb', 'awbBadge', 'awbBtn', 'awbMeta',
+      `AWB: ${awb}${courier ? ' · ' + courier : ''}`, 'Assigned', false);
+  }
+
+  /* ── Label step ── */
+  if (labelUrl) {
+    _markStepDone('stepLabel', 'labelBadge', 'labelBtn', 'labelMeta',
+      `<a href="${labelUrl}" target="_blank" style="color:#1d4ed8">📄 View Label PDF</a>`, 'Generated', false);
+  } else if (awb) {
+    document.getElementById('labelBtn').disabled = false; // AWB exists → label can be generated
+  }
+
+  /* ── Manifest step ── */
+  if (manUrl) {
+    _markStepDone('stepManifest', 'manifestBadge', 'manifestBtn', 'manifestMeta',
+      `<a href="${manUrl}" target="_blank" style="color:#1d4ed8">📋 View Manifest PDF</a>`, 'Generated', false);
+  } else if (labelUrl) {
+    document.getElementById('manifestBtn').disabled = false; // Label exists → manifest can be generated
+  }
+
+  /* ── Step 5: Live tracking status (webhook-driven) ── */
+  const webhookStep = document.getElementById('stepWebhook');
+  const webhookMeta = document.getElementById('webhookMeta');
+  const statusColorMap = {
+    'pending':          { bg:'#f1f5f9', color:'#475569', label:'⏳ Pending' },
+    'processing':       { bg:'#dbeafe', color:'#1d4ed8', label:'🔄 Processing' },
+    'picked_up':        { bg:'#e0f2fe', color:'#0369a1', label:'📦 Picked Up' },
+    'shipped':          { bg:'#fef9c3', color:'#854d0e', label:'🚚 Shipped' },
+    'out_for_delivery': { bg:'#fef3c7', color:'#92400e', label:'🛵 Out for Delivery' },
+    'delivered':        { bg:'#dcfce7', color:'#15803d', label:'✓ Delivered' },
+  };
+  const st = order.status || 'pending';
+  if (manUrl || awb) {
+    // Manifest done means courier pickup is possible — show live status
+    const sc = statusColorMap[st] || { bg:'#f1f5f9', color:'#475569', label: st };
+    webhookMeta.innerHTML = `Current status: <span style="background:${sc.bg};color:${sc.color};padding:2px 9px;border-radius:10px;font-size:12px;font-weight:600;">${sc.label}</span>&nbsp; · Updates auto via Shiprocket Webhook`;
+    if (st === 'delivered') {
+      webhookStep.classList.add('step-done');
+    } else if (['shipped','out_for_delivery','picked_up'].includes(st)) {
+      webhookStep.classList.add('step-done');
+      webhookStep.style.borderColor = '#fde68a';
+      webhookStep.style.background  = '#fffbeb';
+    }
+  }
+}
+
+function _markStepDone(stepId, badgeId, btnId, metaId, metaHtml, badgeText, loading) {
+  const step = document.getElementById(stepId);
+  if (!step) return;
+  if (loading) {
+    step.classList.add('step-loading');
+    step.classList.remove('step-done');
+  } else {
+    step.classList.add('step-done');
+    step.classList.remove('step-loading');
+  }
+  document.getElementById(badgeId).className  = `step-badge ${loading ? 'na' : 'done'}`;
+  document.getElementById(badgeId).textContent = loading ? '…' : badgeText;
+  document.getElementById(metaId).innerHTML    = metaHtml;
+  if (btnId) {
+    const btn = document.getElementById(btnId);
+    if (btn) btn.disabled = true;
+  }
+}
+
+/* ── Step 2: Assign AWB ───────────────────────────────────── */
+async function assignAwb() {
+  const btn = document.getElementById('awbBtn');
+  btn.disabled = true; btn.textContent = 'Assigning…';
+  document.getElementById('stepAwb').classList.add('step-loading');
+
+  try {
+    /* POST /api/delivery/assign-awb/<order_id>/  Body: { courier_id: 0 } */
+    const res = await API.post(`/delivery/assign-awb/${currentOrderId}/`, { courier_id: 0 });
+    const d   = res.data || res;
+    console.log("assign awb response:", d);
+
+    const awb     = d.awb_code     || d.awb     || '—';
+    const courier = d.courier_name || d.courier || '';
+
+    /* Persist into local cache so refreshDeliveryUI can re-read it */
+    const order = allOrders.find(o => o.id == currentOrderId);
+    if (order) { order.awb_code = awb; order.courier_name = courier; }
+
+    _markStepDone('stepAwb', 'awbBadge', 'awbBtn', 'awbMeta',
+      `AWB: ${awb}${courier ? ' · ' + courier : ''}`, 'Assigned', false);
+
+    /* Unlock label step */
+    document.getElementById('labelBtn').disabled = false;
+    document.getElementById('stepLabel').classList.remove('step-loading');
+
+    showToast('success', 'AWB Assigned', `Courier: ${courier || 'Auto'} | AWB: ${awb}`);
+  } catch(e) {
+    showToast('error', 'AWB Failed', e?.message || 'Could not assign AWB. Try again.');
+    btn.disabled = false; btn.textContent = 'Assign AWB';
+    document.getElementById('stepAwb').classList.remove('step-loading');
+  }
+}
+
+/* ── Step 3: Generate Label ───────────────────────────────── */
+async function generateLabel() {
+  const btn = document.getElementById('labelBtn');
+  btn.disabled = true; btn.textContent = 'Generating…';
+  document.getElementById('stepLabel').classList.add('step-loading');
+
+  try {
+    /* POST /api/delivery/label/<order_id>/ */
+    const res = await API.post(`/delivery/label/${currentOrderId}/`, {});
+    const d   = res.data || res;
+    console.log("generate label response:", d);
+
+    const labelUrl = d.label_url || d.url || '#';
+
+    const order = allOrders.find(o => o.id == currentOrderId);
+    if (order) order.label_url = labelUrl;
+
+    _markStepDone('stepLabel', 'labelBadge', 'labelBtn', 'labelMeta',
+      `<a href="${labelUrl}" target="_blank" style="color:#1d4ed8">📄 View Label PDF</a>`, 'Generated', false);
+
+    /* Unlock manifest step */
+    document.getElementById('manifestBtn').disabled = false;
+    document.getElementById('stepManifest').classList.remove('step-loading');
+
+    showToast('success', 'Label Generated', 'Shipping label PDF is ready.');
+  } catch(e) {
+    showToast('error', 'Label Failed', e?.message || 'Could not generate label. Try again.');
+    btn.disabled = false; btn.textContent = 'Generate Label';
+    document.getElementById('stepLabel').classList.remove('step-loading');
+  }
+}
+
+/* ── Step 4: Generate Manifest ────────────────────────────── */
+async function generateManifest() {
+  const btn = document.getElementById('manifestBtn');
+  btn.disabled = true; btn.textContent = 'Generating…';
+  document.getElementById('stepManifest').classList.add('step-loading');
+
+  try {
+    /* POST /api/delivery/manifest/<order_id>/ */
+    const res = await API.post(`/delivery/manifest/${currentOrderId}/`, {});
+    const d   = res.data || res;
+
+    const manUrl = d.manifest_url || d.url || '#';
+
+    const order = allOrders.find(o => o.id == currentOrderId);
+    if (order) order.manifest_url = manUrl;
+
+    _markStepDone('stepManifest', 'manifestBadge', 'manifestBtn', 'manifestMeta',
+      `<a href="${manUrl}" target="_blank" style="color:#1d4ed8">📋 View Manifest PDF</a>`, 'Generated', false);
+
+    showToast('success', 'Manifest Generated', 'Order is ready for courier pickup! 🚚');
+  } catch(e) {
+    showToast('error', 'Manifest Failed', e?.message || 'Could not generate manifest. Try again.');
+    btn.disabled = false; btn.textContent = 'Generate Manifest';
+    document.getElementById('stepManifest').classList.remove('step-loading');
+  }
+}
+
+/* ── BOOT ─────────────────────────────────────────────────── */
+initPage();
+loadOrders();
+</script>
+</body>
+</html>

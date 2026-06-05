@@ -1,0 +1,1279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>Featured Collections – LoomIndica Admin</title>
+  <link rel="stylesheet" href="admin.css">
+  <style>
+    /* ── Filter bar (same pattern as products.html) ── */
+    .filter-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:20px}
+    .filter-bar input,.filter-bar select{height:38px;padding:0 12px;border:1.5px solid var(--border);border-radius:9px;font-size:13.5px;outline:none;background:#fff;color:var(--text-dark);transition:var(--transition)}
+    .filter-bar input:focus,.filter-bar select:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(124,58,237,.08)}
+    .filter-bar input{width:240px}
+
+    /* ── Step wizard (same as products.html) ── */
+    .step-indicator{display:flex;align-items:center;margin-bottom:28px;overflow-x:auto;padding-bottom:4px}
+    .step-item{display:flex;align-items:center;gap:8px;flex-shrink:0}
+    .step-num{width:30px;height:30px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--text-muted);flex-shrink:0;transition:var(--transition)}
+    .step-item.active .step-num{background:var(--primary);border-color:var(--primary);color:#fff}
+    .step-item.done  .step-num{background:var(--success);border-color:var(--success);color:#fff}
+    .step-label{font-size:12.5px;font-weight:600;color:var(--text-muted);white-space:nowrap}
+    .step-item.active .step-label{color:var(--primary)}
+    .step-item.done  .step-label{color:var(--success)}
+    .step-line{flex:1;min-width:20px;height:2px;background:var(--border);margin:0 8px}
+    .modal-step{display:none}.modal-step.active{display:block;animation:fadeIn .2s ease}
+
+    /* ── Sidebar collapse (same as products.html) ── */
+    .sidebar.collapsed{width:68px}
+    .sidebar.collapsed .brand-text,.sidebar.collapsed .nav-label,.sidebar.collapsed .nav-section-label{opacity:0;pointer-events:none;width:0}
+
+    /* ── Featured Collection Cards Grid ── */
+    .fc-grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fill,minmax(300px,1fr));
+      gap:20px;
+    }
+    .fc-card{
+      background:var(--card-bg);
+      border:1px solid var(--border);
+      border-radius:var(--radius);
+      overflow:hidden;
+      box-shadow:var(--shadow-sm);
+      transition:var(--transition);
+      display:flex;flex-direction:column;
+    }
+    .fc-card:hover{box-shadow:var(--shadow);transform:translateY(-2px)}
+    .fc-card.fc-card--hidden{opacity:.55}
+
+    /* Card image preview / slideshow strip */
+    .fc-preview{
+      position:relative;height:200px;
+      background:var(--sidebar-bg);overflow:hidden;flex-shrink:0;
+    }
+    .fc-preview-img{
+      position:absolute;inset:0;width:100%;height:100%;
+      object-fit:cover;opacity:0;transition:opacity .8s ease;
+    }
+    .fc-preview-img.active{opacity:1}
+    .fc-preview-badge{
+      position:absolute;top:10px;right:10px;z-index:2;
+      font-size:11px;font-weight:700;padding:3px 9px;
+      border-radius:20px;letter-spacing:.04em;
+    }
+    .fc-preview-badge.visible{background:#d1fae5;color:#065f46}
+    .fc-preview-badge.hidden{background:#fee2e2;color:#991b1b}
+    .fc-order-badge{
+      position:absolute;top:10px;left:10px;z-index:2;
+      background:rgba(0,0,0,.55);color:#fff;
+      font-size:11px;font-weight:700;padding:3px 8px;border-radius:8px;
+    }
+    .fc-img-count{
+      position:absolute;bottom:8px;left:10px;z-index:2;
+      background:rgba(0,0,0,.55);color:#fff;
+      font-size:11px;padding:2px 8px;border-radius:10px;
+    }
+    .fc-no-img{
+      width:100%;height:100%;display:flex;align-items:center;
+      justify-content:center;color:rgba(255,255,255,.3);font-size:13px;
+    }
+
+    /* Card body */
+    .fc-card-body{padding:14px 16px;flex:1}
+    .fc-eyebrow{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--primary);margin-bottom:4px}
+    .fc-title{font-size:15px;font-weight:700;margin-bottom:4px;color:var(--text-dark)}
+    .fc-desc{font-size:12.5px;color:var(--text-muted);margin-bottom:10px;line-height:1.4}
+    .fc-meta{font-size:12px;color:var(--text-muted);display:flex;gap:12px;flex-wrap:wrap}
+    .fc-meta span{display:flex;align-items:center;gap:4px}
+
+    /* Card footer */
+    .fc-card-footer{
+      padding:10px 16px 12px;
+      border-top:1px solid var(--border);
+      display:flex;gap:8px;flex-wrap:wrap;
+    }
+
+    /* ── Image rows inside modal ── */
+    .fc-img-list{display:flex;flex-direction:column;gap:10px;margin-top:10px}
+    .fc-img-row{
+      display:flex;align-items:center;gap:10px;
+      background:var(--body-bg);padding:8px 12px;border-radius:9px;
+      border:1px solid var(--border);
+    }
+    .fc-img-row-thumb{
+      width:52px;height:52px;object-fit:cover;
+      border-radius:7px;flex-shrink:0;
+      border:1px solid var(--border);background:#eee;
+    }
+    .fc-img-row-fields{flex:1;display:flex;flex-direction:column;gap:6px}
+    .fc-img-row-fields input{font-size:13px}
+    .fc-img-row-remove{
+      background:none;border:none;cursor:pointer;
+      color:var(--danger);font-size:18px;flex-shrink:0;padding:0 4px;
+      transition:var(--transition);
+    }
+    .fc-img-row-remove:hover{opacity:.7}
+
+    /* ── Dynamic category selectors (same style as products.html) ── */
+    .dynamic-category-selectors select{
+      display:block;width:100%;
+      margin-bottom:8px;
+    }
+
+    @media(max-width:900px){
+      .fc-grid{grid-template-columns:1fr 1fr}
+      .filter-bar input{width:180px}
+    }
+    @media(max-width:600px){
+      .fc-grid{grid-template-columns:1fr}
+      .filter-bar{flex-direction:column;align-items:stretch}
+      .filter-bar input,.filter-bar select{width:100%}
+      .page-header{flex-direction:column;align-items:flex-start;gap:10px}
+    }
+  </style>
+</head>
+<body>
+
+<div class="mobile-overlay"></div>
+<div id="toast-container"></div>
+
+<div class="admin-shell">
+
+  <!-- ══════════════════════════════════════════
+       SIDEBAR  — exact same markup as products.html
+  ══════════════════════════════════════════ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon">LI</div>
+      <div class="brand-text">
+        <h3>LoomIndica</h3>
+        <span>Admin Panel</span>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Main</div>
+      <div class="nav-item"><a href="dashboard.html"              class="nav-link"        data-label="Dashboard">  <span class="nav-icon">📊</span><span class="nav-label">Dashboard</span></a></div>
+
+      <div class="nav-section-label">Catalogue</div>
+      <div class="nav-item"><a href="products.html"               class="nav-link"        data-label="Products">   <span class="nav-icon">🛍️</span><span class="nav-label">Products</span></a></div>
+      <div class="nav-item"><a href="categories.html"             class="nav-link"        data-label="Categories"> <span class="nav-icon">🗂️</span><span class="nav-label">Categories</span></a></div>
+      <div class="nav-item"><a href="inventory.html"              class="nav-link"        data-label="Inventory">  <span class="nav-icon">📦</span><span class="nav-label">Inventory</span></a></div>
+
+      <div class="nav-section-label">Sales</div>
+      <div class="nav-item"><a href="orders.html"                 class="nav-link"        data-label="Orders">     <span class="nav-icon">🧾</span><span class="nav-label">Orders</span></a></div>
+      <div class="nav-item"><a href="customers.html"              class="nav-link"        data-label="Customers">  <span class="nav-icon">👥</span><span class="nav-label">Customers</span></a></div>
+      <div class="nav-item"><a href="transactions.html"           class="nav-link"        data-label="Transactions"><span class="nav-icon">💳</span><span class="nav-label">Transactions</span></a></div>
+
+      <div class="nav-section-label">Marketing</div>
+      <div class="nav-item"><a href="coupons.html"                class="nav-link"        data-label="Coupons">    <span class="nav-icon">🎟️</span><span class="nav-label">Coupons</span></a></div>
+      <div class="nav-item"><a href="banners.html"                class="nav-link"        data-label="Banners">    <span class="nav-icon">🖼️</span><span class="nav-label">Banners &amp; Offers</span></a></div>
+      <div class="nav-item"><a href="featured-collections.html"   class="nav-link active" data-label="Featured">   <span class="nav-icon">✨</span><span class="nav-label">Featured Collections</span></a></div>
+      <div class="nav-item"><a href="blogs.html"                  class="nav-link"        data-label="Blog">       <span class="nav-icon">✍️</span><span class="nav-label">Blog</span></a></div>
+
+      <div class="nav-section-label">System</div>
+      <div class="nav-item"><a href="settings.html"               class="nav-link"        data-label="Settings">   <span class="nav-icon">⚙️</span><span class="nav-label">Settings</span></a></div>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="sidebar-user">
+        <div class="user-avatar" id="sidebarAvatar">A</div>
+        <div class="user-info">
+          <strong id="sidebarName">Admin</strong>
+          <span id="sidebarRole">Role</span>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ══════════════════════════════════════════
+       MAIN CONTENT  — exact same class/id as products.html
+  ══════════════════════════════════════════ -->
+  <div class="main-content" id="mainContent">
+
+    <!-- Topbar — exact same structure as products.html -->
+    <header class="topbar">
+      <button class="topbar-toggle" id="sidebarToggle">☰</button>
+      <div class="topbar-search">
+        <i>🔍</i>
+        <input placeholder="Search featured collections…" id="topSearch" oninput="filterCards()">
+      </div>
+      <div class="topbar-actions">
+        <div class="dropdown">
+          <div class="topbar-user" data-dropdown>
+            <div class="avatar" id="topAvatar">A</div>
+            <div class="topbar-user-info">
+              <strong id="topName">Admin</strong>
+              <span id="topRole">Role</span>
+            </div>
+            <span style="margin-left:4px;color:var(--text-muted);font-size:11px">▾</span>
+          </div>
+          <div class="dropdown-menu">
+            <div class="dropdown-item danger" data-logout>🚪 Logout</div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Page content -->
+    <div class="page-content">
+
+      <!-- Page header -->
+      <div class="page-header">
+        <div class="page-header-left">
+          <h1>Featured Collections</h1>
+          <div class="breadcrumb">
+            <span onclick="location.href='dashboard.html'">Home</span>
+            <i>›</i><span>Marketing</span>
+            <i>›</i><span>Featured Collections</span>
+          </div>
+        </div>
+        <div class="d-flex gap-8 align-center">
+          <button class="btn btn-primary" id="addFcBtn" onclick="openAddModal()">+ Add Collection</button>
+        </div>
+      </div>
+
+      <!-- Filter bar -->
+      <div class="filter-bar">
+        <input type="text" id="fcSearch" placeholder="🔍  Search title, description…" oninput="filterCards()">
+        <select id="fcStatusFilter" onchange="filterCards()">
+          <option value="">All Status</option>
+          <option value="visible">Visible</option>
+          <option value="hidden">Hidden</option>
+        </select>
+        <button class="btn btn-secondary btn-sm" onclick="clearFcFilters()">✕ Clear</button>
+        <div style="margin-left:auto;font-size:13px;color:var(--text-muted)">
+          <strong id="fcCount">—</strong> collections
+        </div>
+      </div>
+
+      <!-- Info tip -->
+      <div style="background:var(--primary-light);border-left:4px solid var(--primary);padding:12px 16px;border-radius:9px;margin-bottom:22px;font-size:13px;color:var(--primary)">
+        💡 <strong>Tip:</strong> Each card shows a slideshow of its images on the homepage. Use <em>Sort Order</em> to control left-to-right position. Unchecking <em>Visible</em> hides the card from customers instantly.
+      </div>
+
+      <!-- Collections grid (skeleton while loading) -->
+      <div class="fc-grid" id="fcGrid">
+        <div class="fc-card" style="opacity:.35;pointer-events:none">
+          <div class="fc-preview" style="background:var(--border)"></div>
+          <div class="fc-card-body">
+            <div class="fc-eyebrow" style="background:var(--border);height:10px;width:40%;border-radius:4px">&nbsp;</div>
+            <div class="fc-title"   style="background:var(--border);height:14px;width:70%;border-radius:4px;margin-bottom:8px">&nbsp;</div>
+            <div class="fc-desc"    style="background:var(--border);height:11px;width:90%;border-radius:4px">&nbsp;</div>
+          </div>
+        </div>
+        <div class="fc-card" style="opacity:.2;pointer-events:none">
+          <div class="fc-preview" style="background:var(--border)"></div>
+          <div class="fc-card-body">
+            <div style="background:var(--border);height:10px;width:40%;border-radius:4px;margin-bottom:8px">&nbsp;</div>
+            <div style="background:var(--border);height:14px;width:70%;border-radius:4px;margin-bottom:8px">&nbsp;</div>
+            <div style="background:var(--border);height:11px;width:90%;border-radius:4px">&nbsp;</div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /page-content -->
+  </div><!-- /main-content -->
+</div><!-- /admin-shell -->
+
+
+<!-- ══════════════════════════════════════════════════════
+     ADD / EDIT MODAL
+══════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="fcModal">
+  <div class="modal modal-xl">
+    <div class="modal-header">
+      <h3 id="fcModalTitle">Add Featured Collection</h3>
+      <button class="modal-close" onclick="closeModal('fcModal')">✕</button>
+    </div>
+    <div class="modal-body">
+
+      <!-- Step indicator (same pattern as products.html) -->
+      <div class="step-indicator">
+        <div class="step-item active" id="fc-si1"><div class="step-num">1</div><div class="step-label">Basic Info</div></div>
+        <div class="step-line"        id="fc-sl1"></div>
+        <div class="step-item"        id="fc-si2"><div class="step-num">2</div><div class="step-label">Images</div></div>
+        <div class="step-line"        id="fc-sl2"></div>
+        <div class="step-item"        id="fc-si3"><div class="step-num">3</div><div class="step-label">Settings</div></div>
+      </div>
+
+      <!-- ─── STEP 1 : Basic Info ─── -->
+      <div class="modal-step active" id="fc-step-1">
+
+        <!-- Category selectors — EXACT same pattern as products.html #productCategorySelectors -->
+        <div class="form-group">
+          <label class="form-label">Category / Collection Link <span class="required">*</span></label>
+          <div id="fcCategorySelectors" class="dynamic-category-selectors"></div>
+          <div class="form-hint" id="fcCatHint">Select a category to auto-fill the link URL below.</div>
+        </div>
+
+        <div class="form-row cols-2">
+          <div class="form-group">
+            <label class="form-label">Collection Title <span class="required">*</span></label>
+            <input class="form-control" id="fcTitle" placeholder="e.g. Saree Edit">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Eyebrow Label</label>
+            <input class="form-control" id="fcEyebrow" placeholder="e.g. Handwoven  (shown above title)">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Short Description</label>
+          <textarea class="form-control" id="fcDescription" rows="2" placeholder="e.g. 120+ styles from handblock to handloom."></textarea>
+        </div>
+
+        <div class="form-row cols-2">
+          <div class="form-group">
+            <label class="form-label">Button Label</label>
+            <input class="form-control" id="fcLinkLabel" placeholder="e.g. Shop Sarees">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Link URL <small style="color:var(--text-muted)">(auto-filled from category, or override manually)</small></label>
+            <input class="form-control" id="fcLinkUrl" placeholder="shop.html?category=sarees">
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── STEP 2 : Images ─── -->
+      <div class="modal-step" id="fc-step-2">
+        <div style="background:var(--primary-light);padding:12px 16px;border-radius:9px;margin-bottom:18px;font-size:13px;color:var(--primary)">
+          📸 Add <strong>1–8 image URLs</strong> for the card's slideshow. The first image is shown by default.
+          Host images on Cloudinary, S3, or any public CDN.
+        </div>
+
+        <!-- Dynamic image URL rows -->
+        <div class="fc-img-list" id="fcImgList"></div>
+
+        <button class="btn btn-outline-primary btn-sm mt-8" onclick="fcAddImgRow()">+ Add Image URL</button>
+
+        <!-- Optional: upload zone for direct uploads -->
+        <div class="form-group mt-20">
+          <label class="form-label">Or Upload Images Directly</label>
+          <div class="upload-zone" id="fcUploadZone">
+            <input type="file" id="fcFileInput" accept="image/*" multiple hidden>
+            <div style="font-size:36px">🖼️</div>
+            <p>Click or drag images here (up to 8)</p>
+            <p style="font-size:12px;margin-top:4px">PNG, JPG · up to 5 MB each</p>
+          </div>
+          <div class="image-preview-grid" id="fcUploadPreview"></div>
+          <div class="form-hint">After uploading to your CDN, paste the hosted URL in the fields above.</div>
+        </div>
+      </div>
+
+      <!-- ─── STEP 3 : Settings ─── -->
+      <div class="modal-step" id="fc-step-3">
+        <div class="form-row cols-2">
+          <div class="form-group">
+            <label class="form-label">Sort Order</label>
+            <input type="number" class="form-control" id="fcSortOrder" min="1" max="99" value="1" placeholder="1 = shown first">
+            <div class="form-hint">Lower number = displayed first on the website.</div>
+          </div>
+          <div class="form-group" style="display:flex;align-items:center;gap:14px;padding-top:28px">
+            <label class="toggle">
+              <input type="checkbox" id="fcIsVisible" checked>
+              <span class="toggle-slider"></span>
+            </label>
+            <div style="font-weight:600;font-size:13.5px">Visible on website</div>
+          </div>
+        </div>
+        <div style="background:var(--accent-light);padding:14px 18px;border-radius:10px;margin-top:10px;font-size:13px;color:var(--text-muted)">
+          ℹ️ Unchecked = collection is saved but <strong>not displayed</strong> to customers. Useful for drafts or upcoming seasonal collections.
+        </div>
+      </div>
+
+    </div><!-- /modal-body -->
+
+    <div class="modal-footer" style="justify-content:space-between">
+      <button class="btn btn-secondary" id="fcBtnPrev" onclick="fcPrevStep()" style="display:none">← Back</button>
+      <div style="display:flex;gap:10px;margin-left:auto">
+        <button class="btn btn-secondary" onclick="closeModal('fcModal')">Cancel</button>
+        <button class="btn btn-primary"   id="fcBtnNext" onclick="fcNextStep()">Next →</button>
+        <button class="btn btn-success"   id="fcBtnSave" onclick="saveCollection()" style="display:none">💾 Save Collection</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════
+     DELETE CONFIRM MODAL
+══════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="fcDeleteModal">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-header">
+      <h3>Delete Collection</h3>
+      <button class="modal-close" onclick="closeModal('fcDeleteModal')">✕</button>
+    </div>
+    <div class="modal-body" style="text-align:center;padding:32px 24px">
+      <div style="font-size:52px;margin-bottom:16px">🗑️</div>
+      <h3 style="margin-bottom:8px">Delete this collection?</h3>
+      <p style="color:var(--text-muted);font-size:13.5px">
+        <strong id="fcDeleteName"></strong> will be permanently removed and immediately disappear from the website.
+      </p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('fcDeleteModal')">Cancel</button>
+      <button class="btn btn-danger"    onclick="confirmFcDelete()">Yes, Delete</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════
+     SCRIPTS
+══════════════════════════════════════════════════════ -->
+<script src="permissions.js"></script>
+<script src="admin.js"></script>
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   FEATURED COLLECTIONS — ADMIN PAGE JS
+   ═══════════════════════════════════════════════════════════════
+
+   API ENDPOINTS  (all require Token auth via admin.js's API object)
+   ──────────────────────────────────────────────────────────────
+   GET    /api/featured-collections/           → list all (admin, including hidden)
+   POST   /api/featured-collections/           → create new collection
+   GET    /api/featured-collections/{id}/      → retrieve single collection
+   PUT    /api/featured-collections/{id}/      → full update
+   PATCH  /api/featured-collections/{id}/      → partial update (e.g. toggle visibility)
+   DELETE /api/featured-collections/{id}/      → permanently delete
+
+   GET    /api/categories/tree/                → category tree (same endpoint as products.html)
+
+   PUBLIC endpoint (website — no auth):
+   GET    /api/featured-collections/public/    → only is_visible=true, sorted by sort_order
+
+   ──────────────────────────────────────────────────────────────
+   REQUEST BODY (POST / PUT):
+   {
+     title:        string  (required),
+     eyebrow:      string,
+     description:  string,
+     link_label:   string,
+     link_url:     string,
+     category_id:  int | null,         ← deepest selected category id
+     category_path:         string[],  ← e.g. ["Sarees", "Silk Sarees"]
+     category_slug_path:    string[],  ← e.g. ["sarees", "silk-sarees"]
+     category_full_path:    string,    ← "Sarees > Silk Sarees"
+     category_full_slug:    string,    ← "sarees/silk-sarees"
+     category_ancestor_ids: int[],
+     category_depth:        int,
+     images: [                         ← ordered slideshow images
+       { url: string, alt: string, sort_order: int }
+     ],
+     is_visible:   boolean,
+     sort_order:   int
+   }
+
+   RESPONSE shape (single item):
+   {
+     id, title, eyebrow, description, link_url, link_label,
+     category: { id, name, slug },
+     category_full_path,
+     images: [ { id, url, alt, sort_order } ],
+     is_visible, sort_order,
+     created_at, updated_at
+   }
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── State ─────────────────────────────────────────────── */
+let FC_ALL          = [];      // all collections from API
+let FC_CATEGORY_TREE = [];     // same tree format as products.html
+let FC_SEL_CAT_PATH  = [];     // mirrors SELECTED_CATEGORY_PATH in products.html
+let fcCurrentStep   = 1;
+const FC_TOTAL_STEPS = 3;
+let fcEditId        = null;    // null = create mode
+let fcDeleteId      = null;
+let fcUploadedFiles = [];    // for storing uploaded file info before saving collection
+
+/* ── Card preview slideshow timers ─────────────────────── */
+const _fcTimers = {};
+
+/* ═══════════════════════════════════════════════════════════════
+   USER INFO  — same as products.html setUserInfo()
+═══════════════════════════════════════════════════════════════ */
+function setUserInfo() {
+  let user = {};
+  try { user = JSON.parse(localStorage.getItem('adminUser') || '{}'); } catch(e) {}
+  const name = user.name || user.email || 'Admin';
+  const role = user.system_role || user.role || 'Admin';
+  ['topName','sidebarName'].forEach(id => { const el = document.getElementById(id); if(el) el.textContent = name; });
+  ['topRole','sidebarRole'].forEach(id => { const el = document.getElementById(id); if(el) el.textContent = role; });
+  ['topAvatar','sidebarAvatar'].forEach(id => { const el = document.getElementById(id); if(el) el.textContent = name[0].toUpperCase(); });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   LOAD & RENDER COLLECTIONS
+═══════════════════════════════════════════════════════════════ */
+async function loadCollections() {
+  try {
+    /* GET /api/featured-collections/ */
+    const raw  = await API.get('/featured-collections/');
+    console.log("the featured collections data:", raw);
+    FC_ALL     = raw?.data.collections || raw || [];
+    console.log("the featured collections array:", FC_ALL);
+    renderGrid(FC_ALL);
+  } catch(e) {
+    console.error('[FC] load error', e);
+    document.getElementById('fcGrid').innerHTML =
+      `<div style="grid-column:1/-1;text-align:center;padding:60px;color:var(--danger)">
+         ❌ Failed to load collections. Check API connection.
+       </div>`;
+    showToast('error', 'Load Failed', 'Could not fetch featured collections.');
+  }
+}
+
+function renderGrid(list) {
+  const grid = document.getElementById('fcGrid');
+  document.getElementById('fcCount').textContent = list.length;
+  console.log("rendering grid with collections:", list);
+
+  if (!list.length) {
+    grid.innerHTML =
+      `<div style="grid-column:1/-1;text-align:center;padding:60px 24px;color:var(--text-muted)">
+         <div style="font-size:48px;margin-bottom:12px">✨</div>
+         <h3 style="color:var(--text-mid)">No featured collections yet</h3>
+         <p style="margin-top:6px">Click <strong>+ Add Collection</strong> to create your first one.</p>
+       </div>`;
+    return;
+  }
+
+  // Sort by sort_order asc
+  const sorted = [...list].sort((a,b) => (a.sort_order??99) - (b.sort_order??99));
+
+  // Stop old preview timers
+  Object.values(_fcTimers).forEach(t => clearInterval(t));
+
+  grid.innerHTML = '';
+  sorted.forEach(col => {
+    const card = buildAdminCard(col);
+    grid.appendChild(card);
+    startPreviewTimer(col);
+  });
+}
+
+function buildAdminCard(col) {
+  const images   = Array.isArray(col.images) ? col.images : [];
+  const visible  = col.is_visible !== false;
+  const previewId = `fcPrev-${col.id}`;
+
+  const card = document.createElement('div');
+  card.className = `fc-card${!visible ? ' fc-card--hidden' : ''}`;
+  card.dataset.id = col.id;
+
+  /* Image preview strip */
+  const imagesHtml = images.length
+    ? images.map((img,i) =>
+        `<img class="fc-preview-img${i===0?' active':''}"
+              src="${img.url}" alt="${img.alt||''}" loading="lazy">`
+      ).join('')
+    : `<div class="fc-no-img">No images</div>`;
+
+  const catDisplay = col.category?.name
+    || col.category_full_path
+    || '—';
+
+  card.innerHTML = `
+    <div class="fc-preview" id="${previewId}">
+      ${imagesHtml}
+      <div class="fc-order-badge">#${col.sort_order ?? '—'}</div>
+      <div class="fc-preview-badge ${visible ? 'visible' : 'hidden'}">${visible ? '👁 Visible' : '🙈 Hidden'}</div>
+      ${images.length ? `<div class="fc-img-count">🖼 ${images.length} image${images.length>1?'s':''}</div>` : ''}
+    </div>
+    <div class="fc-card-body">
+      <div class="fc-eyebrow">${col.eyebrow || '&nbsp;'}</div>
+      <div class="fc-title">${col.title}</div>
+      <div class="fc-desc">${col.description || '<em style="color:var(--text-muted)">No description</em>'}</div>
+      <div class="fc-meta">
+        <span>🗂 ${catDisplay}</span>
+        <span>🔗 ${col.link_label || col.link_url || '—'}</span>
+      </div>
+    </div>
+    <div class="fc-card-footer">
+      <button class="btn btn-secondary btn-sm" onclick="openEditModal(${col.id})">✏️ Edit</button>
+      <button class="btn btn-sm ${visible ? 'btn-secondary' : 'btn-success'}"
+              onclick="toggleVisibility(${col.id}, ${!visible})">
+        ${visible ? '🙈 Hide' : '👁 Show'}
+      </button>
+      <button class="btn btn-danger btn-sm"
+              onclick="openDeleteModal(${col.id}, '${col.title.replace(/'/g,"\\'")}')">🗑️ Delete</button>
+    </div>`;
+
+  return card;
+}
+
+function startPreviewTimer(col) {
+  const images = Array.isArray(col.images) ? col.images : [];
+  if (images.length <= 1) return;
+  const previewId = `fcPrev-${col.id}`;
+  let current = 0;
+  _fcTimers[previewId] = setInterval(() => {
+    const wrap = document.getElementById(previewId);
+    if (!wrap) { clearInterval(_fcTimers[previewId]); return; }
+    const imgs = wrap.querySelectorAll('.fc-preview-img');
+    if (!imgs.length) return;
+    imgs[current].classList.remove('active');
+    current = (current + 1) % imgs.length;
+    imgs[current].classList.add('active');
+  }, 2500);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   FILTER  (client-side, matching products.html applyFilters pattern)
+═══════════════════════════════════════════════════════════════ */
+function filterCards() {
+  const q      = (document.getElementById('fcSearch')?.value || document.getElementById('topSearch')?.value || '').toLowerCase();
+  const status = document.getElementById('fcStatusFilter').value;
+  const result = FC_ALL.filter(c => {
+    const matchQ  = !q
+      || c.title.toLowerCase().includes(q)
+      || (c.description||'').toLowerCase().includes(q);
+    const matchSt = !status
+      || (status==='visible' && c.is_visible !== false)
+      || (status==='hidden'  && c.is_visible === false);
+    return matchQ && matchSt;
+  });
+  renderGrid(result);
+}
+
+function clearFcFilters() {
+  const s = document.getElementById('fcSearch');     if(s) s.value = '';
+  const t = document.getElementById('topSearch');    if(t) t.value = '';
+  const f = document.getElementById('fcStatusFilter'); if(f) f.value = '';
+  renderGrid(FC_ALL);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CATEGORY TREE  ── EXACT same logic as products.html
+   Uses:  FC_CATEGORY_TREE, FC_SEL_CAT_PATH
+   Container: #fcCategorySelectors
+═══════════════════════════════════════════════════════════════ */
+async function loadCategoryTree() {
+  try {
+    const datas = await API.get('/categories/tree/');
+    console.log('FC categories tree:', datas);
+    FC_CATEGORY_TREE = datas.data?.tree || [];
+    // render root level dropdowns into modal container
+    renderFcCategoryDropdowns(FC_CATEGORY_TREE, 0);
+  } catch(e) {
+    console.error('[FC] failed to load category tree', e);
+    document.getElementById('fcCategorySelectors').innerHTML =
+      '<span style="font-size:13px;color:var(--danger)">Failed to load categories.</span>';
+  }
+}
+
+/**
+ * Renders cascading <select> elements inside #fcCategorySelectors.
+ * EXACT copy of renderProductCategoryDropdowns() from products.html,
+ * adapted for the fc container and FC_SEL_CAT_PATH state.
+ */
+function renderFcCategoryDropdowns(categories, level, path = []) {
+  const container = document.getElementById('fcCategorySelectors');
+
+  // Remove lower levels (same logic as products.html)
+  Array.from(container.children).forEach((child, idx) => {
+    if (idx >= level) child.remove();
+  });
+
+  const select = document.createElement('select');
+  select.className     = `form-control fc-category-level-${level}`;
+  select.style.marginBottom = '8px';
+  select.innerHTML     = `<option value="">— Select Category —</option>`;
+
+  categories.forEach(cat => {
+    select.innerHTML += `<option value="${cat.id}">${cat.name}</option>`;
+  });
+
+  select.addEventListener('change', function() {
+   
+    Array.from(container.children).forEach((child, idx) => {
+      if (idx > level) child.remove();
+    });
+
+    const selectedId = this.value;
+    console.log(`Selected category id at level ${level}:`, selectedId);
+    if (!selectedId) {
+      FC_SEL_CAT_PATH = path.slice(0, level);
+      updateFcLinkFromCategory();
+      return;
+    }
+
+    const selectedCat = categories.find(c => String(c.id) === String(selectedId));
+    console.log(`Selected category at level ${level}:`, selectedCat);
+    if (!selectedCat) return;
+
+    // Save full path (same as SELECTED_CATEGORY_PATH in products.html)
+    FC_SEL_CAT_PATH = [...path, selectedCat];
+    console.log('FC Selected Category Path:', FC_SEL_CAT_PATH);
+
+    // Auto-fill link URL from category slug (same as autoSlug in products.html)
+    updateFcLinkFromCategory();
+
+    // Render next level if subcategories exist
+    if (selectedCat.subcategories?.length) {
+      renderFcCategoryDropdowns(selectedCat.subcategories, level + 1, FC_SEL_CAT_PATH);
+    }
+  });
+
+  container.appendChild(select);
+}
+
+/** Auto-fills link URL when a category is selected */
+function updateFcLinkFromCategory() {
+  if (!FC_SEL_CAT_PATH.length) {
+    document.getElementById('fcCatHint').textContent = 'Select a category to auto-fill the link URL below.';
+    return;
+  }
+  const data  = getFcCategoryPathData();
+  const hint  = FC_SEL_CAT_PATH.map(c => c.name).join(' › ');
+  document.getElementById('fcCatHint').textContent = '📂 ' + hint;
+
+  // Only auto-fill if the field is empty (don't override a manually typed URL)
+  const urlField = document.getElementById('fcLinkUrl');
+  console.log('Auto-filling link URL. Current value:', urlField.value);
+  if (!urlField.value) {
+    urlField.value = data.category_full_slug
+      ? `shop.html?category=${data.category_full_slug}`
+      : '';
+  }
+  // Auto-fill button label if empty
+  const labelField = document.getElementById('fcLinkLabel');
+  console.log('Auto-filling link label. Current value:', labelField.value);
+  if (!labelField.value || FC_SEL_CAT_PATH.length) {
+    labelField.value = `Shop ${FC_SEL_CAT_PATH[FC_SEL_CAT_PATH.length - 1].name}`;
+    urlField.value = data.category_full_slug? `shop.html?category=${data.category_full_slug}`: '';
+  }
+}
+
+/**
+ * Returns structured category data — EXACT same as getCategoryPathData() in products.html
+ */
+function getFcCategoryPathData() {
+  const names = FC_SEL_CAT_PATH.map(c => c.name);
+  const slugs = FC_SEL_CAT_PATH.map(c => c.slug);
+  const ids   = FC_SEL_CAT_PATH.map(c => c.id);
+  return {
+    category_id:           ids[ids.length - 1] || null,
+    category_path:         names,
+    category_slug_path:    slugs,
+    category_ancestor_ids: ids,
+    category_depth:        ids.length,
+    category_full_path:    names.join(' > '),
+    category_full_slug:    slugs.join('/')
+  };
+}
+
+/** Gets deepest selected category id — same as getSelectedProductCategoryId() in products.html */
+function getFcSelectedCategoryId() {
+  const selects = document.querySelectorAll('#fcCategorySelectors select');
+  let selected  = '';
+  selects.forEach(sel => { if (sel.value) selected = sel.value; });
+  return selected;
+}
+
+/**
+ * Pre-selects the category dropdowns for a known category id (for edit mode).
+ * EXACT copy of preselectCategoryPath() from products.html.
+ */
+function fcPreselectCategoryPath(categoryId) {
+  const container = document.getElementById('fcCategorySelectors');
+  const path = fcFindCategoryPath(FC_CATEGORY_TREE, categoryId);
+  if (!path) {
+    console.warn('[FC] Category not found in tree for id:', categoryId);
+    renderFcCategoryDropdowns(FC_CATEGORY_TREE, 0);
+    return;
+  }
+  FC_SEL_CAT_PATH = path;
+  container.innerHTML = '';
+
+  path.forEach((selectedCat, level) => {
+    const siblings = level === 0 ? FC_CATEGORY_TREE : (path[level-1].subcategories || []);
+    const select   = document.createElement('select');
+    select.className     = `form-control fc-category-level-${level}`;
+    select.style.marginBottom = '8px';
+    select.innerHTML     = `<option value="">— Select Category —</option>`;
+    siblings.forEach(cat => {
+      select.innerHTML += `<option value="${cat.id}">${cat.name}</option>`;
+    });
+    select.value = String(selectedCat.id);
+
+    select.addEventListener('change', function() {
+      Array.from(container.children).forEach((child, idx) => { if(idx > level) child.remove(); });
+      const selId  = this.value;
+      if (!selId) return;
+      const selCat = siblings.find(c => String(c.id) === String(selId));
+      if (!selCat) return;
+      FC_SEL_CAT_PATH = [...FC_SEL_CAT_PATH.slice(0, level), selCat];
+      updateFcLinkFromCategory();
+      if (selCat.subcategories?.length) {
+        renderFcCategoryDropdowns(selCat.subcategories, level + 1, FC_SEL_CAT_PATH);
+      }
+    });
+    container.appendChild(select);
+  });
+
+  // If leaf has sub-categories, render one more empty dropdown
+  const leaf = path[path.length - 1];
+  if (leaf.subcategories?.length) {
+    renderFcCategoryDropdowns(leaf.subcategories, path.length, FC_SEL_CAT_PATH);
+  }
+
+  updateFcLinkFromCategory();
+  console.log('[FC] Pre-selected path:', FC_SEL_CAT_PATH.map(c => c.name).join(' > '));
+}
+
+/** EXACT copy of findCategoryPath() from products.html */
+function fcFindCategoryPath(tree, targetId, path = []) {
+  for (const node of tree) {
+    const currentPath = [...path, node];
+    if (String(node.id) === String(targetId)) return currentPath;
+    if (node.subcategories?.length) {
+      const found = fcFindCategoryPath(node.subcategories, targetId, currentPath);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ADD / EDIT MODAL
+═══════════════════════════════════════════════════════════════ */
+function openAddModal() {
+  fcEditId      = null;
+  fcCurrentStep = 1;
+  document.getElementById('fcModalTitle').textContent = 'Add Featured Collection';
+  resetFcModal();
+  openModal('fcModal');
+}
+
+async function openEditModal(id) {
+  fcEditId      = id;
+  fcCurrentStep = 1;
+  document.getElementById('fcModalTitle').textContent = 'Edit Featured Collection';
+  resetFcModal();
+
+  try {
+    /* GET /api/featured-collections/{id}/ */
+    const raw = await API.get(`/featured-collections/${id}/`);
+    const col = raw?.data || raw;
+
+    // Step 1
+    document.getElementById('fcTitle').value       = col.title       || '';
+    document.getElementById('fcEyebrow').value     = col.eyebrow     || '';
+    document.getElementById('fcDescription').value = col.description || '';
+    document.getElementById('fcLinkLabel').value   = col.link_label  || '';
+    document.getElementById('fcLinkUrl').value     = col.link_url    || '';
+
+    // Category — pre-select using same logic as editProduct in products.html
+    if (col.category?.id || col.category_id) {
+      const catId = col.category?.id || col.category_id;
+      if (FC_CATEGORY_TREE.length) {
+        fcPreselectCategoryPath(catId);
+      } else {
+        // Tree not yet loaded; load then pre-select
+        await loadCategoryTree();
+        fcPreselectCategoryPath(catId);
+      }
+    } else {
+      renderFcCategoryDropdowns(FC_CATEGORY_TREE, 0);
+    }
+
+    // Step 2 — images
+    document.getElementById('fcImgList').innerHTML = '';
+    (col.images || []).forEach(img => fcAddImgRow(img.url, img.alt));
+    if (!col.images?.length) fcAddImgRow(); // at least one empty row
+
+    // Step 3
+    document.getElementById('fcSortOrder').value  = col.sort_order ?? 1;
+    document.getElementById('fcIsVisible').checked = col.is_visible !== false;
+
+  } catch(e) {
+    console.error('[FC] edit load error', e);
+    showToast('error', 'Error', 'Failed to load collection data.');
+    closeModal('fcModal');
+    return;
+  }
+
+  updateFcStepUI();
+  openModal('fcModal');
+}
+
+function resetFcModal() {
+  // Clear all fields
+  ['fcTitle','fcEyebrow','fcLinkLabel','fcLinkUrl'].forEach(id => {
+    const el = document.getElementById(id); if(el) el.value = '';
+  });
+  document.getElementById('fcDescription').value  = '';
+  document.getElementById('fcSortOrder').value    = '1';
+  document.getElementById('fcIsVisible').checked  = true;
+  document.getElementById('fcCatHint').textContent = 'Select a category to auto-fill the link URL below.';
+  document.getElementById('fcUploadPreview').innerHTML = '';
+  fcUploadedFiles = [];
+  document.getElementById('fcFileInput').value = '';
+
+  // Reset image list with one blank row
+  document.getElementById('fcImgList').innerHTML = '';
+  fcAddImgRow();
+
+  // Reset category selectors
+  FC_SEL_CAT_PATH = [];
+  if (FC_CATEGORY_TREE.length) {
+    renderFcCategoryDropdowns(FC_CATEGORY_TREE, 0);
+  }
+
+  updateFcStepUI();
+}
+
+/* ── Step navigation (same pattern as products.html nextStep/prevStep) ── */
+function fcNextStep() {
+  if (!fcValidateStep(fcCurrentStep)) return;
+  if (fcCurrentStep < FC_TOTAL_STEPS) {
+    fcCurrentStep++;
+    updateFcStepUI();
+  }
+}
+function fcPrevStep() {
+  if (fcCurrentStep > 1) { fcCurrentStep--; updateFcStepUI(); }
+}
+
+function updateFcStepUI() {
+  // Steps visibility
+  document.querySelectorAll('.modal-step').forEach((el, i) => {
+    el.classList.toggle('active', i + 1 === fcCurrentStep);
+  });
+  // Step indicator dots (same logic as updateStepUI in products.html)
+  for (let i = 1; i <= FC_TOTAL_STEPS; i++) {
+    const el = document.getElementById(`fc-si${i}`);
+    el.classList.remove('active','done');
+    if      (i < fcCurrentStep)  el.classList.add('done');
+    else if (i === fcCurrentStep) el.classList.add('active');
+  }
+  for (let i = 1; i < FC_TOTAL_STEPS; i++) {
+    const l = document.getElementById(`fc-sl${i}`);
+    if (l) l.style.background = i < fcCurrentStep ? 'var(--success)' : 'var(--border)';
+  }
+  document.getElementById('fcBtnPrev').style.display = fcCurrentStep > 1              ? 'inline-flex' : 'none';
+  document.getElementById('fcBtnNext').style.display = fcCurrentStep < FC_TOTAL_STEPS ? 'inline-flex' : 'none';
+  document.getElementById('fcBtnSave').style.display = fcCurrentStep === FC_TOTAL_STEPS ? 'inline-flex' : 'none';
+}
+
+function fcValidateStep(step) {
+  if (step === 1) {
+    if (!document.getElementById('fcTitle').value.trim()) {
+      showToast('warning', 'Required', 'Collection title is required.');
+      return false;
+    }
+  }
+  if (step === 2) {
+    const hasImg = [...document.querySelectorAll('.fc-img-url-input')].some(i => i.value.trim());
+    // if (!hasImg) {
+    //   showToast('warning', 'Required', 'Add at least one image URL.');
+    //   return false;
+    // }
+  }
+  return true;
+}
+
+/* ── Image rows ── */
+function fcAddImgRow(url = '', alt = '') {
+  const list = document.getElementById('fcImgList');
+  const idx  = Date.now(); // unique id for thumb preview
+  const row  = document.createElement('div');
+  row.className = 'fc-img-row';
+  row.innerHTML = `
+    <img class="fc-img-row-thumb" id="fcThumb-${idx}"
+         src="${url || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'52\' height=\'52\'%3E%3Crect width=\'52\' height=\'52\' fill=\'%23ede9fe\'/%3E%3C/svg%3E'}"
+         alt="preview">
+    <div class="fc-img-row-fields">
+      <input class="form-control fc-img-url-input"
+             placeholder="Image URL  (https://cdn.example.com/img.jpg)"
+             value="${url}"
+             oninput="fcPreviewThumb(this,'${idx}')">
+      <input class="form-control"
+             placeholder="Alt text (optional)"
+             value="${alt}">
+    </div>
+    <button class="fc-img-row-remove" title="Remove"
+            onclick="this.closest('.fc-img-row').remove()">✕</button>`;
+  list.appendChild(row);
+}
+
+function fcPreviewThumb(input, idx) {
+  const thumb = document.getElementById(`fcThumb-${idx}`);
+  if (thumb && input.value.trim()) thumb.src = input.value.trim();
+}
+
+/* ── Upload zone ── */
+function initFcUploadZone() {
+  const zone    = document.getElementById('fcUploadZone');
+  const input   = document.getElementById('fcFileInput');
+  const preview = document.getElementById('fcUploadPreview');
+  if (!zone || !input) return;
+
+  zone.addEventListener('click', () => input.click());
+  zone.addEventListener('dragover',  e => { e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', ()  => zone.classList.remove('drag-over'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault(); zone.classList.remove('drag-over');
+    handleFcFiles(e.dataTransfer.files, preview);
+  });
+  input.addEventListener('change', e => handleFcFiles(e.target.files, preview));
+}
+
+function handleFcFiles(files, preview) {
+  // [...files].slice(0, 8).forEach(file => {
+  //   const reader = new FileReader();
+  //   reader.onload = e => {
+  //     const div = document.createElement('div');
+  //     div.className = 'image-preview-item';
+  //     div.innerHTML = `
+  //       <img src="${e.target.result}" alt="preview">
+  //       <div class="remove-img" onclick="this.closest('.image-preview-item').remove()">✕</div>`;
+  //     preview.appendChild(div);
+  //   };
+  //   reader.readAsDataURL(file);
+  // });
+   [...files].slice(0, 8).forEach(file => {
+
+    // STORE ACTUAL FILE
+    fcUploadedFiles.push(file);
+
+    const reader = new FileReader();
+
+    reader.onload = e => {
+
+      const index = fcUploadedFiles.length - 1;
+
+      const div = document.createElement('div');
+      div.className = 'image-preview-item';
+
+      div.innerHTML = `
+        <img src="${e.target.result}" alt="preview">
+
+        <div class="remove-img"
+             onclick="removeFcUpload(${index}, this)">
+          ✕
+        </div>
+      `;
+
+      preview.appendChild(div);
+    };
+
+    reader.readAsDataURL(file);
+  });
+}
+
+function removeFcUpload(index, el) {
+
+  fcUploadedFiles.splice(index, 1);
+
+  el.closest('.image-preview-item').remove();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SAVE  (POST or PUT)
+═══════════════════════════════════════════════════════════════ */
+async function saveCollection() {
+  // Re-validate both earlier steps before saving
+  if (!fcValidateStep(1)) { fcCurrentStep = 1; updateFcStepUI(); return; }
+  if (!fcValidateStep(2)) { fcCurrentStep = 2; updateFcStepUI(); return; }
+
+  // Collect images
+  const images = [];
+  document.querySelectorAll('.fc-img-row').forEach((row, i) => {
+    const inputs = row.querySelectorAll('input');
+    const url    = inputs[0]?.value.trim();
+    const alt    = inputs[1]?.value.trim() || '';
+    if (url) images.push({ url, alt, sort_order: i });
+  });
+
+  // Category data — same structure as saveProduct() in products.html
+  const catData = getFcCategoryPathData();
+  const formData = new FormData();
+  formData.append('title',document.getElementById('fcTitle').value.trim());
+
+  formData.append('eyebrow',document.getElementById('fcEyebrow').value.trim());
+
+  formData.append('description',document.getElementById('fcDescription').value.trim());
+
+  formData.append('link_label',document.getElementById('fcLinkLabel').value.trim());
+
+  formData.append('link_url',document.getElementById('fcLinkUrl').value.trim());
+
+  formData.append('category_id', catData.category_id || '');
+  formData.append('category_path', JSON.stringify(catData.category_path || []));
+  formData.append('category_slug_path', JSON.stringify(catData.category_slug_path || []));
+  formData.append('category_full_path', catData.category_full_path || '');
+  formData.append('category_full_slug', catData.category_full_slug || '');
+  formData.append('category_ancestor_ids', JSON.stringify(catData.category_ancestor_ids || []));
+  formData.append('category_depth', catData.category_depth || 0);
+
+  formData.append('images', JSON.stringify(images));
+
+  formData.append('sort_order',parseInt(document.getElementById('fcSortOrder').value) || 1);
+
+  formData.append('is_visible',document.getElementById('fcIsVisible').checked);
+  
+  fcUploadedFiles.forEach(file => {formData.append('uploaded_images', file);});
+
+  const payload = {
+    title:                 document.getElementById('fcTitle').value.trim(),
+    eyebrow:               document.getElementById('fcEyebrow').value.trim(),
+    description:           document.getElementById('fcDescription').value.trim(),
+    link_label:            document.getElementById('fcLinkLabel').value.trim(),
+    link_url:              document.getElementById('fcLinkUrl').value.trim(),
+
+    // Category fields (full same payload shape as products.html)
+    category_id:           catData.category_id,
+    category_path:         catData.category_path,
+    category_slug_path:    catData.category_slug_path,
+    category_full_path:    catData.category_full_path,
+    category_full_slug:    catData.category_full_slug,
+    category_ancestor_ids: catData.category_ancestor_ids,
+    category_depth:        catData.category_depth,
+
+    images,
+    sort_order:  parseInt(document.getElementById('fcSortOrder').value) || 1,
+    is_visible:  document.getElementById('fcIsVisible').checked,
+  };
+
+  console.log('[FC] Save payload:', payload);
+
+  const btn = document.getElementById('fcBtnSave');
+  btn.disabled    = true;
+  btn.textContent = '💾 Saving…';
+
+  try {
+    if (fcEditId) {
+      /* PUT /api/featured-collections/{id}/ */
+      // await API.put(`/featured-collections/${fcEditId}/`, payload);
+      await API.put(`/featured-collections/${fcEditId}/`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      showToast('success', 'Updated', 'Featured collection updated successfully.');
+    } else {
+      /* POST /api/featured-collections/ */
+      // await API.post('/featured-collections/', payload);
+       await API.post('/featured-collections/', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      showToast('success', 'Created', 'Featured collection created successfully.');
+    }
+    closeModal('fcModal');
+    await loadCollections();
+  } catch(e) {
+    console.error('[FC] save error', e);
+    showToast('error', 'Save Failed', e.message || 'Could not save collection. Try again.');
+  } finally {
+    btn.disabled    = false;
+    btn.textContent = '💾 Save Collection';
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   TOGGLE VISIBILITY  (PATCH)
+═══════════════════════════════════════════════════════════════ */
+async function toggleVisibility(id, newVisible) {
+  try {
+    /* PATCH /api/featured-collections/{id}/ */
+    await API.patch(`/featured-collections/${id}/`, { is_visible: newVisible });
+    showToast('success', newVisible ? 'Now Visible' : 'Now Hidden',
+              `Collection is ${newVisible ? 'visible on the website' : 'hidden from customers'}.`);
+    await loadCollections();
+  } catch(e) {
+    showToast('error', 'Error', 'Could not update visibility.');
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   DELETE
+═══════════════════════════════════════════════════════════════ */
+function openDeleteModal(id, name) {
+  fcDeleteId = id;
+  document.getElementById('fcDeleteName').textContent = name;
+  openModal('fcDeleteModal');
+}
+
+async function confirmFcDelete() {
+  if (!fcDeleteId) return;
+  try {
+    /* DELETE /api/featured-collections/{id}/ */
+    await API.delete(`/featured-collections/${fcDeleteId}/`);
+    showToast('success', 'Deleted', 'Collection permanently removed.');
+    closeModal('fcDeleteModal');
+    await loadCollections();
+  } catch(e) {
+    showToast('error', 'Delete Failed', 'Could not delete collection.');
+  }
+  fcDeleteId = null;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   AUTH CHECK
+═══════════════════════════════════════════════════════════════ */
+function checkAuth() {
+  const token = localStorage.getItem('adminToken');
+  if (!token) { location.href = 'login.html'; return false; }
+  return true;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════════════════════ */
+(async function init() {
+  if (!checkAuth()) return;
+
+  setUserInfo();
+  initFcUploadZone();
+
+  // Load category tree and collections in parallel
+  await Promise.all([
+    loadCategoryTree(),
+    loadCollections()
+  ]);
+
+  // Sidebar toggle — same IDs as products.html
+  document.getElementById('sidebarToggle')?.addEventListener('click', () => {
+    const sidebar  = document.getElementById('sidebar');
+    const main     = document.getElementById('mainContent');
+    const mOverlay = document.querySelector('.mobile-overlay');
+    if (window.innerWidth <= 768) {
+      sidebar.classList.toggle('mobile-open');
+      mOverlay?.classList.toggle('show');
+    } else {
+      sidebar.classList.toggle('collapsed');
+      main.classList.toggle('expanded', sidebar.classList.contains('collapsed'));
+      localStorage.setItem('sidebar-collapsed', sidebar.classList.contains('collapsed'));
+    }
+  });
+
+  // Restore sidebar collapse state
+  if (localStorage.getItem('sidebar-collapsed') === 'true' && window.innerWidth > 768) {
+    document.getElementById('sidebar')?.classList.add('collapsed');
+  }
+
+  // Dropdown (topbar user menu) — same as products.html
+  document.querySelectorAll('[data-dropdown]').forEach(trigger => {
+    trigger.addEventListener('click', e => {
+      e.stopPropagation();
+      trigger.closest('.dropdown')?.classList.toggle('open');
+    });
+  });
+  document.addEventListener('click', () => {
+    document.querySelectorAll('.dropdown.open').forEach(d => d.classList.remove('open'));
+  });
+
+  // Logout
+  document.querySelector('[data-logout]')?.addEventListener('click', () => {
+    localStorage.removeItem('adminToken');
+    localStorage.removeItem('adminUser');
+    location.href = 'login.html';
+  });
+
+  // Close modals on overlay click (admin.js initModals also does this, belt-and-suspenders)
+  document.querySelectorAll('.modal-overlay').forEach(o =>
+    o.addEventListener('click', e => { if (e.target === o) closeModal(o.id); })
+  );
+})();
+</script>
+</body>
+</html>

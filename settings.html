@@ -1,0 +1,1414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>Settings – LoomIndica Admin</title>
+  <link rel="stylesheet" href="admin.css">
+  <style>
+    /* ═══════════════════════════════════════════════
+       RESPONSIVE CORE FIXES
+    ═══════════════════════════════════════════════ */
+    *, *::before, *::after { box-sizing: border-box; }
+    .page-content  { min-width: 0; overflow-x: hidden; }
+    .main-content  { min-width: 0; overflow-x: hidden; }
+
+    /* ═══════════════════════════════════════════════
+       SETTINGS LAYOUT — sticky left nav + content
+    ═══════════════════════════════════════════════ */
+    .settings-layout {
+      display: grid;
+      grid-template-columns: 240px minmax(0, 1fr);
+      gap: 24px;
+      align-items: start;
+    }
+    @media (max-width: 900px) {
+      .settings-layout { grid-template-columns: 1fr; }
+      .settings-nav { position: static !important; display: flex; flex-wrap: wrap; }
+      .settings-nav-header { width: 100%; }
+      .settings-nav-item {
+        flex: 1 1 auto; border-bottom: none; border-right: 1px solid var(--border);
+        font-size: 12.5px; padding: 10px 12px; justify-content: center;
+        flex-direction: column; text-align: center; gap: 4px;
+      }
+    }
+    @media (max-width: 600px) {
+      .settings-row { flex-direction: column; gap: 10px; }
+      .settings-row-control { min-width: 100%; width: 100%; }
+    }
+
+    /* ═══════════════════════════════════════════════
+       SETTINGS NAV
+    ═══════════════════════════════════════════════ */
+    .settings-nav {
+      background: #fff; border: 1px solid var(--border);
+      border-radius: 14px; overflow: hidden; position: sticky; top: 88px;
+    }
+    .settings-nav-header {
+      padding: 14px 18px; font-size: 11.5px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 1px;
+      color: var(--text-muted); background: var(--body-bg);
+      border-bottom: 1px solid var(--border);
+    }
+    .settings-nav-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 11px 18px; cursor: pointer; font-size: 13.5px;
+      font-weight: 500; color: var(--text-mid);
+      transition: var(--transition); border-bottom: 1px solid var(--border);
+    }
+    .settings-nav-item:last-child { border-bottom: none; }
+    .settings-nav-item:hover  { background: var(--body-bg); color: var(--primary); }
+    .settings-nav-item.active { background: var(--primary-light); color: var(--primary); font-weight: 700; }
+    .settings-nav-item .s-icon { font-size: 16px; flex-shrink: 0; width: 22px; text-align: center; }
+
+    /*
+      PERM: nav items that need specific permissions are hidden via
+      initPage() if the admin lacks the permission.
+      We add [data-perm] attributes and gate them after PermGuard.init().
+    */
+    .settings-nav-item[data-locked] {
+      opacity: 0.4; cursor: not-allowed; pointer-events: none;
+    }
+
+    /* ═══════════════════════════════════════════════
+       SETTINGS PANELS
+    ═══════════════════════════════════════════════ */
+    .settings-panel { display: none; animation: fadeIn .25s ease; }
+    .settings-panel.active { display: block; }
+    .settings-section {
+      background: #fff; border: 1px solid var(--border);
+      border-radius: 14px; margin-bottom: 20px; overflow: hidden;
+    }
+    .settings-section-header {
+      padding: 16px 22px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;
+    }
+    .settings-section-header h3 { font-size: 15px; font-weight: 700; }
+    .settings-section-header p  { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+    .settings-body { padding: 22px; }
+    .settings-row {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      gap: 20px; padding: 14px 0; border-bottom: 1px solid var(--border);
+    }
+    .settings-row:last-child  { border-bottom: none; padding-bottom: 0; }
+    .settings-row:first-child { padding-top: 0; }
+    .settings-row-info { flex: 1; }
+    .settings-row-info label { font-size: 13.5px; font-weight: 600; display: block; margin-bottom: 3px; }
+    .settings-row-info span  { font-size: 12.5px; color: var(--text-muted); line-height: 1.5; }
+    .settings-row-control { flex-shrink: 0; min-width: 200px; }
+
+    /* Section locked placeholder */
+    .section-locked {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 8px; padding: 40px 20px;
+      background: var(--body-bg); border: 1.5px dashed var(--border);
+      border-radius: 12px; text-align: center; color: var(--text-muted); font-size: 13.5px;
+    }
+    .section-locked span { font-size: 36px; }
+
+    /* ═══════════════════════════════════════════════
+       COMPONENT STYLES (unchanged from original)
+    ═══════════════════════════════════════════════ */
+    .logo-upload-wrap {
+      display: flex; align-items: center; gap: 14px;
+      background: var(--body-bg); border: 1.5px dashed var(--border);
+      border-radius: 12px; padding: 16px; cursor: pointer; transition: var(--transition);
+    }
+    .logo-upload-wrap:hover { border-color: var(--primary); background: var(--primary-light); }
+    .logo-preview      { width: 64px; height: 64px; border-radius: 10px; object-fit: contain; background: #fff; border: 1px solid var(--border); padding: 4px; }
+    .logo-placeholder  { width: 64px; height: 64px; border-radius: 10px; background: var(--primary-light); display: flex; align-items: center; justify-content: center; font-size: 28px; flex-shrink: 0; }
+
+    .color-pick-row { display: flex; align-items: center; gap: 10px; }
+    .color-swatch   { width: 32px; height: 32px; border-radius: 8px; border: 2px solid var(--border); cursor: pointer; position: relative; overflow: hidden; }
+    .color-swatch input[type="color"] { position: absolute; inset: -4px; width: calc(100% + 8px); height: calc(100% + 8px); opacity: 0; cursor: pointer; }
+
+    .zone-row { display: flex; align-items: center; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+    .zone-row:last-child { border-bottom: none; }
+
+    .gateway-card { border: 1.5px solid var(--border); border-radius: 12px; padding: 16px 18px; margin-bottom: 12px; transition: var(--transition); }
+    .gateway-card.enabled { border-color: var(--success); background: var(--success-light); }
+    .gateway-card-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+    .gateway-logo  { display: flex; align-items: center; gap: 10px; }
+    .gateway-icon  { width: 40px; height: 40px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+    .gateway-details { padding-top: 14px; border-top: 1px solid var(--border); margin-top: 12px; display: none; }
+    .gateway-card.open .gateway-details { display: block; }
+
+    .notif-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border); flex-wrap: wrap; gap: 8px; }
+    .notif-row:last-child { border-bottom: none; }
+    .notif-row-info strong { font-size: 13.5px; font-weight: 600; display: block; }
+    .notif-row-info span   { font-size: 12.5px; color: var(--text-muted); }
+
+    .admin-user-card { display: flex; align-items: center; gap: 14px; padding: 14px; background: var(--body-bg); border-radius: 10px; border: 1px solid var(--border); margin-bottom: 10px; transition: var(--transition); }
+    .admin-user-card:hover { border-color: var(--primary); }
+    .admin-user-avatar { width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px; color: #fff; flex-shrink: 0; }
+
+    .danger-section { border-color: var(--danger) !important; }
+    .danger-section .settings-section-header { background: var(--danger-light); border-bottom-color: var(--danger); }
+    .danger-section .settings-section-header h3 { color: var(--danger); }
+
+    /* Read-only notice */
+    .readonly-notice { display:inline-flex; align-items:center; gap:6px; background:#FEF9C3; border:1px solid #FDE047; color:#854D0E; font-size:12px; font-weight:600; padding:4px 12px; border-radius:20px; }
+
+    /* Sidebar collapse */
+    .sidebar.collapsed { width: 64px; }
+    .sidebar.collapsed .brand-text,
+    .sidebar.collapsed .nav-label,
+    .sidebar.collapsed .nav-section-title { opacity: 0; pointer-events: none; width: 0; }
+  </style>
+</head>
+<body>
+<div class="mobile-overlay"></div>
+<div id="toast-container"></div>
+
+<div class="admin-shell">
+
+  <!-- ═══ SIDEBAR ═══ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon">LI</div>
+      <div class="brand-text"><h3>LoomIndica</h3><span>Admin Panel</span></div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Main</div>
+      <div class="nav-item"><a href="dashboard.html"    class="nav-link"><span class="nav-icon">📊</span><span class="nav-label">Dashboard</span></a></div>
+      <div class="nav-section-label">Catalogue</div>
+      <div class="nav-item"><a href="products.html"     class="nav-link"><span class="nav-icon">🛍️</span><span class="nav-label">Products</span></a></div>
+      <div class="nav-item"><a href="categories.html"   class="nav-link"><span class="nav-icon">🗂️</span><span class="nav-label">Categories</span></a></div>
+      <div class="nav-item"><a href="inventory.html"    class="nav-link"><span class="nav-icon">📦</span><span class="nav-label">Inventory</span><span class="nav-badge">8</span></a></div>
+      <div class="nav-section-label">Sales</div>
+      <div class="nav-item"><a href="orders.html"       class="nav-link"><span class="nav-icon">🧾</span><span class="nav-label">Orders</span><span class="nav-badge">24</span></a></div>
+      <div class="nav-item"><a href="customers.html"    class="nav-link"><span class="nav-icon">👥</span><span class="nav-label">Customers</span></a></div>
+      <div class="nav-item"><a href="transactions.html" class="nav-link"><span class="nav-icon">💳</span><span class="nav-label">Transactions</span></a></div>
+      <div class="nav-section-label">Marketing</div>
+      <div class="nav-item"><a href="coupons.html"      class="nav-link"><span class="nav-icon">🎟️</span><span class="nav-label">Coupons</span></a></div>
+      <div class="nav-item"><a href="banners.html"      class="nav-link"><span class="nav-icon">🖼️</span><span class="nav-label">Banners &amp; Offers</span></a></div>
+      <div class="nav-item"><a href="blogs.html"   class="nav-link" data-label="Blog"><span class="nav-icon">✍️</span><span class="nav-label">Blog</span></a></div>
+      <div class="nav-item"><a href="featured-collections.html"   class="nav-link" data-label="Featured"><span class="nav-icon">✨</span><span class="nav-label">Featured Collections</span></a></div>
+      <div class="nav-section-label">Analytics</div>
+      <div class="nav-item"><a href="reports.html"      class="nav-link"><span class="nav-icon">📈</span><span class="nav-label">Reports</span></a></div>
+      <div class="nav-section-label">System</div>
+      <div class="nav-item"><a href="settings.html"     class="nav-link active"><span class="nav-icon">⚙️</span><span class="nav-label">Settings</span></a></div>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="sidebar-user">
+        <div class="user-avatar" id="sidebarAvatar">A</div>
+        <div class="user-info"><strong id="sidebarName">Admin</strong><span id="sidebarRole">—</span></div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ═══ MAIN CONTENT ═══ -->
+  <div class="main-content" id="mainContent">
+    <header class="topbar">
+      <button class="topbar-toggle" id="sidebarToggle">☰</button>
+      <div class="topbar-search"><i>🔍</i><input placeholder="Search settings…" oninput="searchSettings(this.value)"></div>
+      <div class="topbar-actions">
+        <div class="dropdown">
+          <div class="topbar-user" data-dropdown>
+            <div class="avatar" id="topbarAvatar">A</div>
+            <div class="topbar-user-info">
+              <strong id="topbarName">Admin</strong>
+              <span id="topbarRole">—</span>
+            </div>
+            <span style="margin-left:4px;color:var(--text-muted);font-size:11px">▾</span>
+          </div>
+          <div class="dropdown-menu">
+            <!-- PermGuard wires [data-logout] automatically -->
+            <div class="dropdown-item danger" data-logout>🚪 Logout</div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="page-content" id="pageContent">
+      <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px;">
+        <div class="page-header-left">
+          <h1>Settings</h1>
+          <div class="breadcrumb">
+            <span onclick="location.href='dashboard.html'">Home</span>
+            <i>›</i><span>System</span><i>›</i><span>Settings</span>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <!-- Read-only notice — shown when admin has view_settings only -->
+          <div id="readonlyNotice" class="readonly-notice" style="display:none;">👁️ View Only</div>
+          <!--
+            PERM: edit_store_info (proxy for any settings write access)
+            "Save Changes" button hidden when admin has no write permissions.
+            Gated in initPage() via PermGuard.guard().
+          -->
+          <button class="btn btn-primary" id="globalSaveBtn" onclick="saveAllSettings()">💾 Save Changes</button>
+        </div>
+      </div>
+
+      <div class="settings-layout">
+
+        <!-- ══ LEFT: Settings Nav ══ -->
+        <div class="settings-nav">
+          <div class="settings-nav-header">Configuration</div>
+
+          <!--
+            Nav items with data-perm are gated in initPage().
+            Items without data-perm are visible to anyone with view_settings.
+          -->
+          <div class="settings-nav-item active" onclick="switchPanel('general',this)">
+            <span class="s-icon">🏪</span> General
+          </div>
+          <div class="settings-nav-item" onclick="switchPanel('appearance',this)">
+            <span class="s-icon">🎨</span> Appearance
+          </div>
+          <!--
+            PERM: manage_payment_config
+            Locked (greyed out) when admin lacks manage_payment_config.
+          -->
+          <div class="settings-nav-item" id="nav-payments" onclick="switchPanel('payments',this)" data-perm="manage_payment_config">
+            <span class="s-icon">💳</span> Payments
+          </div>
+          <!--
+            PERM: manage_shipping_config
+          -->
+          <div class="settings-nav-item" id="nav-shipping" onclick="switchPanel('shipping',this)" data-perm="manage_shipping_config">
+            <span class="s-icon">🚚</span> Shipping
+          </div>
+          <div class="settings-nav-item" onclick="switchPanel('orders',this)">
+            <span class="s-icon">🧾</span> Orders
+          </div>
+          <!--
+            PERM: manage_email_config
+          -->
+          <div class="settings-nav-item" id="nav-notifications" onclick="switchPanel('notifications',this)" data-perm="manage_email_config">
+            <span class="s-icon">🔔</span> Notifications
+          </div>
+          <div class="settings-nav-item" onclick="switchPanel('seo',this)">
+            <span class="s-icon">🔍</span> SEO &amp; Meta
+          </div>
+          <div class="settings-nav-item" onclick="switchPanel('users',this)">
+            <span class="s-icon">👤</span> Admin Users
+          </div>
+          <div class="settings-nav-item" onclick="switchPanel('integrations',this)">
+            <span class="s-icon">🔗</span> Integrations
+          </div>
+          <div class="settings-nav-item" onclick="switchPanel('security',this)">
+            <span class="s-icon">🔒</span> Security
+          </div>
+          <!-- Danger Zone — only admins with all write perms see this -->
+          <div class="settings-nav-item" id="nav-danger" onclick="switchPanel('danger',this)">
+            <span class="s-icon">⚠️</span> Danger Zone
+          </div>
+        </div>
+
+        <!-- ══ RIGHT: Panels ══ -->
+        <div id="settingsPanels">
+
+          <!-- ═══════════════════════════════════════════
+               GENERAL — edit_store_info
+               ═══════════════════════════════════════════ -->
+          <div class="settings-panel active" id="panel-general">
+            <div class="settings-section">
+              <div class="settings-section-header">
+                <div><h3>🏪 Store Information</h3><p>Basic information about your store</p></div>
+              </div>
+              <!--
+                PERM: edit_store_info
+                All inputs inside are disabled (not hidden) for read-only admins
+                so they can still see the values. Applied by initPage().
+              -->
+              <div class="settings-body" id="storeInfoBody">
+                <div class="settings-row">
+                  <div class="settings-row-info"><label>Store Name</label><span>Shown on website, emails, and invoices</span></div>
+                  <div class="settings-row-control"><input class="form-control store-info-input" id="storeName" value="LoomIndica"></div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row-info"><label>Store Tagline</label><span>Short description below logo and in meta tags</span></div>
+                  <div class="settings-row-control"><input class="form-control store-info-input" id="storeTagline" value="Handcrafted Indian Textiles"></div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row-info"><label>Store Logo</label><span>PNG or SVG · 200×60px recommended</span></div>
+                  <div class="settings-row-control">
+                    <div class="logo-upload-wrap" id="logoUploadWrap" onclick="document.getElementById('logoInput').click()">
+                      <div class="logo-placeholder">🪢</div>
+                      <div><div style="font-weight:600;font-size:13.5px">Upload Logo</div><div style="font-size:12px;color:var(--text-muted)">Click to browse</div></div>
+                    </div>
+                    <input type="file" id="logoInput" accept="image/*" style="display:none" onchange="previewLogo(event)">
+                  </div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row-info"><label>Store Email</label><span>Primary email for order notifications and replies</span></div>
+                  <div class="settings-row-control"><input class="form-control store-info-input" id="storeEmail" value="support@loomindica.com"></div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row-info"><label>Support Phone</label><span>Displayed on website and in order SMS</span></div>
+                  <div class="settings-row-control"><input class="form-control store-info-input" id="storePhone" value="+91 9876543210"></div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row-info"><label>Store Currency</label></div>
+                  <div class="settings-row-control"><select class="form-control store-info-input" id="storeCurrency"><option selected>₹ INR – Indian Rupee</option><option>$ USD – US Dollar</option></select></div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row-info"><label>Timezone</label></div>
+                  <div class="settings-row-control"><select class="form-control store-info-input" id="storeTimezone"><option selected>Asia/Kolkata (IST +5:30)</option><option>UTC+0</option></select></div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row-info"><label>Store Address</label><span>Displayed in invoices and GST documents</span></div>
+                  <div class="settings-row-control"><textarea class="form-control store-info-input" id="storeAddress" rows="3">Indore, Madhya Pradesh – 452001, India</textarea></div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row-info"><label>GSTIN</label><span>Your 15-digit GST Identification Number</span></div>
+                  <div class="settings-row-control"><input class="form-control store-info-input" id="storeGST" placeholder="e.g. 23AAAPL1234F1Z5" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="settings-section">
+              <div class="settings-section-header"><div><h3>🌐 Social Media Links</h3><p>Shown in the website footer</p></div></div>
+              <div class="settings-body">
+                <div class="settings-row"><div class="settings-row-info"><label>Instagram</label></div><div class="settings-row-control"><input class="form-control store-info-input" id="linkInsta" placeholder="https://instagram.com/loomindica"></div></div>
+                <div class="settings-row"><div class="settings-row-info"><label>Facebook</label></div><div class="settings-row-control"><input class="form-control store-info-input" id="linkFb" placeholder="https://facebook.com/loomindica"></div></div>
+                <div class="settings-row"><div class="settings-row-info"><label>WhatsApp Business</label></div><div class="settings-row-control"><input class="form-control store-info-input" id="linkWa" placeholder="+91 9876543210"></div></div>
+                <div class="settings-row"><div class="settings-row-info"><label>YouTube</label></div><div class="settings-row-control"><input class="form-control store-info-input" id="linkYt" placeholder="https://youtube.com/@loomindica"></div></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ═══════════════════════════════════════════
+               APPEARANCE — edit_store_info
+               ═══════════════════════════════════════════ -->
+          <div class="settings-panel" id="panel-appearance">
+            <div class="settings-section">
+              <div class="settings-section-header"><div><h3>🎨 Theme &amp; Colors</h3><p>Customize the storefront look and feel</p></div></div>
+              <div class="settings-body">
+                <div class="settings-row">
+                  <div class="settings-row-info"><label>Primary Color</label><span>Main brand color for buttons, links, and highlights</span></div>
+                  <div class="settings-row-control"><div class="color-pick-row"><div class="color-swatch"><input type="color" id="colorPrimary" value="#7C3AED" oninput="updateColorPreview('primary',this.value)"></div><input class="form-control store-info-input" id="colorPrimaryHex" value="#7C3AED" style="width:110px;font-family:monospace" oninput="document.getElementById('colorPrimary').value=this.value"></div></div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row-info"><label>Accent / Secondary Color</label></div>
+                  <div class="settings-row-control"><div class="color-pick-row"><div class="color-swatch"><input type="color" id="colorAccent" value="#F59E0B"></div><input class="form-control store-info-input" id="colorAccentHex" value="#F59E0B" style="width:110px;font-family:monospace"></div></div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row-info"><label>Favicon</label><span>32×32px PNG/ICO</span></div>
+                  <div class="settings-row-control"><button class="btn btn-secondary btn-sm store-info-btn" onclick="document.getElementById('faviconInput').click()">📎 Upload Favicon</button><input type="file" id="faviconInput" accept="image/*" style="display:none"></div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row-info"><label>Homepage Layout</label></div>
+                  <div class="settings-row-control"><select class="form-control store-info-input" id="homeLayout"><option>Hero Banner + Categories + Featured Products</option><option>Full-width Slider + Collections</option><option>Minimal Grid Layout</option></select></div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row-info"><label>Products per Page</label></div>
+                  <div class="settings-row-control"><select class="form-control store-info-input" id="perPage"><option>12</option><option selected>24</option><option>36</option><option>48</option></select></div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row-info"><label>Show "Out of Stock" Products</label></div>
+                  <div class="settings-row-control"><label class="toggle"><input type="checkbox" class="store-info-input" id="showOutOfStock" checked><span class="toggle-slider"></span></label></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ═══════════════════════════════════════════
+               PAYMENTS — manage_payment_config
+               ═══════════════════════════════════════════ -->
+          <div class="settings-panel" id="panel-payments">
+            <!-- Panel body injected by initPage() based on manage_payment_config -->
+            <div id="paymentsBody"></div>
+          </div>
+
+          <!-- ═══════════════════════════════════════════
+               SHIPPING — manage_shipping_config
+               ═══════════════════════════════════════════ -->
+          <div class="settings-panel" id="panel-shipping">
+            <div id="shippingBody"></div>
+          </div>
+
+          <!-- ═══════════════════════════════════════════
+               ORDERS — no specific sub-perm, view_settings is enough
+               ═══════════════════════════════════════════ -->
+          <div class="settings-panel" id="panel-orders">
+            <div class="settings-section">
+              <div class="settings-section-header"><div><h3>🧾 Order Configuration</h3><p>Order management rules and return policy</p></div></div>
+              <div class="settings-body">
+                <div class="settings-row"><div class="settings-row-info"><label>Order ID Prefix</label></div><div class="settings-row-control"><input class="form-control" id="orderPrefix" value="ORD-"></div></div>
+                <div class="settings-row"><div class="settings-row-info"><label>Invoice Prefix</label></div><div class="settings-row-control"><input class="form-control" id="invoicePrefix" value="INV-2026-"></div></div>
+                <div class="settings-row"><div class="settings-row-info"><label>Return Window (days)</label></div><div class="settings-row-control"><input class="form-control" type="number" id="returnWindow" value="7" min="0"></div></div>
+                <div class="settings-row"><div class="settings-row-info"><label>Return Handling Charge (₹)</label><span>Deducted from refund per returned item</span></div><div class="settings-row-control"><input class="form-control" type="number" id="returnCharge" value="50" min="0"></div></div>
+                <div class="settings-row"><div class="settings-row-info"><label>Auto-Cancel Unpaid Orders After</label></div><div class="settings-row-control"><select class="form-control" id="autoCancelTime"><option>1 hour</option><option>6 hours</option><option selected>24 hours</option><option>48 hours</option><option>Never</option></select></div></div>
+                <div class="settings-row"><div class="settings-row-info"><label>Low Stock Auto-Hide</label><span>Auto-hide products when stock reaches 0</span></div><div class="settings-row-control"><label class="toggle"><input type="checkbox" id="autoHideOOS" checked><span class="toggle-slider"></span></label></div></div>
+                <div class="settings-row"><div class="settings-row-info"><label>Stitching Option</label><span>Allow stitching requests at checkout</span></div><div class="settings-row-control"><label class="toggle"><input type="checkbox" id="stitchingOption" checked><span class="toggle-slider"></span></label></div></div>
+                <div class="settings-row"><div class="settings-row-info"><label>Stitching Charge (₹)</label></div><div class="settings-row-control"><input class="form-control" type="number" id="stitchingCharge" value="150" min="0"></div></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ═══════════════════════════════════════════
+               NOTIFICATIONS — manage_email_config
+               ═══════════════════════════════════════════ -->
+          <div class="settings-panel" id="panel-notifications">
+            <div id="notificationsBody"></div>
+          </div>
+
+          <!-- ═══════════════════════════════════════════
+               SEO — edit_store_info
+               ═══════════════════════════════════════════ -->
+          <div class="settings-panel" id="panel-seo">
+            <div class="settings-section">
+              <div class="settings-section-header"><div><h3>🔍 SEO &amp; Meta Settings</h3><p>Control how your store appears in search results and social shares</p></div></div>
+              <div class="settings-body">
+                <div class="settings-row"><div class="settings-row-info"><label>Meta Title</label><span>Max 60 chars</span></div><div class="settings-row-control"><input class="form-control store-info-input" id="metaTitle" value="LoomIndica – Handcrafted Indian Textiles" maxlength="60"></div></div>
+                <div class="settings-row"><div class="settings-row-info"><label>Meta Description</label><span>Max 160 chars</span></div><div class="settings-row-control"><textarea class="form-control store-info-input" rows="3" id="metaDesc" maxlength="160">Shop authentic handloom sarees, kurtas, dupattas & more.</textarea></div></div>
+                <div class="settings-row"><div class="settings-row-info"><label>Google Analytics ID</label></div><div class="settings-row-control"><input class="form-control store-info-input" id="gaId" placeholder="G-XXXXXXXXXX"></div></div>
+                <div class="settings-row"><div class="settings-row-info"><label>Facebook Pixel ID</label></div><div class="settings-row-control"><input class="form-control store-info-input" id="fbPixel" placeholder="1234567890123456"></div></div>
+                <div class="settings-row">
+                  <div class="settings-row-info"><label>Sitemap</label><span>Auto-generated</span></div>
+                  <div class="settings-row-control"><div style="display:flex;gap:8px"><input class="form-control" value="https://loomindica.com/sitemap.xml" readonly style="opacity:.7"><button class="btn btn-secondary btn-sm" onclick="showToast('success','Sitemap','Regenerated')">🔄</button></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ═══════════════════════════════════════════
+               ADMIN USERS — view_settings
+               ═══════════════════════════════════════════ -->
+          <div class="settings-panel" id="panel-users">
+            <div class="settings-section">
+              <div class="settings-section-header">
+                <div><h3>👤 Admin Users</h3><p>Manage who has access to this admin panel</p></div>
+                <!--
+                  Add Admin button — only shown if admin has edit_store_info (write access).
+                  Gated by initPage() via PermGuard.guard().
+                -->
+                <button class="btn btn-primary btn-sm" id="addAdminBtn" onclick="openModal('addAdminModal')">+ Add Admin</button>
+              </div>
+              <div class="settings-body">
+                <div id="adminUsersList">
+                  <div class="admin-user-card">
+                    <div class="admin-user-avatar" style="background:var(--primary)" id="myAdminAvatar">A</div>
+                    <div style="flex:1"><div style="font-weight:700;font-size:14px" id="myAdminName">Admin</div><div style="font-size:12.5px;color:var(--text-muted)" id="myAdminEmail">—</div></div>
+                    <span class="badge badge-success">● You</span>
+                  </div>
+                  <div class="admin-user-card">
+                    <div class="admin-user-avatar" style="background:var(--info)">R</div>
+                    <div style="flex:1"><div style="font-weight:700;font-size:14px">Ramesh Kumar</div><div style="font-size:12.5px;color:var(--text-muted)">ramesh@loomindica.com · Order Manager</div></div>
+                    <div style="display:flex;gap:6px;" id="userActions">
+                      <button class="btn btn-secondary btn-sm btn-icon" onclick="showToast('info','Edit','Edit user')">✏️</button>
+                      <button class="btn btn-danger btn-sm btn-icon" onclick="showToast('success','Removed','User removed')">🗑️</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <!-- Change Password — always accessible to the logged-in admin -->
+            <div class="settings-section">
+              <div class="settings-section-header"><div><h3>🔐 Change Your Password</h3></div></div>
+              <div class="settings-body">
+                <div class="settings-row"><div class="settings-row-info"><label>Current Password</label></div><div class="settings-row-control"><input class="form-control" type="password" id="curPwd" placeholder="Enter current password"></div></div>
+                <div class="settings-row"><div class="settings-row-info"><label>New Password</label><span>Min. 8 characters with number and symbol</span></div><div class="settings-row-control"><input class="form-control" type="password" id="newPwd" placeholder="Enter new password"></div></div>
+                <div class="settings-row"><div class="settings-row-info"><label>Confirm New Password</label></div><div class="settings-row-control"><input class="form-control" type="password" id="confirmPwd" placeholder="Repeat new password"></div></div>
+                <div style="margin-top:16px"><button class="btn btn-primary" onclick="changePassword()">🔐 Update Password</button></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ═══════════════════════════════════════════
+               INTEGRATIONS — manage_email_config (proxy)
+               ═══════════════════════════════════════════ -->
+          <div class="settings-panel" id="panel-integrations">
+            <div id="integrationsBody"></div>
+          </div>
+
+          <!-- ═══════════════════════════════════════════
+               SECURITY — view_settings (read) / edit (write only)
+               ═══════════════════════════════════════════ -->
+          <div class="settings-panel" id="panel-security">
+            <div class="settings-section">
+              <div class="settings-section-header"><div><h3>🔒 Security Settings</h3></div></div>
+              <div class="settings-body">
+                <div class="settings-row"><div class="settings-row-info"><label>Two-Factor Authentication (2FA)</label><span>Require OTP on every admin login</span></div><div class="settings-row-control"><label class="toggle"><input type="checkbox" id="twoFA"><span class="toggle-slider"></span></label></div></div>
+                <div class="settings-row"><div class="settings-row-info"><label>Session Timeout</label><span>Auto-logout after inactivity</span></div><div class="settings-row-control"><select class="form-control" id="sessionTimeout"><option>30 minutes</option><option selected>1 hour</option><option>4 hours</option><option>8 hours</option><option>Never</option></select></div></div>
+                <div class="settings-row"><div class="settings-row-info"><label>IP Whitelist for Admin</label><span>One IP per line, blank = allow all</span></div><div class="settings-row-control"><textarea class="form-control" rows="3" id="ipWhitelist" placeholder="e.g.&#10;192.168.1.1"></textarea></div></div>
+                <div class="settings-row"><div class="settings-row-info"><label>Login Activity Log</label></div><div class="settings-row-control"><label class="toggle"><input type="checkbox" id="loginLog" checked><span class="toggle-slider"></span></label></div></div>
+                <div class="settings-row"><div class="settings-row-info"><label>Maintenance Mode</label><span>Show maintenance page to customers while you work</span></div><div class="settings-row-control"><label class="toggle"><input type="checkbox" id="maintenanceMode" onchange="toggleMaintenance(this)"><span class="toggle-slider"></span></label></div></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ═══════════════════════════════════════════
+               DANGER ZONE — only visible with full write access
+               ═══════════════════════════════════════════ -->
+          <div class="settings-panel" id="panel-danger">
+            <div id="dangerBody"></div>
+          </div>
+
+        </div><!-- /settingsPanels -->
+      </div><!-- /settings-layout -->
+    </div><!-- /page-content -->
+  </div><!-- /main-content -->
+</div><!-- /admin-shell -->
+
+
+<!-- ADD ADMIN MODAL -->
+<div class="modal-overlay" id="addAdminModal">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header"><h3>Add Admin User</h3><button class="modal-close" onclick="closeModal('addAdminModal')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-group"><label class="form-label">Full Name <span class="required">*</span></label><input class="form-control" id="newAdminName" placeholder="e.g. Ramesh Kumar"></div>
+      <div class="form-group"><label class="form-label">Email <span class="required">*</span></label><input class="form-control" type="email" id="newAdminEmail" placeholder="ramesh@loomindica.com"></div>
+      <div class="form-group"><label class="form-label">Role</label>
+        <select class="form-control" id="newAdminRole">
+          <option value="super_admin">Super Admin – Full Access</option>
+          <option value="order_manager">Order Manager – Orders only</option>
+          <option value="catalogue_manager">Catalogue Manager – Products &amp; inventory</option>
+          <option value="viewer">Viewer – Read-only access</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">Temporary Password</label><input class="form-control" type="password" id="newAdminPwd" placeholder="Will be changed on first login"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('addAdminModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="addAdminUser()">✅ Create Admin</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     SCRIPTS — Order: permissions.js → admin.js → page script
+═══════════════════════════════════════════════════════════ -->
+
+<script src="admin.js"></script>
+<script>
+/* ── PermGuard inline (permissions.js embedded) ── */
+const PermGuard = (() => {
+  let _admin = null, _permissions = {}, _role = '';
+  const MODULE_NAV = { dashboard:'dashboard.html', products:'products.html', categories:'categories.html', inventory:'inventory.html', orders:'orders.html', customers:'customers.html', transactions:'transactions.html', coupons:'coupons.html', banners:'banners.html', reports:'reports.html', settings:'settings.html' };
+  const SECTION_LABELS = [
+    { label:'Main',      modules:['dashboard'] },
+    { label:'Catalogue', modules:['products','categories','inventory'] },
+    { label:'Sales',     modules:['orders','customers','transactions'] },
+    { label:'Marketing', modules:['coupons','banners'] },
+    { label:'Analytics', modules:['reports'] },
+    { label:'System',    modules:['settings'] },
+  ];
+  const pub = {
+    init(opts = {}) {
+      const raw   = sessionStorage.getItem('adminData')  || localStorage.getItem('adminData');
+      const token = sessionStorage.getItem('adminToken') || localStorage.getItem('adminToken');
+      if (!raw || !token) { window.location.href = opts.loginUrl || 'admin-login.html'; return null; }
+      try { _admin = JSON.parse(raw); } catch { window.location.href = opts.loginUrl || 'admin-login.html'; return null; }
+      _role = _admin.role || 'viewer';
+      _permissions = {};
+      for (const [mod, keys] of Object.entries(_admin.permissions || {})) {
+        _permissions[mod] = new Set(Array.isArray(keys) ? keys : []);
+      }
+      this._updateTopbar();
+      this._updateSidebar();
+      this._applyPageGuard(opts.module, opts.loginUrl);
+      return _admin;
+    },
+    getToken() { return sessionStorage.getItem('adminToken') || localStorage.getItem('adminToken'); },
+    getAdmin() { return _admin; },
+    getRole()  { return _role; },
+    perm(module, key) { if (_role === 'superadmin') return true; return !!(_permissions[module]?.has(key)); },
+    permAny(module)   { if (_role === 'superadmin') return true; return !!(_permissions[module]?.size > 0); },
+    permList(module)  { return _permissions[module] || new Set(); },
+    guard(el, module, key) { _applyDisplay(el, this.perm(module, key)); },
+    guardAny(el, module)   { _applyDisplay(el, this.permAny(module)); },
+    logout(loginUrl = 'admin-login.html') {
+      ['adminToken','adminData'].forEach(k => { localStorage.removeItem(k); sessionStorage.removeItem(k); });
+      window.location.href = loginUrl;
+    },
+    _updateTopbar() {
+      if (!_admin) return;
+      const initials = (_admin.name || 'Admin').split(' ').map(p => p[0]).join('').slice(0,2).toUpperCase();
+      document.querySelectorAll('.user-avatar, #topbarAvatar, #sidebarAvatar').forEach(el => el.textContent = initials);
+      document.querySelectorAll('#topbarName, #sidebarName').forEach(el => el.textContent = _admin.name || 'Admin');
+      document.querySelectorAll('#topbarRole, #sidebarRole').forEach(el => el.textContent = _admin.role || '—');
+      document.querySelectorAll('.user-info strong').forEach(el => el.textContent = _admin.name || 'Admin');
+      document.querySelectorAll('.user-info span').forEach(el => el.textContent = _admin.role || 'Admin');
+      document.querySelectorAll('[data-logout], .logout-link, .dropdown-item.danger').forEach(el => {
+        if (el.dataset.logout !== undefined || el.textContent.includes('Logout')) {
+          el.addEventListener('click', e => { e.preventDefault(); pub.logout(); });
+        }
+      });
+    },
+    _updateSidebar() {
+      for (const [module, href] of Object.entries(MODULE_NAV)) {
+        const navItem = document.querySelector(`.sidebar .nav-link[href="${href}"], .sidebar .nav-link[href*="${href}"]`)?.closest('.nav-item');
+        if (navItem) navItem.style.display = pub.permAny(module) ? '' : 'none';
+      }
+      document.querySelectorAll('.sidebar .nav-section-label, .sidebar .nav-section-title').forEach(label => {
+        const group = SECTION_LABELS.find(g => g.label === label.textContent.trim());
+        if (group) label.style.display = group.modules.some(m => pub.permAny(m)) ? '' : 'none';
+      });
+    },
+    _applyPageGuard(module, loginUrl) {
+      if (!module) return;
+      if (!pub.permAny(module)) {
+        const content = document.querySelector('.page-content, #pageContent, main');
+        if (content) content.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 24px;text-align:center"><div style="font-size:56px;margin-bottom:20px">🔒</div><h2 style="font-size:20px;font-weight:700">Access Restricted</h2><p style="font-size:14px;color:#9CA3AF;max-width:340px;line-height:1.6">You don't have permission to view this section. Contact your Super Admin.</p></div>`;
+      }
+    },
+  };
+  function _applyDisplay(el, show) {
+    const nodes = typeof el === 'string' ? [...document.querySelectorAll(el)] : el instanceof NodeList ? [...el] : el ? [el] : [];
+    nodes.forEach(n => n.style.display = show ? '' : 'none');
+  }
+  return pub;
+})();
+
+/* ── perm() shorthand ── */
+function perm(module, key) { return PermGuard.perm(module, key); }
+</script>
+
+<script>
+const BASE_URL = 'http://34.231.15.242:8001/api';
+// const BASE_URL = 'http://182.70.253.15:8011/api';
+
+/* ════════════════════════════════════════════════════════════════
+   SETTINGS PAGE — PERMGUARD INTEGRATION
+   ════════════════════════════════════════════════════════════════
+
+   Permission map (settings module):
+   ┌───────────────────────────┬───────────────────────────────────────────────┐
+   │ Feature key               │ What it gates                                 │
+   ├───────────────────────────┼───────────────────────────────────────────────┤
+   │ view_settings             │ Entire page (auto-blocked by PermGuard.init)  │
+   │ edit_store_info           │ All store info/appearance/SEO inputs + Save   │
+   │ manage_payment_config     │ Payments nav item + panel content             │
+   │ manage_shipping_config    │ Shipping nav item + panel content             │
+   │ manage_email_config       │ Notifications + Integrations nav + panel      │
+   └───────────────────────────┴───────────────────────────────────────────────┘
+*/
+
+
+/* ════════════════════════════════════════════════════════════════
+   STEP 2 — initPage()
+   Always runs first, gates panels and inputs based on perms.
+════════════════════════════════════════════════════════════════ */
+function initPage() {
+  PermGuard.init({ module: 'settings', loginUrl: 'admin-login.html' });
+
+  /* ── Populate topbar + sidebar with real admin data ──────── */
+  const admin  = PermGuard.getAdmin?.() || {};
+  const name   = (admin.firstName || admin.name || 'Admin').trim();
+  const role   = admin.role || '—';
+  const email  = admin.email || '—';
+  const letter = name[0]?.toUpperCase() || 'A';
+
+  document.getElementById('topbarName').textContent     = name;
+  document.getElementById('topbarRole').textContent     = role;
+  document.getElementById('topbarAvatar').textContent   = letter;
+  document.getElementById('sidebarName').textContent    = name;
+  document.getElementById('sidebarRole').textContent    = role;
+  document.getElementById('sidebarAvatar').textContent  = letter;
+  /* Populate "You" card in admin users panel */
+  document.getElementById('myAdminName').textContent    = name;
+  document.getElementById('myAdminEmail').textContent   = `${email} · ${role}`;
+  document.getElementById('myAdminAvatar').textContent  = letter;
+
+  /* ── edit_store_info — Save button + all store inputs ────── */
+  const canEditStore = perm('settings', 'edit_store_info');
+  if (!canEditStore) {
+    /* Hide save button, show read-only badge */
+    document.getElementById('globalSaveBtn').style.display = 'none';
+    document.getElementById('readonlyNotice').style.display = 'inline-flex';
+    /* Disable (not hide) all store info inputs so values are still visible */
+    document.querySelectorAll('.store-info-input, .store-info-btn').forEach(el => {
+      el.disabled = true;
+      el.style.opacity = '0.6';
+      el.style.cursor = 'not-allowed';
+      el.title = 'No permission to edit store information';
+    });
+    /* Disable logo upload area */
+    const logoWrap = document.getElementById('logoUploadWrap');
+    if (logoWrap) {
+      logoWrap.style.pointerEvents = 'none';
+      logoWrap.style.opacity = '0.6';
+      logoWrap.title = 'No permission to edit store information';
+    }
+  }
+
+  /* ── Add Admin button — only with write access ───────────── */
+  PermGuard.guard('#addAdminBtn', 'settings', 'edit_store_info');
+
+  /* ── Edit/Delete user action buttons — needs write access ── */
+  if (!canEditStore) {
+    document.getElementById('userActions')?.style && (document.getElementById('userActions').style.display = 'none');
+  }
+
+  /* ── manage_payment_config — Payments nav + panel ─────────── */
+  buildLockedOrReal(
+    'manage_payment_config',
+    'nav-payments',
+    'paymentsBody',
+    '💳 Payment Gateways',
+    buildPaymentsPanel
+  );
+
+  /* ── manage_shipping_config — Shipping nav + panel ─────────── */
+  buildLockedOrReal(
+    'manage_shipping_config',
+    'nav-shipping',
+    'shippingBody',
+    '🚚 Shipping Configuration',
+    buildShippingPanel
+  );
+
+  /* ── manage_email_config — Notifications + Integrations ────── */
+  buildLockedOrReal(
+    'manage_email_config',
+    'nav-notifications',
+    'notificationsBody',
+    '📧 Notification Settings',
+    buildNotificationsPanel
+  );
+  buildLockedOrReal(
+    'manage_email_config',
+    null,
+    'integrationsBody',
+    '🔗 Third-Party Integrations',
+    buildIntegrationsPanel
+  );
+
+  /* ── Danger Zone — only with full write access ──────────── */
+  if (!canEditStore) {
+    document.getElementById('nav-danger').setAttribute('data-locked', '');
+    document.getElementById('dangerBody').innerHTML = lockedSectionHTML(
+      '⚠️ Danger Zone',
+      'You need full write permissions to access the Danger Zone.'
+    );
+  } else {
+    buildDangerPanel();
+  }
+
+  /* ── Load real settings data from API ───────────────────── */
+  loadSettingsData();
+}
+
+/* ─── Helper: gate a nav item + inject real or locked panel ── */
+function buildLockedOrReal(permKey, navId, bodyId, title, buildFn) {
+  const hasPerm = perm('settings', permKey);
+  if (navId) {
+    const navItem = document.getElementById(navId);
+    if (navItem) {
+      if (!hasPerm) {
+        navItem.setAttribute('data-locked', '');
+        navItem.style.opacity = '0.4';
+        navItem.style.cursor  = 'not-allowed';
+        navItem.style.pointerEvents = 'none';
+      }
+    }
+  }
+  const body = document.getElementById(bodyId);
+  if (!body) return;
+  if (hasPerm) {
+    buildFn(body);
+  } else {
+    body.innerHTML = lockedSectionHTML(title, `You do not have permission to manage ${title.replace(/[^\w\s]/g,'').trim()}.`);
+  }
+}
+
+function lockedSectionHTML(title, msg) {
+  return `<div class="settings-section"><div class="settings-section-header"><div><h3>${title}</h3></div></div><div class="settings-body"><div class="section-locked"><span>🔒</span><strong>${title}</strong><p>${msg}</p><p style="font-size:12px;margin-top:6px">Contact your Super Admin to request access.</p></div></div></div>`;
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   DYNAMIC PANEL BUILDERS
+   Called by buildLockedOrReal() when the admin has the perm.
+════════════════════════════════════════════════════════════════ */
+function buildPaymentsPanel(container) {
+  container.innerHTML = `
+    <div class="settings-section">
+      <div class="settings-section-header"><div><h3>💳 Payment Gateways</h3><p>Configure payment providers. Test mode uses sandbox credentials.</p></div></div>
+      <div class="settings-body">
+        <!-- Razorpay -->
+        <div class="gateway-card enabled" id="gw-razorpay">
+          <div class="gateway-card-header">
+            <div class="gateway-logo"><div class="gateway-icon" style="background:#F0EEFF;color:#7C3AED">💳</div><div><div style="font-weight:700;font-size:14px">Razorpay</div><div style="font-size:12px;color:var(--text-muted)">UPI, Cards, Netbanking, Wallets</div></div></div>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <span class="badge badge-success" id="rzp-badge">● Enabled</span>
+              <label class="toggle"><input type="checkbox" checked onchange="toggleGateway('razorpay',this)"><span class="toggle-slider"></span></label>
+              <button class="btn btn-secondary btn-sm" onclick="toggleGatewayDetails('razorpay')">⚙️ Configure</button>
+            </div>
+          </div>
+          <div class="gateway-details">
+            <div class="form-row cols-2" style="margin-bottom:12px">
+              <div class="form-group"><label class="form-label">Key ID</label><input class="form-control" id="rzp_key" placeholder="rzp_live_XXXXXXXXXX" type="password"></div>
+              <div class="form-group"><label class="form-label">Key Secret</label><input class="form-control" id="rzp_secret" placeholder="•••••••••••••••" type="password"></div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Webhook Secret</label>
+              <input class="form-control" id="rzp_webhook" placeholder="Used to verify payment callbacks">
+              <div class="form-hint">Webhook URL: <code>https://yourdomain.com/api/webhooks/razorpay/</code></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;margin-top:12px">
+              <label class="toggle"><input type="checkbox" id="rzp_test"><span class="toggle-slider"></span></label>
+              <div><div style="font-weight:600;font-size:13px">Test Mode</div><div style="font-size:12px;color:var(--text-muted)">Sandbox — no real payments</div></div>
+            </div>
+          </div>
+        </div>
+        <!-- PhonePe -->
+        <div class="gateway-card" id="gw-phonepe">
+          <div class="gateway-card-header">
+            <div class="gateway-logo"><div class="gateway-icon" style="background:#EDE9FE;color:#5B21B6">📱</div><div><div style="font-weight:700;font-size:14px">PhonePe</div><div style="font-size:12px;color:var(--text-muted)">UPI-first payment gateway</div></div></div>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <span class="badge badge-gray">○ Disabled</span>
+              <label class="toggle"><input type="checkbox" onchange="toggleGateway('phonepe',this)"><span class="toggle-slider"></span></label>
+              <button class="btn btn-secondary btn-sm" onclick="toggleGatewayDetails('phonepe')">⚙️ Configure</button>
+            </div>
+          </div>
+          <div class="gateway-details">
+            <div class="form-row cols-2">
+              <div class="form-group"><label class="form-label">Merchant ID</label><input class="form-control" id="pp_merchant" placeholder="PGTESTPAYUAT"></div>
+              <div class="form-group"><label class="form-label">Salt Key</label><input class="form-control" id="pp_salt" type="password" placeholder="•••••••••"></div>
+            </div>
+          </div>
+        </div>
+        <!-- COD -->
+        <div class="gateway-card enabled" id="gw-cod">
+          <div class="gateway-card-header">
+            <div class="gateway-logo"><div class="gateway-icon" style="background:var(--accent-light);color:var(--accent)">💵</div><div><div style="font-weight:700;font-size:14px">Cash on Delivery (COD)</div><div style="font-size:12px;color:var(--text-muted)">Customers pay at delivery</div></div></div>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <span class="badge badge-success">● Enabled</span>
+              <label class="toggle"><input type="checkbox" checked onchange="toggleGateway('cod',this)"><span class="toggle-slider"></span></label>
+              <button class="btn btn-secondary btn-sm" onclick="toggleGatewayDetails('cod')">⚙️ Configure</button>
+            </div>
+          </div>
+          <div class="gateway-details">
+            <div class="form-row cols-2">
+              <div class="form-group"><label class="form-label">COD Token (₹)</label><input class="form-control" id="cod_token" value="50" type="number" min="0"><div class="form-hint">Online advance for COD confirmation (0 = no token)</div></div>
+              <div class="form-group"><label class="form-label">Max COD Order Value (₹)</label><input class="form-control" id="cod_max" value="5000" type="number"><div class="form-hint">Orders above this cannot use COD</div></div>
+            </div>
+            <div class="form-group"><label class="form-label">COD Charge</label><div style="display:flex;gap:10px"><input class="form-control" type="number" id="cod_charge" value="0" style="max-width:120px"><span style="align-self:center;font-size:13px;color:var(--text-muted)">₹ extra charge for COD (0 = free)</span></div></div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function buildShippingPanel(container) {
+  container.innerHTML = `
+    <div class="settings-section">
+      <div class="settings-section-header"><div><h3>🚚 Shipping Configuration</h3><p>Rates, zones, and delivery estimates</p></div></div>
+      <div class="settings-body">
+        <div class="settings-row"><div class="settings-row-info"><label>Free Shipping Threshold</label><span>Orders above this get free shipping</span></div><div class="settings-row-control"><div style="display:flex;align-items:center;gap:8px"><span style="font-weight:700;color:var(--primary)">₹</span><input class="form-control" type="number" id="freeShipThreshold" value="999" min="0"></div></div></div>
+        <div class="settings-row"><div class="settings-row-info"><label>Default Shipping Charge</label><span>Applied below free shipping threshold</span></div><div class="settings-row-control"><div style="display:flex;align-items:center;gap:8px"><span style="font-weight:700;color:var(--primary)">₹</span><input class="form-control" type="number" id="defaultShipCharge" value="99" min="0"></div></div></div>
+        <div class="settings-row"><div class="settings-row-info"><label>Estimated Delivery Time</label></div><div class="settings-row-control"><input class="form-control" id="deliveryEstimate" value="3–7 business days"></div></div>
+        <div class="settings-row"><div class="settings-row-info"><label>Fabric Measurement Increment</label><span>Minimum fabric purchase increment</span></div><div class="settings-row-control"><select class="form-control" id="fabricIncrement"><option>0.5 meters</option><option selected>1 meter</option><option>0.25 meters</option></select></div></div>
+        <div style="margin-top:20px;padding-top:20px;border-top:1px solid var(--border)">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px"><div style="font-weight:700;font-size:14px">Shipping Zones</div><button class="btn btn-outline-primary btn-sm" onclick="addShippingZone()">+ Add Zone</button></div>
+          <div id="shippingZones">
+            <div class="zone-row"><input class="form-control" value="Metro Cities" style="flex:1"><input class="form-control" type="number" value="49" style="width:90px" placeholder="₹"><input class="form-control" value="2–4 days" style="width:100px"><button class="btn btn-danger btn-sm btn-icon" onclick="this.closest('.zone-row').remove()">🗑️</button></div>
+            <div class="zone-row"><input class="form-control" value="Tier 2 Cities" style="flex:1"><input class="form-control" type="number" value="79" style="width:90px" placeholder="₹"><input class="form-control" value="4–6 days" style="width:100px"><button class="btn btn-danger btn-sm btn-icon" onclick="this.closest('.zone-row').remove()">🗑️</button></div>
+            <div class="zone-row"><input class="form-control" value="Remote / Rural Areas" style="flex:1"><input class="form-control" type="number" value="129" style="width:90px" placeholder="₹"><input class="form-control" value="6–10 days" style="width:100px"><button class="btn btn-danger btn-sm btn-icon" onclick="this.closest('.zone-row').remove()">🗑️</button></div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function buildNotificationsPanel(container) {
+  container.innerHTML = `
+    <div class="settings-section">
+      <div class="settings-section-header"><div><h3>📧 Email Notifications – Customer</h3><p>Emails sent to customers automatically</p></div></div>
+      <div class="settings-body">
+        ${['Order Confirmation','Payment Receipt','Order Shipped','Order Delivered','Order Cancelled','Refund Processed','Cashback Credit'].map(n => `
+          <div class="notif-row"><div class="notif-row-info"><strong>${n}</strong></div><label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label></div>`).join('')}
+      </div>
+    </div>
+    <div class="settings-section">
+      <div class="settings-section-header"><div><h3>🔔 Admin Notifications</h3></div></div>
+      <div class="settings-body">
+        <div class="settings-row"><div class="settings-row-info"><label>Admin Notification Email</label></div><div class="settings-row-control"><input class="form-control" id="adminEmail" value="admin@loomindica.com"></div></div>
+        ${['New Order Alert','Low Stock Alert','Payment Failed Alert','Return Request Alert','Daily Sales Summary'].map(n => `
+          <div class="notif-row"><div class="notif-row-info"><strong>${n}</strong></div><label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label></div>`).join('')}
+      </div>
+    </div>
+    <div class="settings-section">
+      <div class="settings-section-header"><div><h3>📱 SMS / WhatsApp Settings</h3></div></div>
+      <div class="settings-body">
+        <div class="settings-row"><div class="settings-row-info"><label>SMS Provider</label></div><div class="settings-row-control"><select class="form-control" id="smsProvider"><option>MSG91</option><option>Twilio</option><option>Fast2SMS</option><option>Disabled</option></select></div></div>
+        <div class="settings-row"><div class="settings-row-info"><label>MSG91 Auth Key</label></div><div class="settings-row-control"><input class="form-control" type="password" id="smsKey" placeholder="••••••••••••••••••••"></div></div>
+        <div class="settings-row"><div class="settings-row-info"><label>WhatsApp Business API</label></div><div class="settings-row-control"><input class="form-control" type="password" id="waKey" placeholder="Meta Cloud API token"></div></div>
+      </div>
+    </div>`;
+}
+
+function buildIntegrationsPanel(container) {
+  container.innerHTML = `
+    <div class="settings-section">
+      <div class="settings-section-header"><div><h3>🔗 Third-Party Integrations</h3></div></div>
+      <div class="settings-body">
+        <div class="settings-row"><div class="settings-row-info"><label>Shiprocket API Key</label><span>For automated shipping labels and tracking</span></div><div class="settings-row-control"><input class="form-control" type="password" id="shiprocketKey" placeholder="••••••••••••"></div></div>
+        <div class="settings-row"><div class="settings-row-info"><label>Shiprocket Email</label></div><div class="settings-row-control"><input class="form-control" id="shiprocketEmail" placeholder="your@email.com"></div></div>
+        <div class="settings-row"><div class="settings-row-info"><label>SMTP Host</label><span>For transactional emails</span></div><div class="settings-row-control"><input class="form-control" id="smtpHost" placeholder="smtp.gmail.com"></div></div>
+        <div class="settings-row"><div class="settings-row-info"><label>SMTP Port</label></div><div class="settings-row-control"><input class="form-control" id="smtpPort" placeholder="587"></div></div>
+        <div class="settings-row"><div class="settings-row-info"><label>SMTP Username</label></div><div class="settings-row-control"><input class="form-control" id="smtpUser" placeholder="your@gmail.com"></div></div>
+        <div class="settings-row"><div class="settings-row-info"><label>SMTP Password</label></div><div class="settings-row-control"><input class="form-control" type="password" id="smtpPwd" placeholder="App-specific password"></div></div>
+        <div style="margin-top:16px"><button class="btn btn-secondary btn-sm" onclick="testSMTP()">📧 Send Test Email</button></div>
+      </div>
+    </div>`;
+}
+
+function buildDangerPanel() {
+  document.getElementById('dangerBody').innerHTML = `
+    <div class="settings-section danger-section">
+      <div class="settings-section-header"><div><h3>⚠️ Danger Zone</h3><p>Irreversible actions — proceed with extreme caution.</p></div></div>
+      <div class="settings-body">
+        <div class="settings-row"><div class="settings-row-info"><label style="color:var(--danger)">Clear All Orders</label><span>Permanently delete all order records.</span></div><div class="settings-row-control"><button class="btn btn-danger btn-sm" onclick="dangerAction('clear_orders')">🗑️ Clear Orders</button></div></div>
+        <div class="settings-row"><div class="settings-row-info"><label style="color:var(--danger)">Reset Inventory</label><span>Set all stock to 0 and unpublish all products.</span></div><div class="settings-row-control"><button class="btn btn-danger btn-sm" onclick="dangerAction('reset_inventory')">⚠️ Reset Inventory</button></div></div>
+        <div class="settings-row"><div class="settings-row-info"><label style="color:var(--danger)">Clear Customer Data</label><span>Delete all customer accounts.</span></div><div class="settings-row-control"><button class="btn btn-danger btn-sm" onclick="dangerAction('clear_customers')">🗑️ Clear Customers</button></div></div>
+        <div class="settings-row"><div class="settings-row-info"><label style="color:var(--danger)">Reset to Factory Defaults</label><span>Reset all settings to default values.</span></div><div class="settings-row-control"><button class="btn btn-danger btn-sm" onclick="dangerAction('reset_settings')">🔄 Reset Settings</button></div></div>
+      </div>
+    </div>`;
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   LOAD SETTINGS DATA FROM API
+════════════════════════════════════════════════════════════════ */
+async function loadSettingsData() {
+  const token = PermGuard.getToken?.() || localStorage.getItem('adminToken');
+  if (!token) return;
+  try {
+    const res = await fetch(BASE_URL + '/settings/', { headers: { 'Authorization': `Token ${token}` } });
+    if (!res.ok) return;
+    const { data } = await res.json();
+    if (!data) return;
+
+    // Store settings
+    const s = data.store || {};
+    const setVal = (id, val) => { const el = document.getElementById(id); if (el && val != null) el.value = val; };
+    setVal('storeName', s.name); setVal('storeTagline', s.tagline); setVal('storeEmail', s.email);
+    setVal('storePhone', s.phone); setVal('storeCurrency', s.currency); setVal('storeTimezone', s.timezone);
+    setVal('storeAddress', s.address); setVal('storeGST', s.gst_number);
+    setVal('linkInsta', s.link_instagram); setVal('linkFb', s.link_facebook);
+    setVal('linkWa', s.link_whatsapp); setVal('linkYt', s.link_youtube);
+    setVal('orderPrefix', s.order_prefix); setVal('invoicePrefix', s.invoice_prefix);
+    setVal('returnWindow', s.return_window_days); setVal('returnCharge', s.return_charge);
+    setVal('stitchingCharge', s.stitching_charge);
+
+    // Shipping
+    const sh = data.shipping || {};
+    setVal('freeShipThreshold', sh.free_shipping_threshold); setVal('defaultShipCharge', sh.default_shipping_charge);
+    setVal('deliveryEstimate', sh.delivery_estimate);
+    if (sh.zones?.length && document.getElementById('shippingZones')) {
+      const zc = document.getElementById('shippingZones');
+      zc.innerHTML = '';
+      sh.zones.forEach(z => {
+        const row = document.createElement('div');
+        row.className = 'zone-row';
+        row.dataset.zoneId = z.id;
+        row.innerHTML = `<input class="form-control" value="${z.name||''}" style="flex:1"><input class="form-control" type="number" value="${z.charge||0}" style="width:90px" placeholder="₹"><input class="form-control" value="${z.delivery_time||''}" style="width:100px"><button class="btn btn-danger btn-sm btn-icon" onclick="this.closest('.zone-row').remove()">🗑️</button>`;
+        zc.appendChild(row);
+      });
+    }
+
+    // Payment gateways
+    if (data.payments) {
+      data.payments.forEach(gw => {
+        const id = gw.gateway;
+        const card = document.getElementById('gw-' + id);
+        if (!card) return;
+        const cb = card.querySelector('.toggle input');
+        const badge = card.querySelector('.badge');
+        if (cb) cb.checked = gw.is_enabled;
+        if (badge) { badge.className = gw.is_enabled ? 'badge badge-success' : 'badge badge-gray'; badge.textContent = gw.is_enabled ? '● Enabled' : '○ Disabled'; }
+        if (gw.is_enabled) card.classList.add('enabled'); else card.classList.remove('enabled');
+        if (id === 'razorpay') { setVal('rzp_key', gw.key_id); setVal('rzp_secret', gw.key_secret); setVal('rzp_webhook', gw.webhook_secret); const tm = document.getElementById('rzp_test'); if (tm) tm.checked = gw.test_mode; }
+        if (id === 'phonepe')  { setVal('pp_merchant', gw.merchant_id); setVal('pp_salt', gw.salt_key); }
+        if (id === 'cod')      { setVal('cod_token', gw.cod_token); setVal('cod_max', gw.max_order_value); setVal('cod_charge', gw.cod_charge); }
+      });
+    }
+
+    // Notifications
+    const n = data.notifications || {};
+    setVal('adminEmail', n.admin_notification_email); setVal('smsProvider', n.sms_provider);
+
+    // Integrations
+    const i = data.integrations || {};
+    setVal('shiprocketEmail', i.shiprocket_email); setVal('smtpHost', i.smtp_host);
+    setVal('smtpPort', i.smtp_port); setVal('smtpUser', i.smtp_user);
+
+    // Security
+    const sec = data.security || {};
+    const maintenanceCb = document.getElementById('maintenanceToggle');
+    if (maintenanceCb && sec.maintenance_mode != null) maintenanceCb.checked = sec.maintenance_mode;
+
+    // Logo
+    if (s.logo_url) {
+      const logoWrap = document.getElementById('logoUploadWrap');
+      if (logoWrap) logoWrap.innerHTML = `<img src="${s.logo_url}" class="logo-preview"><div><div style="font-weight:600;font-size:13.5px">Current Logo</div><div style="font-size:12px;color:var(--text-muted)">Click to change</div></div>`;
+    }
+  } catch(e) { /* silently fail — page still usable */ }
+}
+
+async function removeAdminUser(adminId, btn) {
+  if (!confirm('Remove this admin user?')) return;
+  const token = PermGuard.getToken?.() || localStorage.getItem('adminToken');
+  try {
+    const res = await fetch(BASE_URL + `/superadmin/admins/${adminId}/`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Token ${token}` }
+    });
+    if (res.ok || res.status === 204) {
+      btn.closest('.admin-user-card').remove();
+      showToast('success','Removed','Admin user removed');
+    } else {
+      const d = await res.json();
+      showToast('error','Error', d.message || 'Could not remove admin');
+    }
+  } catch { showToast('error','Error','Request failed'); }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   PANEL SWITCHING
+════════════════════════════════════════════════════════════════ */
+function switchPanel(name, el) {
+  document.querySelectorAll('.settings-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.settings-nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('panel-' + name)?.classList.add('active');
+  el.classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   SAVE ALL SETTINGS
+   Guard: edit_store_info (defence in depth)
+════════════════════════════════════════════════════════════════ */
+async function saveAllSettings() {
+  if (!perm('settings', 'edit_store_info')) {
+    showToast('error', 'Access Denied', 'No permission to save settings.');
+    return;
+  }
+
+  const btn = document.getElementById('globalSaveBtn');
+  const orig = btn.textContent;
+  btn.textContent = '⏳ Saving…';
+  btn.disabled = true;
+
+  const token = PermGuard.getToken?.() || localStorage.getItem('adminToken');
+
+  try {
+    // 1. Save store settings
+    const storePayload = {
+      name:              document.getElementById('storeName')?.value,
+      tagline:           document.getElementById('storeTagline')?.value,
+      email:             document.getElementById('storeEmail')?.value,
+      phone:             document.getElementById('storePhone')?.value,
+      currency:          document.getElementById('storeCurrency')?.value,
+      timezone:          document.getElementById('storeTimezone')?.value,
+      address:           document.getElementById('storeAddress')?.value,
+      gst_number:        document.getElementById('storeGST')?.value,
+      order_prefix:      document.getElementById('orderPrefix')?.value,
+      invoice_prefix:    document.getElementById('invoicePrefix')?.value,
+      return_window_days:document.getElementById('returnWindow')?.value,
+      return_charge:     document.getElementById('returnCharge')?.value,
+      stitching_charge:  document.getElementById('stitchingCharge')?.value,
+      link_instagram:    document.getElementById('linkInsta')?.value,
+      link_facebook:     document.getElementById('linkFb')?.value,
+      link_whatsapp:     document.getElementById('linkWa')?.value,
+      link_youtube:      document.getElementById('linkYt')?.value,
+    };
+    const r1 = await fetch(BASE_URL + '/settings/store/', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${token}` },
+      body: JSON.stringify(storePayload)
+    });
+    if (!r1.ok) throw new Error('Store settings save failed');
+
+    // 2. Save shipping config (if panel is built)
+    const fst = document.getElementById('freeShipThreshold');
+    if (fst) {
+      const shippingPayload = {
+        free_shipping_threshold: fst.value,
+        default_shipping_charge: document.getElementById('defaultShipCharge')?.value,
+        delivery_estimate:       document.getElementById('deliveryEstimate')?.value,
+        fabric_increment:        document.getElementById('fabricIncrement')?.value,
+      };
+      await fetch(BASE_URL + '/settings/shipping/', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${token}` },
+        body: JSON.stringify(shippingPayload)
+      });
+
+      // Save zones
+      const zoneRows = document.querySelectorAll('#shippingZones .zone-row');
+      const zones = [];
+      zoneRows.forEach(row => {
+        const inputs = row.querySelectorAll('input');
+        if (inputs[0]?.value) zones.push({ name: inputs[0].value, charge: inputs[1]?.value || 0, delivery_time: inputs[2]?.value || '' });
+      });
+      if (zones.length) {
+        await fetch(BASE_URL + '/settings/shipping/zones/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${token}` },
+          body: JSON.stringify({ zones })
+        });
+      }
+    }
+
+    // 3. Save payment gateways (if panel is built)
+    const rzpKey = document.getElementById('rzp_key');
+    if (rzpKey) {
+      const gateways = [
+        { gateway: 'razorpay', key_id: rzpKey.value, key_secret: document.getElementById('rzp_secret')?.value, webhook_secret: document.getElementById('rzp_webhook')?.value, test_mode: document.getElementById('rzp_test')?.checked, is_enabled: document.querySelector('#gw-razorpay .toggle input')?.checked },
+        { gateway: 'phonepe',  merchant_id: document.getElementById('pp_merchant')?.value, salt_key: document.getElementById('pp_salt')?.value, is_enabled: document.querySelector('#gw-phonepe .toggle input')?.checked },
+        { gateway: 'cod',      cod_token: document.getElementById('cod_token')?.value, max_order_value: document.getElementById('cod_max')?.value, cod_charge: document.getElementById('cod_charge')?.value, is_enabled: document.querySelector('#gw-cod .toggle input')?.checked },
+      ];
+      for (const gw of gateways) {
+        await fetch(BASE_URL + `/settings/payments/${gw.gateway}/`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${token}` },
+          body: JSON.stringify(gw)
+        });
+      }
+    }
+
+    // 4. Save notifications (if panel is built)
+    const adminEmail = document.getElementById('adminEmail');
+    if (adminEmail) {
+      const notifCheckboxes = document.querySelectorAll('#notificationsBody .notif-row');
+      const notifData = { admin_notification_email: adminEmail.value, sms_provider: document.getElementById('smsProvider')?.value, sms_key: document.getElementById('smsKey')?.value, whatsapp_key: document.getElementById('waKey')?.value };
+      notifCheckboxes.forEach(row => {
+        const label = row.querySelector('strong')?.textContent?.toLowerCase().replace(/[\s\/]+/g,'_');
+        const checked = row.querySelector('input[type=checkbox]')?.checked;
+        if (label) notifData[label] = checked;
+      });
+      await fetch(BASE_URL + '/settings/notifications/', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${token}` },
+        body: JSON.stringify(notifData)
+      });
+    }
+
+    // 5. Save integrations (if panel is built)
+    const shiprocketKey = document.getElementById('shiprocketKey');
+    if (shiprocketKey) {
+      const integPayload = {
+        shiprocket_api_key:   shiprocketKey.value,
+        shiprocket_email:     document.getElementById('shiprocketEmail')?.value,
+        smtp_host:            document.getElementById('smtpHost')?.value,
+        smtp_port:            document.getElementById('smtpPort')?.value,
+        smtp_user:        document.getElementById('smtpUser')?.value,
+        smtp_password:        document.getElementById('smtpPwd')?.value,
+      };
+      await fetch(BASE_URL + '/settings/integrations/', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${token}` },
+        body: JSON.stringify(integPayload)
+      });
+    }
+
+    showToast('success', 'Settings Saved', 'All configuration changes have been saved');
+  } catch (err) {
+    showToast('error', 'Save Failed', err.message || 'Could not save settings');
+  } finally {
+    btn.textContent = orig;
+    btn.disabled = false;
+  }
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   HELPERS (unchanged behaviour from original)
+════════════════════════════════════════════════════════════════ */
+function updateColorPreview(type, value) {
+  document.getElementById('color' + (type==='primary'?'Primary':'Accent') + 'Hex').value = value;
+}
+
+function previewLogo(e) {
+  if (!perm('settings', 'edit_store_info')) return;
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    document.getElementById('logoUploadWrap').innerHTML = `<img src="${ev.target.result}" class="logo-preview"><div><div style="font-weight:600;font-size:13.5px">Uploading…</div><div style="font-size:12px;color:var(--text-muted)">Please wait</div></div>`;
+  };
+  reader.readAsDataURL(file);
+  const token = PermGuard.getToken?.() || localStorage.getItem('adminToken');
+  const fd = new FormData(); fd.append('logo', file);
+  fetch(BASE_URL + '/settings/logo/', { method: 'POST', headers: { 'Authorization': `Token ${token}` }, body: fd })
+    .then(r => r.json()).then(data => {
+      if (data.success) {
+        document.getElementById('logoUploadWrap').innerHTML = `<img src="${data.data?.logo_url || ev?.target?.result || ''}" class="logo-preview"><div><div style="font-weight:600;font-size:13.5px">Logo Uploaded</div><div style="font-size:12px;color:var(--text-muted)">Click to change</div></div>`;
+        showToast('success','Logo Saved','Store logo updated successfully');
+      } else showToast('error','Upload Failed', data.message || 'Could not upload logo');
+    }).catch(() => showToast('error','Upload Failed','Network error'));
+}
+
+function toggleGateway(id, cb) {
+  if (!perm('settings', 'manage_payment_config')) { showToast('error','Access Denied','No permission to change gateway settings.'); cb.checked = !cb.checked; return; }
+  const card  = document.getElementById('gw-' + id);
+  const badge = card.querySelector('.badge');
+  if (cb.checked) { card.classList.add('enabled'); badge.className='badge badge-success'; badge.textContent='● Enabled'; }
+  else            { card.classList.remove('enabled'); badge.className='badge badge-gray'; badge.textContent='○ Disabled'; }
+  const token = PermGuard.getToken?.() || localStorage.getItem('adminToken');
+  fetch(BASE_URL + `/settings/payments/${id}/`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${token}` },
+    body: JSON.stringify({ is_enabled: cb.checked })
+  }).catch(() => {});
+  showToast(cb.checked?'success':'info', cb.checked?'Enabled':'Disabled', `${id} gateway ${cb.checked?'enabled':'disabled'}`);
+}
+
+function toggleGatewayDetails(id) { document.getElementById('gw-' + id)?.classList.toggle('open'); }
+
+function addShippingZone() {
+  if (!perm('settings', 'manage_shipping_config')) return;
+  const zone = document.createElement('div');
+  zone.className = 'zone-row';
+  zone.innerHTML = `<input class="form-control" placeholder="Zone name" style="flex:1"><input class="form-control" type="number" placeholder="₹" style="width:90px" min="0"><input class="form-control" placeholder="Delivery time" style="width:100px"><button class="btn btn-danger btn-sm btn-icon" onclick="this.closest('.zone-row').remove()">🗑️</button>`;
+  document.getElementById('shippingZones')?.appendChild(zone);
+}
+
+async function changePassword() {
+  const cur = document.getElementById('curPwd').value;
+  const nw  = document.getElementById('newPwd').value;
+  const cnf = document.getElementById('confirmPwd').value;
+  if (!cur||!nw||!cnf)  { showToast('warning','Required','All password fields are required'); return; }
+  if (nw !== cnf)        { showToast('error','Mismatch','New passwords do not match'); return; }
+  if (nw.length < 8)    { showToast('warning','Too Short','Password must be at least 8 characters'); return; }
+  const token = PermGuard.getToken?.() || localStorage.getItem('adminToken');
+  try {
+    const res = await fetch(BASE_URL + '/auth/change-password/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${token}` },
+      body: JSON.stringify({ old_password: cur, new_password: nw })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || 'Failed');
+    showToast('success','Password Changed','Your password has been updated successfully');
+    ['curPwd','newPwd','confirmPwd'].forEach(id => document.getElementById(id).value = '');
+  } catch(err) {
+    showToast('error','Error', err.message || 'Could not change password');
+  }
+}
+
+async function addAdminUser() {
+  if (!perm('settings', 'edit_store_info')) { showToast('error','Access Denied','No permission to add admin users.'); return; }
+  const name  = document.getElementById('newAdminName').value.trim();
+  const email = document.getElementById('newAdminEmail').value.trim();
+  const role  = document.getElementById('newAdminRole').value;
+  const pwd   = document.getElementById('newAdminPwd').value;
+  if (!name||!email||!pwd) { showToast('warning','Required','Name, email and password are required'); return; }
+  const token = PermGuard.getToken?.() || localStorage.getItem('adminToken');
+  try {
+    const res = await fetch(BASE_URL + '/superadmin/admins/create/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${token}` },
+      body: JSON.stringify({ name, email, role, password: pwd })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || 'Failed');
+    const colors = ['#7C3AED','#10B981','#F59E0B','#3B82F6'];
+    const col = colors[data.data?.id % colors.length || 0];
+    const initials = name.split(' ').map(p=>p[0]).join('').slice(0,2).toUpperCase();
+    const labels = {super_admin:'Super Admin',order_manager:'Order Manager',catalogue_manager:'Catalogue Manager',viewer:'Viewer'};
+    const card = document.createElement('div');
+    card.className = 'admin-user-card';
+    card.dataset.adminId = data.data?.id;
+    card.innerHTML = `<div class="admin-user-avatar" style="background:${col}">${initials}</div><div style="flex:1"><div style="font-weight:700;font-size:14px">${name}</div><div style="font-size:12.5px;color:var(--text-muted)">${email} · ${labels[role]||role}</div></div><div style="display:flex;gap:6px"><button class="btn btn-danger btn-sm btn-icon" onclick="removeAdminUser(${data.data?.id},this)">🗑️</button></div>`;
+    document.getElementById('adminUsersList').appendChild(card);
+    closeModal('addAdminModal');
+    showToast('success','Admin Created',`${name} added as ${labels[role]||role}`);
+  } catch(err) {
+    showToast('error','Error', err.message || 'Could not create admin');
+  }
+}
+
+function toggleMaintenance(cb) {
+  if (!perm('settings', 'edit_store_info')) { showToast('error','Access Denied','No permission to toggle maintenance mode.'); cb.checked=!cb.checked; return; }
+  const token = PermGuard.getToken?.() || localStorage.getItem('adminToken');
+  fetch(BASE_URL + '/settings/security/', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${token}` },
+    body: JSON.stringify({ maintenance_mode: cb.checked })
+  }).then(r => r.json()).then(data => {
+    if (data.success) showToast(cb.checked?'warning':'success', cb.checked?'Maintenance Mode ON':'Maintenance Mode OFF', cb.checked?'Website showing maintenance page':'Website is live again');
+    else { cb.checked=!cb.checked; showToast('error','Error', data.message || 'Failed'); }
+  }).catch(() => { cb.checked=!cb.checked; showToast('error','Error','Could not update maintenance mode'); });
+}
+
+function testSMTP() {
+  if (!perm('settings', 'manage_email_config')) { showToast('error','Access Denied','No permission to test SMTP.'); return; }
+  showToast('info','Sending…','Sending test email…');
+  const token = PermGuard.getToken?.() || localStorage.getItem('adminToken');
+  fetch(BASE_URL + '/settings/test-smtp/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${token}` },
+    body: JSON.stringify({ smtp_host: document.getElementById('smtpHost')?.value, smtp_port: document.getElementById('smtpPort')?.value, smtp_user: document.getElementById('smtpUser')?.value, smtp_password: document.getElementById('smtpPwd')?.value })
+  }).then(r => r.json()).then(data => {
+    if (data.success) showToast('success','Email Sent','Test email delivered successfully');
+    else showToast('error','SMTP Failed', data.message || 'Could not send test email');
+  }).catch(() => showToast('error','Error','SMTP test request failed'));
+}
+
+async function dangerAction(type) {
+  if (!perm('settings', 'edit_store_info')) { showToast('error','Access Denied','No permission for danger zone actions.'); return; }
+  const msgs = {
+    clear_orders:    'DELETE ALL ORDERS? This cannot be undone. Type "DELETE" to confirm.',
+    reset_inventory: 'RESET ALL INVENTORY? All stock will be 0. Type "RESET" to confirm.',
+    clear_customers: 'DELETE ALL CUSTOMERS? Type "DELETE" to confirm.',
+    reset_settings:  'RESET ALL SETTINGS to defaults? Type "RESET" to confirm.',
+  };
+  const confirmWord = type.includes('reset') ? 'RESET' : 'DELETE';
+  const input = prompt(msgs[type]);
+  if (input !== confirmWord) {
+    if (input !== null) showToast('error','Cancelled','Confirmation word did not match. No action taken.');
+    return;
+  }
+  const token = PermGuard.getToken?.() || localStorage.getItem('adminToken');
+  try {
+    const res = await fetch(BASE_URL + `/settings/danger/${type}/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${token}` },
+      body: JSON.stringify({ confirm: confirmWord })
+    });
+    const data = await res.json();
+    if (data.success) showToast('success','Done', data.message || `Action "${type}" completed`);
+    else showToast('error','Failed', data.message || 'Action failed');
+  } catch(err) {
+    showToast('error','Error','Could not complete the action');
+  }
+}
+
+function searchSettings(q) {
+  if (!q) { document.querySelectorAll('.settings-row').forEach(r => r.style.outline=''); return; }
+  document.querySelectorAll('.settings-row').forEach(r => {
+    r.style.outline = r.textContent.toLowerCase().includes(q.toLowerCase()) ? '2px solid var(--primary)' : '';
+  });
+}
+
+/* ── Modal helpers ── */
+function openModal(id)  { document.getElementById(id)?.classList.add('open'); }
+function closeModal(id) { document.getElementById(id)?.classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(o => {
+  o.addEventListener('click', e => { if (e.target===o) o.classList.remove('open'); });
+});
+
+function showToast(type, title, msg) {
+  const icons = {success:'✅',error:'❌',info:'ℹ️',warning:'⚠️'};
+  const tc = document.getElementById('toast-container');
+  const t  = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.innerHTML = `<span style="font-size:18px;">${icons[type]||'ℹ️'}</span><div><div style="font-size:13px;font-weight:600;">${title}</div><div style="font-size:12px;color:#6b7c75;margin-top:2px;">${msg}</div></div>`;
+  tc.appendChild(t);
+  setTimeout(() => t.remove(), 4000);
+}
+
+document.getElementById('sidebarToggle')?.addEventListener('click', () => {
+  const sidebar   = document.getElementById('sidebar');
+  const main      = document.getElementById('mainContent');
+  const collapsed = sidebar.classList.toggle('collapsed');
+  main.classList.toggle('expanded', collapsed);
+});
+
+
+/* ════════════════════════════════════════════════════════════════
+   BOOT — initPage() FIRST, then nothing else to load
+════════════════════════════════════════════════════════════════ */
+initPage();
+</script>
+</body>
+</html>

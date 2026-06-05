@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>Transactions – LoomIndica Admin</title>
+  <link rel="stylesheet" href="admin.css">
+  <style>
+    /* ═══════════════════════════════════════════════
+       RESPONSIVE FIXES
+    ═══════════════════════════════════════════════ */
+    *, *::before, *::after { box-sizing: border-box; }
+    .page-content  { min-width: 0; overflow-x: hidden; }
+    .main-content  { min-width: 0; overflow-x: hidden; }
+    .card          { min-width: 0; }
+    .table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%; }
+    .data-table    { min-width: 900px; width: 100%; border-collapse: collapse; }
+
+    /* Stats grid — 4 col → 2 col → 1 col */
+    .txn-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    @media (max-width: 1024px) { .txn-stats-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 540px)  { .txn-stats-grid { grid-template-columns: 1fr; } }
+
+    /* Filter bar wraps on small screens */
+    .filter-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:20px; }
+    .filter-bar input,
+    .filter-bar select { height:38px; padding:0 12px; border:1.5px solid var(--border); border-radius:9px; font-size:13.5px; outline:none; background:#fff; transition:var(--transition); }
+    .filter-bar input:focus,
+    .filter-bar select:focus { border-color:var(--primary); }
+    .filter-bar input { min-width:200px; max-width:100%; }
+
+    /* Page header */
+    .page-header { display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:20px; }
+    .page-header .d-flex { flex-wrap:wrap; }
+
+    /* ═══════════════════════════════════════════════
+       TRANSACTIONS-SPECIFIC STYLES
+    ═══════════════════════════════════════════════ */
+    .stat-card-mini { background:#fff; border:1px solid var(--border); border-radius:12px; padding:18px 20px; display:flex; align-items:center; gap:14px; }
+    .stat-card-mini .ico { width:44px; height:44px; border-radius:11px; display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0; }
+    .stat-card-mini .val { font-size:20px; font-weight:800; }
+    .stat-card-mini .lbl { font-size:12px; color:var(--text-muted); margin-top:2px; }
+
+    .gateway-badge { display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:20px; font-size:11.5px; font-weight:700; }
+    .gw-razorpay  { background:#E8F5FF; color:#0284C7; }
+    .gw-cod       { background:#FEF3C7; color:#92400E; }
+    .gw-phonePe   { background:#EDE9FE; color:#7C3AED; }
+    .gw-payu      { background:#D1FAE5; color:#065F46; }
+
+    .timeline-mini { display:flex; flex-direction:column; gap:0; }
+    .tl-row { display:flex; align-items:flex-start; gap:12px; padding-bottom:16px; position:relative; }
+    .tl-row::before { content:''; position:absolute; left:11px; top:24px; bottom:0; width:2px; background:var(--border); }
+    .tl-row:last-child::before { display:none; }
+    .tl-dot { width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; flex-shrink:0; z-index:1; }
+
+    .refund-bar { background:var(--danger-light); border:1.5px solid var(--danger); border-radius:10px; padding:14px 16px; margin-top:12px; }
+
+    /* Read-only notice badge */
+    .readonly-notice { display:inline-flex; align-items:center; gap:6px; background:#FEF9C3; border:1px solid #FDE047; color:#854D0E; font-size:12px; font-weight:600; padding:4px 12px; border-radius:20px; }
+
+    /* Sidebar collapse */
+    .sidebar.collapsed { width:64px; }
+    .sidebar.collapsed .brand-text,
+    .sidebar.collapsed .nav-label,
+    .sidebar.collapsed .nav-section-title { opacity:0; pointer-events:none; width:0; }
+  </style>
+</head>
+<body>
+<div class="mobile-overlay"></div>
+<div id="toast-container"></div>
+
+<div class="admin-shell">
+
+  <!-- ═══ SIDEBAR ═══ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand"><div class="brand-icon">LI</div><div class="brand-text"><h3>LoomIndica</h3><span>Admin Panel</span></div></div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Main</div>
+      <div class="nav-item"><a href="dashboard.html"    class="nav-link"><span class="nav-icon">📊</span><span class="nav-label">Dashboard</span></a></div>
+      <div class="nav-section-label">Catalogue</div>
+      <div class="nav-item"><a href="products.html"     class="nav-link"><span class="nav-icon">🛍️</span><span class="nav-label">Products</span></a></div>
+      <div class="nav-item"><a href="categories.html"   class="nav-link"><span class="nav-icon">🗂️</span><span class="nav-label">Categories</span></a></div>
+      <div class="nav-item"><a href="inventory.html"    class="nav-link"><span class="nav-icon">📦</span><span class="nav-label">Inventory</span>
+        <!-- <span class="nav-badge">8</span> -->
+      </a></div>
+      <div class="nav-section-label">Sales</div>
+      <div class="nav-item"><a href="orders.html"       class="nav-link"><span class="nav-icon">🧾</span><span class="nav-label">Orders</span>
+        <!-- <span class="nav-badge">24</span> -->
+      </a></div>
+      <div class="nav-item"><a href="customers.html"    class="nav-link"><span class="nav-icon">👥</span><span class="nav-label">Customers</span></a></div>
+      <div class="nav-item"><a href="transactions.html" class="nav-link active"><span class="nav-icon">💳</span><span class="nav-label">Transactions</span></a></div>
+      <div class="nav-section-label">Marketing</div>
+      <div class="nav-item"><a href="coupons.html"      class="nav-link"><span class="nav-icon">🎟️</span><span class="nav-label">Coupons</span></a></div>
+      <div class="nav-item"><a href="banners.html"      class="nav-link"><span class="nav-icon">🖼️</span><span class="nav-label">Banners &amp; Offers</span></a></div>
+      <div class="nav-item"><a href="blogs.html"   class="nav-link" data-label="Blog"><span class="nav-icon">✍️</span><span class="nav-label">Blog</span></a></div>
+      <div class="nav-item"><a href="featured-collections.html"   class="nav-link" data-label="Featured"><span class="nav-icon">✨</span><span class="nav-label">Featured Collections</span></a></div>
+      <div class="nav-section-label">Analytics</div>
+      <div class="nav-item"><a href="reports.html"      class="nav-link"><span class="nav-icon">📈</span><span class="nav-label">Reports</span></a></div>
+      <div class="nav-section-label">System</div>
+      <div class="nav-item"><a href="settings.html"     class="nav-link"><span class="nav-icon">⚙️</span><span class="nav-label">Settings</span></a></div>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="sidebar-user">
+        <div class="user-avatar" id="sidebarAvatar">A</div>
+        <div class="user-info"><strong id="sidebarName">Admin</strong><span id="sidebarRole">—</span></div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ═══ MAIN CONTENT ═══ -->
+  <div class="main-content" id="mainContent">
+    <header class="topbar">
+      <button class="topbar-toggle" id="sidebarToggle">☰</button>
+      <div class="topbar-search">
+        <i>🔍</i>
+        <input placeholder="Search TXN ID, order, customer…" oninput="applyFilters()">
+      </div>
+      <div class="topbar-actions">
+        <div class="dropdown">
+          <div class="topbar-user" data-dropdown>
+            <div class="avatar" id="topbarAvatar">A</div>
+            <div class="topbar-user-info">
+              <strong id="topbarName">Admin</strong>
+              <span id="topbarRole">—</span>
+            </div>
+            <span style="margin-left:4px;color:var(--text-muted);font-size:11px">▾</span>
+          </div>
+          <div class="dropdown-menu">
+            <!-- PermGuard wires [data-logout] automatically -->
+            <div class="dropdown-item danger" data-logout>🚪 Logout</div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="page-content" id="pageContent">
+      <div class="page-header">
+        <div class="page-header-left">
+          <h1>Transactions</h1>
+          <div class="breadcrumb">
+            <span onclick="location.href='dashboard.html'">Home</span><i>›</i>
+            <span>Sales</span><i>›</i><span>Transactions</span>
+          </div>
+        </div>
+        <div class="d-flex gap-8 align-center">
+
+          <!-- Read-only badge — shown when admin has view_transactions only -->
+          <div id="readonlyNotice" class="readonly-notice" style="display:none;">👁️ View Only</div>
+
+          <!--
+            PERM: export_transactions
+            Both export buttons hidden for admins without export_transactions.
+            Gated in initPage() via PermGuard.guard().
+          -->
+          <button class="btn btn-secondary btn-sm" id="exportCsvBtn" onclick="exportCSV()">📥 Export CSV</button>
+          <button class="btn btn-secondary btn-sm" id="exportPdfBtn" onclick="exportPDF()">📄 Export PDF</button>
+        </div>
+      </div>
+
+      <!-- Summary stats — always visible to view_transactions -->
+      <div class="txn-stats-grid stagger" id="txnStats"></div>
+
+      <!-- Filter bar -->
+      <div class="filter-bar">
+        <input type="text"  id="txnSearch"    placeholder="🔍  TXN ID, Order ID, Customer…" oninput="applyFilters()">
+        <select             id="gwFilter"     onchange="applyFilters()">
+          <option value="">All Gateways</option>
+          <option>Razorpay</option><option>PhonePe</option><option>PayU</option><option>COD</option>
+        </select>
+        <select             id="statusFilter" onchange="applyFilters()">
+          <option value="">All Status</option>
+          <option value="success">Success</option>
+          <option value="pending">Pending</option>
+          <option value="failed">Failed</option>
+          <option value="refunded">Refunded</option>
+          <option value="partial_refund">Partial Refund</option>
+        </select>
+        <input type="date"  id="dateFrom"     onchange="applyFilters()" title="From date">
+        <input type="date"  id="dateTo"       onchange="applyFilters()" title="To date">
+        <button class="btn btn-secondary btn-sm" onclick="clearFilters()">✕ Clear</button>
+        <div style="margin-left:auto;font-size:13px;color:var(--text-muted)">
+          <strong id="txnCount">—</strong> transactions
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="card">
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>
+                  <!--
+                    Checkbox — hidden when admin has no write perms.
+                    Gated in initPage().
+                  -->
+                  <input type="checkbox" id="selectAll"
+                    onchange="document.querySelectorAll('.txn-chk').forEach(c => c.checked = this.checked)">
+                </th>
+                <th>TXN ID</th>
+                <th>Order ID</th>
+                <th>Customer</th>
+                <th>Amount</th>
+                <th>Gateway</th>
+                <th>Gateway TXN Ref</th>
+                <th>Status</th>
+                <th>Date &amp; Time</th>
+                <!--
+                  Actions column — hidden when no write perms.
+                  Gated in initPage().
+                -->
+                <th id="actionsColHeader">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="txnBody">
+              <tr><td colspan="10" style="text-align:center;padding:48px;color:var(--text-muted)">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="card-footer" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+          <div style="font-size:13px;color:var(--text-muted)">
+            Showing <strong id="txnShown">—</strong> of <strong id="txnTotal">—</strong>
+            · Total collected: <strong id="txnTotalAmt" style="color:var(--success)">—</strong>
+          </div>
+          <div class="pagination">
+            <button class="page-btn">‹</button>
+            <button class="page-btn active">1</button>
+            <button class="page-btn">2</button>
+            <button class="page-btn">3</button>
+            <button class="page-btn">›</button>
+          </div>
+        </div>
+      </div>
+    </div><!-- /page-content -->
+  </div><!-- /main-content -->
+</div><!-- /admin-shell -->
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     TRANSACTION DETAIL MODAL
+     Gate: view_transaction_detail (entire modal)
+           process_refund          (Refund button inside)
+═══════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="txnModal">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <h3 id="txnModalTitle">Transaction Details</h3>
+      <button class="modal-close" onclick="closeModal('txnModal')">✕</button>
+    </div>
+    <div class="modal-body" id="txnModalBody"></div>
+    <div class="modal-footer" id="txnModalFooter">
+      <button class="btn btn-secondary" onclick="closeModal('txnModal')">Close</button>
+      <!--
+        PERM: process_refund
+        Refund + Invoice buttons injected by buildDetailFooter()
+        only when admin has the right permissions.
+      -->
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     REFUND MODAL
+     Gate: process_refund
+     Modal is only reachable via openRefund() which checks
+     perm() before opening.
+═══════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="refundModal">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <h3>💸 Process Refund</h3>
+      <button class="modal-close" onclick="closeModal('refundModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="refund-bar" id="refundInfo"></div>
+      <div class="form-group mt-16">
+        <label class="form-label">Refund Type</label>
+        <div style="display:flex;gap:12px">
+          <label style="display:flex;align-items:center;gap:7px;font-size:13.5px;cursor:pointer">
+            <input type="radio" name="refundType" value="full" checked onchange="toggleRefundAmt()"> Full Refund
+          </label>
+          <label style="display:flex;align-items:center;gap:7px;font-size:13.5px;cursor:pointer">
+            <input type="radio" name="refundType" value="partial" onchange="toggleRefundAmt()"> Partial Refund
+          </label>
+        </div>
+      </div>
+      <div class="form-group" id="partialAmtGroup" style="display:none">
+        <label class="form-label">Refund Amount (₹) <span class="required">*</span></label>
+        <input class="form-control" type="number" id="refundAmt" placeholder="Enter amount to refund" min="1">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Reason for Refund <span class="required">*</span></label>
+        <select class="form-control" id="refundReason">
+          <option value="">— Select Reason —</option>
+          <option>Customer requested cancellation</option>
+          <option>Product out of stock</option>
+          <option>Item returned by customer</option>
+          <option>Damaged / defective product</option>
+          <option>Wrong item delivered</option>
+          <option>Payment captured in error</option>
+          <option>Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Internal Note</label>
+        <textarea class="form-control" rows="2" id="refundNote" placeholder="Optional note for your records…"></textarea>
+      </div>
+      <div style="background:#FEF3C7;border-radius:9px;padding:11px 14px;font-size:13px;color:#92400E">
+        ⚠️ Refunds are processed through the original payment gateway. COD orders are refunded via bank transfer.
+        <strong>Returns incur ₹50 handling deduction per policy.</strong>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('refundModal')">Cancel</button>
+      <button class="btn btn-danger" onclick="processRefund()">💸 Process Refund</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     SCRIPTS — Order: permissions.js → admin.js → page script
+═══════════════════════════════════════════════════════════ -->
+
+<!--
+  STEP 1 — Load PermGuard BEFORE admin.js and page script.
+  Adjust path to match your project structure.
+-->
+<script src="permissions.js"></script>
+<script src="admin.js"></script>
+
+<script>
+/* ════════════════════════════════════════════════════════════════
+   TRANSACTIONS PAGE — PERMGUARD INTEGRATION
+   ════════════════════════════════════════════════════════════════
+
+   Permission map (transactions module):
+   ┌──────────────────────────────┬──────────────────────────────────────────────┐
+   │ Feature key                  │ What it gates                                │
+   ├──────────────────────────────┼──────────────────────────────────────────────┤
+   │ view_transactions            │ Entire page (auto-blocked by PermGuard.init) │
+   │ view_transaction_detail      │ Clicking TXN ID / 👁️ button to open modal    │
+   │ process_refund               │ ↩ Refund button in table + modal footer      │
+   │ export_transactions          │ Export CSV + Export PDF buttons              │
+   └──────────────────────────────┴──────────────────────────────────────────────┘
+*/
+
+/* ── Mock data ─────────────────────────────────────────────── */
+
+/* ── API state ───────────────────────────────────────────────────── */
+const API_BASE    = 'http://34.231.15.242:8001/api';
+let TXNS          = [];
+let filtered      = [];
+let refundTxnId   = null;
+let currentPage   = 1;
+let totalPages    = 1;
+
+function getToken() {
+  return localStorage.getItem('adminToken') || sessionStorage.getItem('adminData') || '';
+}
+function authHeaders() {
+  return { 'Content-Type': 'application/json', 'Authorization': 'Token ' + getToken() };
+}
+
+async function loadTransactions() {
+  const q      = document.getElementById('txnSearch')?.value  || '';
+  const gw     = document.getElementById('gwFilter')?.value   || '';
+  const status = document.getElementById('statusFilter')?.value || '';
+  const dFrom  = document.getElementById('dateFrom')?.value   || '';
+  const dTo    = document.getElementById('dateTo')?.value     || '';
+  const params = new URLSearchParams({ page: currentPage, per_page: 20 });
+  if (q)      params.append('q',         q);
+  if (gw)     params.append('gateway',   gw);
+  if (status) params.append('status',    status);
+  if (dFrom)  params.append('date_from', dFrom);
+  if (dTo)    params.append('date_to',   dTo);
+  try {
+    const res  = await fetch(`${API_BASE}/transactions/?${params}`, { headers: authHeaders() });
+    console.log('Transactions API response:', res);
+    const json = await res.json();
+    if (!json.success) { showToast('error', 'Error', json.message); return; }
+    TXNS       = json.data.transactions;
+    filtered   = [...TXNS];
+    totalPages = json.data.pagination.total_pages;
+    renderStats(json.data.summary);
+    renderTable();
+    renderPagination(json.data.pagination);
+  } catch (e) {
+    showToast('error', 'Network Error', 'Could not load transactions.');
+  }
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   STEP 2 — initPage()
+   Always runs first, before any render functions.
+════════════════════════════════════════════════════════════════ */
+function initPage() {
+  PermGuard.init({ module: 'transactions', loginUrl: 'admin-login.html' });
+
+  /* ── Populate topbar + sidebar with real admin data ──────── */
+  const admin  = PermGuard.getAdmin?.() || {};
+  const name   = (admin.firstName || admin.name || 'Admin').trim();
+  const role   = admin.role || '—';
+  const letter = name[0]?.toUpperCase() || 'A';
+  document.getElementById('topbarName').textContent  = name;
+  document.getElementById('topbarRole').textContent  = role;
+  document.getElementById('topbarAvatar').textContent = letter;
+  document.getElementById('sidebarName').textContent = name;
+  document.getElementById('sidebarRole').textContent = role;
+  document.getElementById('sidebarAvatar').textContent = letter;
+
+  /* ── Gate export buttons ─────────────────────────────────── */
+  PermGuard.guard('#exportCsvBtn', 'transactions', 'export_transactions');
+  PermGuard.guard('#exportPdfBtn', 'transactions', 'export_transactions');
+
+  /* ── Determine write access ──────────────────────────────── */
+  const canDetail = perm('transactions', 'view_transaction_detail');
+  const canRefund = perm('transactions', 'process_refund');
+  const hasAnyWrite = canDetail || canRefund;
+
+  /* ── Show "View Only" badge when no write/detail perms ────── */
+  if (!hasAnyWrite) {
+    document.getElementById('readonlyNotice').style.display = 'inline-flex';
+  }
+
+  /* ── Hide checkbox column + Actions column if read-only ───── */
+  if (!hasAnyWrite) {
+    document.getElementById('selectAll').closest('th').style.display  = 'none';
+    document.getElementById('actionsColHeader').style.display         = 'none';
+  }
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   RENDER STATS — always visible to view_transactions
+════════════════════════════════════════════════════════════════ */
+function renderStats(summary) {
+  const s = summary || {};
+  const collected  = s.total_collected || 0;
+  const successful = s.successful_count || TXNS.filter(t => t.status === 'paid').length;
+  const refunds    = s.refunded_count   || TXNS.filter(t => t.status === 'refunded').length;
+  const failedPend = (s.failed_count||0) + (s.pending_count||0) ||
+                     TXNS.filter(t => t.status === 'failed' || t.status === 'pending').length;
+
+  document.getElementById('txnStats').innerHTML = `
+    <div class="stat-card-mini"><div class="ico" style="background:var(--success-light)">💰</div><div><div class="val" style="color:var(--success)">₹${(collected/1000).toFixed(1)}k</div><div class="lbl">Total Collected</div></div></div>
+    <div class="stat-card-mini"><div class="ico" style="background:var(--primary-light)">✓</div><div><div class="val" style="color:var(--primary)">${successful}</div><div class="lbl">Successful</div></div></div>
+    <div class="stat-card-mini"><div class="ico" style="background:var(--danger-light)">↩</div><div><div class="val" style="color:var(--danger)">${refunds}</div><div class="lbl">Refunded</div></div></div>
+    <div class="stat-card-mini"><div class="ico" style="background:var(--warning-light)">✕</div><div><div class="val" style="color:var(--accent)">${failedPend}</div><div class="lbl">Failed / Pending</div></div></div>
+  `;
+  const total = s.total_amount || TXNS.reduce((a,t) => a + t.amount, 0);
+  document.getElementById('txnTotalAmt').textContent = '₹' + total.toLocaleString('en-IN');
+}
+function renderTable() {
+  document.getElementById('txnCount').textContent = filtered.length;
+  document.getElementById('txnShown').textContent = filtered.length;
+  document.getElementById('txnTotal').textContent = TXNS.length;
+
+  const canDetail   = perm('transactions', 'view_transaction_detail');
+  const canRefund   = perm('transactions', 'process_refund');
+  const hasAnyWrite = canDetail || canRefund;
+
+  const b = document.getElementById('txnBody');
+  if (!filtered.length) {
+    b.innerHTML = `<tr><td colspan="10"><div class="empty-state"><div style="font-size:48px">💳</div><h3>No transactions found</h3><p>Try adjusting your filters</p></div></td></tr>`;
+    return;
+  }
+
+  b.innerHTML = filtered.map(t => {
+    const txnIdCell = canDetail
+      ? `<div style="font-family:monospace;font-weight:700;color:var(--primary);cursor:pointer" onclick="openDetail(${t.id})">#${t.id}</div>`
+      : `<div style="font-family:monospace;font-weight:700;color:var(--text-muted)">#${t.id}</div>`;
+
+    const actionBtns = hasAnyWrite ? `
+      <td>
+        <div style="display:flex;gap:5px;flex-wrap:wrap;">
+          ${canDetail
+            ? `<button class="btn btn-secondary btn-sm btn-icon" title="View Details" onclick="openDetail(${t.id})">👁️</button>`
+            : ''}
+          ${canRefund && t.status === 'paid'
+            ? `<button class="btn btn-danger btn-sm" style="font-size:12px;padding:5px 10px" onclick="openRefund(${t.id})">↩ Refund</button>`
+            : ''}
+          ${t.status === 'failed'
+            ? `<button class="btn btn-warning btn-sm" style="font-size:12px;padding:5px 10px;background:var(--accent);color:#fff" onclick="retryPayment(${t.id})">🔄 Retry</button>`
+            : ''}
+        </div>
+      </td>` : '';
+
+    const chkCell = hasAnyWrite
+      ? `<td><input type="checkbox" class="txn-chk"></td>`
+      : `<td style="display:none"></td>`;
+
+    return `
+      <tr>
+        ${chkCell}
+        <td>${txnIdCell}</td>
+        <td><a href="orders.html" style="color:var(--info);font-weight:600;font-size:13px">${t.order_number || '—'}</a></td>
+        <td>
+          <div style="font-weight:600;font-size:13.5px">${t.customer_name || '—'}</div>
+          <div style="font-size:12px;color:var(--text-muted)">${t.customer_phone || t.customer_email || ''}</div>
+        </td>
+        <td><strong style="font-size:14px">₹${Number(t.amount).toLocaleString('en-IN')}</strong></td>
+        <td>${gwBadge(t.gateway)}</td>
+        <td><code style="font-size:11.5px;color:var(--text-muted)">${t.gateway_payment_id || t.gateway_order_id || '—'}</code></td>
+        <td>${txnStatus(t.status)}</td>
+        <td>
+          <div style="font-size:13px;font-weight:500">${t.paid_at || t.created_at || '—'}</div>
+        </td>
+        ${actionBtns}
+      </tr>`;
+  }).join('');
+
+  document.getElementById('actionsColHeader').style.display         = hasAnyWrite ? '' : 'none';
+  document.getElementById('selectAll').closest('th').style.display  = hasAnyWrite ? '' : 'none';
+}
+
+function renderPagination(pg) {
+  if (!pg || pg.total_pages <= 1) return;
+  let html = `<div style="display:flex;align-items:center;gap:8px;justify-content:flex-end;margin-top:16px">`;
+  html += `<button class="btn btn-secondary btn-sm" onclick="gotoPage(${pg.page-1})" ${pg.page<=1?'disabled':''}>‹ Prev</button>`;
+  html += `<span style="font-size:13px;color:var(--text-muted)">Page ${pg.page} of ${pg.total_pages}</span>`;
+  html += `<button class="btn btn-secondary btn-sm" onclick="gotoPage(${pg.page+1})" ${pg.page>=pg.total_pages?'disabled':''}>Next ›</button>`;
+  html += `</div>`;
+  const wrap = document.getElementById('paginationWrap');
+  if (wrap) wrap.innerHTML = html;
+}
+
+function gotoPage(p) {
+  if (p < 1 || p > totalPages) return;
+  currentPage = p;
+  loadTransactions();
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   DETAIL MODAL
+   Gate: view_transaction_detail (to open)
+         process_refund           (for the Refund button inside)
+════════════════════════════════════════════════════════════════ */
+async function openDetail(id) {
+  if (!perm('transactions', 'view_transaction_detail')) {
+    showToast('error', 'Access Denied', 'You do not have permission to view transaction details.');
+    return;
+  }
+  try {
+    const res  = await fetch(`${API_BASE}/transactions/${id}/`, { headers: authHeaders() });
+    const json = await res.json();
+    if (!json.success) { showToast('error', 'Error', json.message); return; }
+    const t = json.data;
+
+    document.getElementById('txnModalTitle').textContent = 'Transaction #' + t.id;
+    document.getElementById('txnModalBody').innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;background:var(--body-bg);padding:16px 20px;border-radius:12px;margin-bottom:20px;flex-wrap:wrap;gap:12px">
+        <div>
+          <div style="font-size:22px;font-weight:800;color:${t.status==='paid'?'var(--success)':t.status==='failed'?'var(--danger)':'var(--text-dark)'}">
+            ₹${Number(t.amount).toLocaleString('en-IN')}
+          </div>
+          <div style="font-size:12.5px;color:var(--text-muted);margin-top:4px">${t.paid_at || t.created_at}</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">${txnStatus(t.status)} ${gwBadge(t.gateway)}</div>
+      </div>
+      <div class="form-row cols-2" style="margin-bottom:20px">
+        <div><div class="form-label">Transaction ID</div><code style="font-size:13px;background:var(--body-bg);padding:4px 10px;border-radius:6px;display:inline-block">#${t.id}</code></div>
+        <div><div class="form-label">Order Number</div><code style="font-size:13px;background:var(--body-bg);padding:4px 10px;border-radius:6px;display:inline-block">${t.order_number}</code></div>
+        <div><div class="form-label">Customer</div><div style="font-weight:600">${t.customer_name}</div><div style="font-size:12px;color:var(--text-muted)">${t.customer_email} · ${t.customer_phone}</div></div>
+        <div><div class="form-label">Items in Order</div><div style="font-weight:600">${t.items_count} item${t.items_count>1?'s':''}</div></div>
+        <div><div class="form-label">Gateway</div>${gwBadge(t.gateway)}</div>
+        <div><div class="form-label">Gateway Reference</div><code style="font-size:12px;color:var(--text-muted)">${t.gateway_payment_id || t.gateway_order_id || '—'}</code></div>
+      </div>
+      <div style="border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:20px">
+        <div style="background:var(--body-bg);padding:10px 16px;font-weight:700;font-size:13px;border-bottom:1px solid var(--border)">Payment Breakdown</div>
+        ${[
+          ['Subtotal',         '₹'+Number(t.subtotal||0).toLocaleString('en-IN')],
+          ['Tax',              '₹'+Number(t.tax_amount||0).toLocaleString('en-IN')],
+          ['Shipping',         t.shipping_charge==0?'₹0 (Free)':'₹'+Number(t.shipping_charge||0).toLocaleString('en-IN')],
+          ['Coupon Discount',  t.coupon_code ? '- Coupon: '+t.coupon_code : '— None applied'],
+          ['Total Charged',    '₹'+Number(t.amount).toLocaleString('en-IN')],
+        ].map(([l,v],i) => `
+        <div style="display:flex;justify-content:space-between;padding:9px 16px;border-bottom:${i<4?'1px solid var(--border)':'none'};${i===4?'font-weight:700;font-size:14px;background:var(--primary-light)':''}">
+          ${i===4?`<span style="color:var(--primary)">${l}</span>`:`<span>${l}</span>`}<span>${v}</span>
+        </div>`).join('')}
+    </div>
+
+    <!-- Payment Timeline -->
+    <div class="form-label" style="margin-bottom:10px">Payment Timeline</div>
+    <div class="timeline-mini">
+      <div class="tl-row">
+        <div class="tl-dot" style="background:var(--success-light);color:var(--success)">✓</div>
+        <div><div style="font-weight:600;font-size:13.5px">Payment Initiated</div><div style="font-size:12px;color:var(--text-muted)">${t.date}, ${t.time}</div></div>
+      </div>
+      ${t.status !== 'failed' ? `
+      <div class="tl-row">
+        <div class="tl-dot" style="background:var(--info-light);color:var(--info)">🔐</div>
+        <div><div style="font-weight:600;font-size:13.5px">Gateway Verification</div><div style="font-size:12px;color:var(--text-muted)">Signature verified via ${t.gateway}</div></div>
+      </div>` : ''}
+      <div class="tl-row">
+        <div class="tl-dot" style="background:${t.status==='success'?'var(--success-light)':t.status==='failed'?'var(--danger-light)':'var(--warning-light)'};color:${t.status==='success'?'var(--success)':t.status==='failed'?'var(--danger)':'var(--accent)'}">
+          ${t.status==='success'?'✓':t.status==='failed'?'✕':'⏳'}
+        </div>
+        <div>
+          <div style="font-weight:600;font-size:13.5px">${t.status==='success'?'Payment Captured':t.status==='failed'?'Payment Failed':'Awaiting Collection'}</div>
+          <div style="font-size:12px;color:var(--text-muted)">${t.date}</div>
+        </div>
+      </div>
+      ${t.status === 'refunded' ? `
+      <div class="tl-row">
+        <div class="tl-dot" style="background:var(--danger-light);color:var(--danger)">↩</div>
+        <div><div style="font-weight:600;font-size:13.5px">Refund Processed</div><div style="font-size:12px;color:var(--text-muted)">Full refund sent to original payment method</div></div>
+      </div>` : ''}
+    </div>
+  `;
+    buildDetailFooter(t);
+    openModal('txnModal');
+  } catch (e) {
+    showToast('error', 'Error', 'Could not load transaction details.');
+  }
+}
+/* ── Modal footer — built dynamically ─────────────────────── */
+function buildDetailFooter(t) {
+  const footer = document.getElementById('txnModalFooter');
+  footer.innerHTML = `<button class="btn btn-secondary" onclick="closeModal('txnModal')">Close</button>`;
+
+  /* Invoice download — low-risk; available to anyone who can view detail */
+  footer.innerHTML += `<button class="btn btn-secondary btn-sm" onclick="showToast('info','Invoice','Downloading invoice…')">🖨️ Download Invoice</button>`;
+
+  /*
+    PERM: process_refund
+    Refund button only injected if admin has process_refund AND
+    the transaction is in a refundable state.
+  */
+  if (perm('transactions', 'process_refund') && t.status === 'paid') {
+    footer.innerHTML += `<button class="btn btn-danger btn-sm" onclick="closeModal('txnModal');openRefund('${t.id}')">💸 Process Refund</button>`;
+  }
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   OPEN REFUND MODAL
+   Guard: process_refund
+════════════════════════════════════════════════════════════════ */
+function openRefund(id) {
+  if (!perm('transactions', 'process_refund')) {
+    showToast('error', 'Access Denied', 'You do not have permission to process refunds.');
+    return;
+  }
+  const t = TXNS.find(x => x.id === id);
+  if (!t) return;
+  refundTxnId = id;
+  document.getElementById('refundInfo').innerHTML = `
+    <div style="font-weight:700;font-size:13.5px;margin-bottom:6px">Refund for #${t.id}</div>
+    <div style="font-size:13px">
+      Customer: <strong>${t.customer_name}</strong> ·
+      Order: <strong>${t.order_number}</strong> ·
+      Amount: <strong>₹${Number(t.amount).toLocaleString('en-IN')}</strong>
+    </div>
+    <div style="font-size:12px;margin-top:4px;color:var(--danger)">
+      Gateway: ${t.gateway}${t.gateway==='COD'?' — Bank transfer required':' — Will be refunded via '+t.gateway}
+    </div>
+  `;
+  document.getElementById('refundAmt').max         = t.amount;
+  document.getElementById('refundAmt').placeholder = `Max: ₹${t.amount}`;
+  openModal('refundModal');
+}
+function toggleRefundAmt() {
+  const isPartial = document.querySelector('input[name="refundType"]:checked').value === 'partial';
+  document.getElementById('partialAmtGroup').style.display = isPartial ? 'block' : 'none';
+}
+
+async function processRefund() {
+  if (!perm('transactions', 'process_refund')) {
+    showToast('error', 'Access Denied', 'No permission to process refunds.');
+    return;
+  }
+  const reason = document.getElementById('refundReason').value;
+  if (!reason) { showToast('warning', 'Required', 'Please select a refund reason'); return; }
+
+  const t    = TXNS.find(x => x.id === refundTxnId);
+  const type = document.querySelector('input[name="refundType"]:checked').value;
+  const amt  = type === 'partial' ? Number(document.getElementById('refundAmt').value) : t.amount;
+  if (type === 'partial' && !amt) { showToast('warning', 'Required', 'Enter refund amount'); return; }
+
+  try {
+    const res  = await fetch(`${API_BASE}/transactions/${refundTxnId}/refund/`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ type, amount: amt, reason, note: document.getElementById('refundNote').value }),
+    });
+    const json = await res.json();
+    if (!json.success) { showToast('error', 'Refund Failed', json.message); return; }
+
+    // Update local state
+    const local = TXNS.find(x => x.id === refundTxnId);
+    if (local) local.status = json.data.status;
+    filtered = [...TXNS];
+
+    closeModal('refundModal');
+    renderStats();
+    renderTable();
+    showToast('success', 'Refund Initiated', `₹${amt.toLocaleString('en-IN')} refund sent for #${refundTxnId}`);
+  } catch {
+    showToast('error', 'Refund Failed', 'Could not process refund. Please try again.');
+  }
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   EXPORT
+   Guard: export_transactions
+════════════════════════════════════════════════════════════════ */
+function exportCSV() {
+  if (!perm('transactions', 'export_transactions')) {
+    showToast('error', 'Access Denied', 'No permission to export transactions.'); return;
+  }
+  const a = document.createElement('a');
+  a.href  = `${API_BASE}/transactions/export/?format=csv`;
+  a.download = 'transactions.csv';
+  a.click();
+  showToast('success', 'Exported', 'transactions.csv downloading…');
+}
+
+function exportPDF() {
+  if (!perm('transactions', 'export_transactions')) {
+    showToast('error', 'Access Denied', 'No permission to export transactions.'); return;
+  }
+  showToast('info', 'PDF Export', 'PDF export coming soon. Use CSV export for now.');
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   RETRY PAYMENT — low-risk notification action, no perm gate
+════════════════════════════════════════════════════════════════ */
+function retryPayment(id) {
+  /*
+    REPLACE WITH REAL API:
+    POST /api/transactions/<id>/retry/
+    Headers: { Authorization: Token <adminToken> }
+  */
+  showToast('info', 'Retry', `Sending payment retry link to customer for ${id}`);
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   FILTERS
+════════════════════════════════════════════════════════════════ */
+function applyFilters() {
+  currentPage = 1;
+  loadTransactions();
+}
+function clearFilters() {
+  ['txnSearch','gwFilter','statusFilter','dateFrom','dateTo'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  currentPage = 1;
+  loadTransactions();
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   HELPERS
+════════════════════════════════════════════════════════════════ */
+function gwBadge(gw) {
+  const cls   = { Razorpay:'gw-razorpay', PhonePe:'gw-phonePe', PayU:'gw-payu', COD:'gw-cod' };
+  const icons = { Razorpay:'💳', PhonePe:'📱', PayU:'💰', COD:'💵' };
+  return `<span class="gateway-badge ${cls[gw]||'gw-cod'}">${icons[gw]||'💳'} ${gw}</span>`;
+}
+
+function txnStatus(s) {
+  const map = {
+    paid:           ['badge-success', '✓ Paid'],
+    success:        ['badge-success', '✓ Paid'],
+    pending:        ['badge-warning', '⏳ Pending'],
+    failed:         ['badge-danger',  '✕ Failed'],
+    refunded:       ['badge-gray',    '↩ Refunded'],
+    partial_refund: ['badge-warning', '↩ Partial Refund'],
+  };
+  const [cls, lbl] = map[s] || ['badge-gray', s];
+  return `<span class="badge ${cls}">${lbl}</span>`;
+}
+
+function openModal(id)  { document.getElementById(id)?.classList.add('open'); }
+function closeModal(id) { document.getElementById(id)?.classList.remove('open'); }
+
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.remove('open'); });
+});
+
+function showToast(type, title, msg) {
+  const icons = { success:'✅', error:'❌', info:'ℹ️', warning:'⚠️' };
+  const tc    = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.innerHTML = `<span style="font-size:18px;">${icons[type]||'ℹ️'}</span><div><div style="font-size:13px;font-weight:600;">${title}</div><div style="font-size:12px;color:#6b7c75;margin-top:2px;">${msg}</div></div>`;
+  tc.appendChild(toast);
+  setTimeout(() => toast.remove(), 4000);
+}
+
+document.getElementById('sidebarToggle').addEventListener('click', () => {
+  const sidebar   = document.getElementById('sidebar');
+  const main      = document.getElementById('mainContent');
+  const collapsed = sidebar.classList.toggle('collapsed');
+  main.classList.toggle('expanded', collapsed);
+});
+
+
+/* ════════════════════════════════════════════════════════════════
+   BOOT — initPage() FIRST, then render
+════════════════════════════════════════════════════════════════ */
+initPage();
+loadTransactions();
+</script>
+</body>
+</html>
