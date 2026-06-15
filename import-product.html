@@ -1,0 +1,299 @@
+<!-- product-import.html — Bulk product import form -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bulk Product Import</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f5;
+            padding: 2rem;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 2rem;
+        }
+        h1 {
+            margin-bottom: 2rem;
+            color: #333;
+        }
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #333;
+        }
+        input[type="file"],
+        input[type="checkbox"] {
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+        input[type="file"] {
+            display: block;
+            width: 100%;
+        }
+        .file-hint {
+            font-size: 0.9rem;
+            color: #666;
+            margin-top: 0.25rem;
+        }
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .button-group {
+            display: flex;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+        button {
+            padding: 0.75rem 1.5rem;
+            font-size: 1rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .btn-primary {
+            background: #7C3AED;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #6D28D9;
+        }
+        .btn-secondary {
+            background: #e5e7eb;
+            color: #333;
+        }
+        .btn-secondary:hover {
+            background: #d1d5db;
+        }
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .status {
+            margin-top: 2rem;
+            padding: 1rem;
+            border-radius: 4px;
+            display: none;
+        }
+        .status.success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #6ee7b7;
+            display: block;
+        }
+        .status.error {
+            background: #fee2e2;
+            color: #7f1d1d;
+            border: 1px solid #fca5a5;
+            display: block;
+        }
+        .status.loading {
+            background: #dbeafe;
+            color: #1e40af;
+            border: 1px solid #93c5fd;
+            display: block;
+        }
+        .summary {
+            margin-top: 1rem;
+            font-size: 0.95rem;
+        }
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+        }
+        .summary-row:last-child {
+            border-bottom: none;
+        }
+        .download-link {
+            color: #7C3AED;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .download-link:hover {
+            text-decoration: underline;
+        }
+        .loader {
+            display: inline-block;
+            width: 1rem;
+            height: 1rem;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #7C3AED;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 0.5rem;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📦 Bulk Product Import</h1>
+        
+        <form id="importForm">
+            <div class="form-group">
+                <label for="excelFile">Select Excel File (.xlsx)</label>
+                <input 
+                    type="file" 
+                    id="excelFile" 
+                    name="excel_file" 
+                    accept=".xlsx,.xls"
+                    required
+                >
+                <p class="file-hint">
+                    💡 Maximum file size: 10 MB
+                    <br>
+                    Format: .xlsx or .xls
+                </p>
+            </div>
+
+            <div class="form-group checkbox-group">
+                <input type="checkbox" id="dryRun" name="dry_run">
+                <label for="dryRun" style="margin-bottom: 0;">
+                    🔍 Dry-run mode (validate without saving to DB)
+                </label>
+            </div>
+
+            <div class="button-group">
+                <button type="submit" class="btn-primary" id="submitBtn">
+                    📤 Upload & Import
+                </button>
+                <button type="reset" class="btn-secondary">Clear</button>
+            </div>
+        </form>
+
+        <div id="status" class="status">
+            <div id="statusText"></div>
+            <div id="summary" class="summary"></div>
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById('importForm');
+        const statusDiv = document.getElementById('status');
+        const statusText = document.getElementById('statusText');
+        const summaryDiv = document.getElementById('summary');
+        const submitBtn = document.getElementById('submitBtn');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const fileInput = document.getElementById('excelFile');
+            const dryRun = document.getElementById('dryRun').checked;
+
+            if (!fileInput.files[0]) {
+                showStatus('error', '❌ Please select an Excel file');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('excel_file', fileInput.files[0]);
+            if (dryRun) {
+                formData.append('dry_run', 'true');
+            }
+
+            // Show loading state
+            submitBtn.disabled = true;
+            statusText.innerHTML = '<div class="loader"></div>Processing import...';
+            statusDiv.className = 'status loading';
+            statusDiv.style.display = 'block';
+            summaryDiv.innerHTML = '';
+
+            try {
+                const response = await fetch('/api/products/import/', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    credentials: 'same-origin',
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    showStatus('error', `❌ ${data.message || 'Import failed'}`);
+                    submitBtn.disabled = false;
+                    return;
+                }
+
+                // Success
+                const summary = data.data.summary;
+                let summaryHTML = `
+                    <div class="summary-row">
+                        <span>Total rows processed:</span>
+                        <strong>${summary.total_rows}</strong>
+                    </div>
+                    <div class="summary-row">
+                        <span>✅ Products created:</span>
+                        <strong>${summary.products_created}</strong>
+                    </div>
+                    <div class="summary-row">
+                        <span>♻️ Variants created:</span>
+                        <strong>${summary.variants_created}</strong>
+                    </div>
+                    <div class="summary-row">
+                        <span>⏭️ Skipped:</span>
+                        <strong>${summary.skipped}</strong>
+                    </div>
+                    <div class="summary-row">
+                        <span>❌ Errors:</span>
+                        <strong>${summary.errors}</strong>
+                    </div>
+                `;
+
+                if (data.data.download_url) {
+                    summaryHTML += `
+                        <div class="summary-row" style="margin-top: 1rem; padding-top: 1rem; border-top: 2px solid currentColor;">
+                            <a href="${data.data.download_url}" class="download-link" download>
+                                📥 Download Detailed Result (JSON)
+                            </a>
+                        </div>
+                    `;
+                }
+
+                const mode = dryRun ? ' (Dry-run - no changes made)' : '';
+                statusText.textContent = `✅ Import completed successfully${mode}`;
+                summaryDiv.innerHTML = summaryHTML;
+                statusDiv.className = 'status success';
+
+                // Reset form
+                form.reset();
+
+            } catch (error) {
+                showStatus('error', `❌ Error: ${error.message}`);
+            } finally {
+                submitBtn.disabled = false;
+            }
+        });
+
+        function showStatus(type, message) {
+            statusText.textContent = message;
+            statusDiv.className = `status ${type}`;
+            statusDiv.style.display = 'block';
+            summaryDiv.innerHTML = '';
+        }
+    </script>
+</body>
+</html>

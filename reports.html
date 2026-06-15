@@ -1,0 +1,1040 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>Reports & Analytics – LoomIndica Admin</title>
+  <link rel="stylesheet" href="admin.css">
+  <style>
+    /* ═══════════════════════════════════════════════
+       RESPONSIVE CORE FIXES
+    ═══════════════════════════════════════════════ */
+    *, *::before, *::after { box-sizing: border-box; }
+    .page-content  { min-width: 0; overflow-x: hidden; }
+    .main-content  { min-width: 0; overflow-x: hidden; }
+    .card          { min-width: 0; }
+    .table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%; }
+    .data-table    { min-width: 640px; width: 100%; border-collapse: collapse; }
+
+    /* Page header */
+    .page-header { display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:20px; }
+    .page-header .d-flex { flex-wrap:wrap; }
+
+    /* ═══════════════════════════════════════════════
+       DATE RANGE BAR
+    ═══════════════════════════════════════════════ */
+    .range-bar {
+      display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+      margin-bottom:24px; background:#fff;
+      border:1.5px solid var(--border); border-radius:12px; padding:12px 16px;
+    }
+    .range-bar label { font-size:13px; font-weight:600; color:var(--text-muted); }
+    .range-bar input[type="date"] {
+      height:36px; padding:0 12px; border:1.5px solid var(--border);
+      border-radius:8px; font-size:13.5px; outline:none; background:var(--body-bg);
+      transition:var(--transition);
+    }
+    .range-bar input[type="date"]:focus { border-color:var(--primary); background:#fff; }
+    .preset-btn {
+      padding:6px 14px; border-radius:20px; font-size:12.5px; font-weight:600;
+      border:1.5px solid var(--border); background:#fff; color:var(--text-mid);
+      cursor:pointer; transition:var(--transition);
+    }
+    .preset-btn.active, .preset-btn:hover { background:var(--primary); color:#fff; border-color:var(--primary); }
+
+    /* ═══════════════════════════════════════════════
+       KPI CARDS — responsive grid
+    ═══════════════════════════════════════════════ */
+    .kpi-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:24px; }
+    @media (max-width:1100px) { .kpi-grid { grid-template-columns:repeat(2,1fr); } }
+    @media (max-width:500px)  { .kpi-grid { grid-template-columns:1fr; } }
+
+    .kpi-card {
+      background:#fff; border:1px solid var(--border); border-radius:14px;
+      padding:20px; position:relative; overflow:hidden; transition:var(--transition);
+    }
+    .kpi-card:hover { box-shadow:var(--shadow); transform:translateY(-2px); }
+    .kpi-card::after { content:''; position:absolute; bottom:0; left:0; right:0; height:3px; }
+    .kpi-card.c1::after { background:var(--primary); }
+    .kpi-card.c2::after { background:var(--success); }
+    .kpi-card.c3::after { background:var(--accent); }
+    .kpi-card.c4::after { background:var(--info); }
+    .kpi-icon { width:44px; height:44px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:20px; margin-bottom:12px; }
+    .kpi-value { font-size:26px; font-weight:800; line-height:1.1; }
+    .kpi-label { font-size:12.5px; color:var(--text-muted); margin-top:4px; }
+    .kpi-change { font-size:12px; font-weight:700; margin-top:8px; display:flex; align-items:center; gap:4px; }
+    .kpi-change.up   { color:var(--success); }
+    .kpi-change.down { color:var(--danger); }
+
+    /* ═══════════════════════════════════════════════
+       CHART ROWS — responsive grids
+    ═══════════════════════════════════════════════ */
+    .charts-row-main {
+      display:grid;
+      grid-template-columns: 1.8fr 1fr;
+      gap:20px; margin-bottom:24px;
+    }
+    .charts-row-2 {
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:20px; margin-bottom:24px;
+    }
+    .charts-row-3 {
+      display:grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap:20px; margin-bottom:24px;
+    }
+    @media (max-width:1024px) {
+      .charts-row-main { grid-template-columns:1fr; }
+      .charts-row-2    { grid-template-columns:1fr; }
+      .charts-row-3    { grid-template-columns:1fr; }
+    }
+
+    /* ═══════════════════════════════════════════════
+       CHART CARDS
+    ═══════════════════════════════════════════════ */
+    .chart-card { background:#fff; border:1px solid var(--border); border-radius:14px; overflow:hidden; }
+    .chart-card .ch { padding:16px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; }
+    .chart-card .ch h3 { font-size:15px; font-weight:700; }
+    .chart-body { padding:20px; }
+    .chart-wrap { position:relative; width:100%; }
+    canvas { display:block; max-width:100%; }
+
+    /* ═══════════════════════════════════════════════
+       SUPPORTING STYLES
+    ═══════════════════════════════════════════════ */
+    .rank-num { width:28px; height:28px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800; flex-shrink:0; }
+    .breakdown-row { display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid var(--border); flex-wrap:wrap; }
+    .breakdown-row:last-child { border-bottom:none; }
+    .breakdown-bar { flex:1; min-width:80px; height:8px; background:var(--border); border-radius:10px; overflow:hidden; }
+    .breakdown-fill { height:100%; border-radius:10px; }
+
+    /* Export Panel */
+    .export-card { background:linear-gradient(135deg,#1E1B4B,#312E81); border-radius:14px; padding:24px; color:#fff; }
+    .export-card h3 { font-size:16px; font-weight:700; margin-bottom:6px; }
+    .export-card p  { font-size:13px; opacity:.75; margin-bottom:20px; }
+    .export-btn {
+      display:flex; align-items:center; gap:10px;
+      background:rgba(255,255,255,.12); border:1.5px solid rgba(255,255,255,.2);
+      border-radius:10px; padding:11px 16px; cursor:pointer;
+      transition:var(--transition); margin-bottom:10px; width:100%; text-align:left;
+    }
+    .export-btn:hover { background:rgba(255,255,255,.22); border-color:rgba(255,255,255,.4); }
+    .export-btn .ico { font-size:20px; }
+    .export-btn .txt strong { display:block; font-size:13.5px; font-weight:700; }
+    .export-btn .txt span   { font-size:11.5px; opacity:.7; }
+
+    /* Export grid */
+    .export-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:10px; }
+
+    /* Read-only / access-restricted section placeholders */
+    .section-locked {
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      gap:10px; padding:40px 20px; background:var(--body-bg);
+      border:1.5px dashed var(--border); border-radius:12px; text-align:center;
+      color:var(--text-muted); font-size:13.5px;
+    }
+    .section-locked span { font-size:36px; }
+
+    /* Sidebar collapse */
+    .sidebar.collapsed { width:64px; }
+    .sidebar.collapsed .brand-text,
+    .sidebar.collapsed .nav-label,
+    .sidebar.collapsed .nav-section-title { opacity:0; pointer-events:none; width:0; }
+  </style>
+</head>
+<body>
+<div class="mobile-overlay"></div>
+<div id="toast-container"></div>
+
+<div class="admin-shell">
+
+  <!-- ═══ SIDEBAR ═══ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon">LI</div>
+      <div class="brand-text"><h3>LoomIndica</h3><span>Admin Panel</span></div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Main</div>
+      <div class="nav-item"><a href="dashboard.html"    class="nav-link"><span class="nav-icon">📊</span><span class="nav-label">Dashboard</span></a></div>
+      <div class="nav-section-label">Catalogue</div>
+      <div class="nav-item"><a href="products.html"     class="nav-link"><span class="nav-icon">🛍️</span><span class="nav-label">Products</span></a></div>
+      <div class="nav-item"><a href="categories.html"   class="nav-link"><span class="nav-icon">🗂️</span><span class="nav-label">Categories</span></a></div>
+      <div class="nav-item"><a href="inventory.html"    class="nav-link"><span class="nav-icon">📦</span><span class="nav-label">Inventory</span>
+        <!-- <span class="nav-badge">8</span> -->
+      </a></div>
+      <div class="nav-section-label">Sales</div>
+      <div class="nav-item"><a href="orders.html"       class="nav-link"><span class="nav-icon">🧾</span><span class="nav-label">Orders</span>
+        <!-- <span class="nav-badge">24</span> -->
+      </a></div>
+      <div class="nav-item"><a href="customers.html"    class="nav-link"><span class="nav-icon">👥</span><span class="nav-label">Customers</span></a></div>
+      <div class="nav-item"><a href="transactions.html" class="nav-link"><span class="nav-icon">💳</span><span class="nav-label">Transactions</span></a></div>
+      <div class="nav-section-label">Marketing</div>
+      <div class="nav-item"><a href="coupons.html"      class="nav-link"><span class="nav-icon">🎟️</span><span class="nav-label">Coupons</span></a></div>
+      <div class="nav-item"><a href="banners.html"      class="nav-link"><span class="nav-icon">🖼️</span><span class="nav-label">Banners &amp; Offers</span></a></div>
+      <div class="nav-item"><a href="featured-collections.html"   class="nav-link" data-label="Featured"><span class="nav-icon">✨</span><span class="nav-label">Featured Collections</span></a></div>
+      <div class="nav-item"><a href="blogs.html"   class="nav-link" data-label="Blog"><span class="nav-icon">✍️</span><span class="nav-label">Blog</span></a></div>
+      <div class="nav-section-label">Analytics</div>
+      <div class="nav-item"><a href="reports.html"      class="nav-link active"><span class="nav-icon">📈</span><span class="nav-label">Reports</span></a></div>
+      <div class="nav-section-label">System</div>
+      <div class="nav-item"><a href="settings.html"     class="nav-link"><span class="nav-icon">⚙️</span><span class="nav-label">Settings</span></a></div>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="sidebar-user">
+        <div class="user-avatar" id="sidebarAvatar">A</div>
+        <div class="user-info"><strong id="sidebarName">Admin</strong><span id="sidebarRole">—</span></div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ═══ MAIN CONTENT ═══ -->
+  <div class="main-content" id="mainContent">
+    <header class="topbar">
+      <button class="topbar-toggle" id="sidebarToggle">☰</button>
+      <div class="topbar-search"><i>🔍</i><input placeholder="Search reports…"></div>
+      <div class="topbar-actions">
+        <div class="dropdown">
+          <div class="topbar-user" data-dropdown>
+            <div class="avatar" id="topbarAvatar">A</div>
+            <div class="topbar-user-info">
+              <strong id="topbarName">Admin</strong>
+              <span id="topbarRole">—</span>
+            </div>
+            <span style="margin-left:4px;color:var(--text-muted);font-size:11px">▾</span>
+          </div>
+          <div class="dropdown-menu">
+            <!-- PermGuard wires [data-logout] automatically -->
+            <div class="dropdown-item danger" data-logout>🚪 Logout</div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="page-content" id="pageContent">
+      <div class="page-header">
+        <div class="page-header-left">
+          <h1>Reports &amp; Analytics</h1>
+          <div class="breadcrumb">
+            <span onclick="location.href='dashboard.html'">Home</span>
+            <i>›</i><span>Analytics</span><i>›</i><span>Reports</span>
+          </div>
+        </div>
+        <div class="d-flex gap-8">
+          <button class="btn btn-secondary btn-sm" onclick="refreshData()">🔄 Refresh</button>
+          <!--
+            PERM: export_reports
+            Export button hidden when admin lacks export_reports.
+            Gated in initPage() via PermGuard.guard().
+          -->
+          <button class="btn btn-primary btn-sm" id="exportScrollBtn"
+            onclick="document.getElementById('exportPanel')?.scrollIntoView({behavior:'smooth'})">
+            📥 Export
+          </button>
+        </div>
+      </div>
+
+      <!-- Date Range Bar — visible to anyone with view_reports -->
+      <div class="range-bar">
+        <label>Period:</label>
+        <button class="preset-btn"        onclick="setPreset('today',this)">Today</button>
+        <button class="preset-btn"        onclick="setPreset('week',this)">This Week</button>
+        <button class="preset-btn active" onclick="setPreset('month',this)">This Month</button>
+        <button class="preset-btn"        onclick="setPreset('quarter',this)">Quarter</button>
+        <button class="preset-btn"        onclick="setPreset('year',this)">This Year</button>
+        <div style="display:flex;align-items:center;gap:8px;margin-left:auto;flex-wrap:wrap">
+          <label>From</label>
+          <input type="date" id="dateFrom" onchange="customRange()">
+          <label>To</label>
+          <input type="date" id="dateTo" onchange="customRange()">
+          <button class="btn btn-primary btn-sm" onclick="loadReports()">Apply</button>
+        </div>
+      </div>
+
+      <!--
+        KPI Cards — view_reports (always shown to anyone on the page).
+        Revenue section inside gated via view_revenue_report.
+      -->
+      <div class="kpi-grid stagger" id="kpiGrid"></div>
+
+      <!--
+        PERM: view_revenue_report
+        Revenue trend chart + Category sales donut.
+        Entire row replaced with locked placeholder if no perm.
+      -->
+      <div id="revenueReportSection" class="charts-row-main">
+        <div class="chart-card">
+          <div class="ch">
+            <h3>Revenue Trend</h3>
+            <div class="d-flex gap-8">
+              <button class="preset-btn active" onclick="switchRevChart('revenue',this)" style="font-size:12px;padding:5px 12px">Revenue</button>
+              <button class="preset-btn"        onclick="switchRevChart('orders',this)"  style="font-size:12px;padding:5px 12px">Orders</button>
+              <button class="preset-btn"        onclick="switchRevChart('customers',this)" style="font-size:12px;padding:5px 12px">Customers</button>
+            </div>
+          </div>
+          <div class="chart-body">
+            <div class="chart-wrap" style="height:260px">
+              <canvas id="revenueChart" style="width:100%;height:100%"></canvas>
+            </div>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="ch"><h3>Sales by Category</h3><span class="badge badge-purple">This Period</span></div>
+          <div class="chart-body">
+            <div style="display:flex;justify-content:center;margin-bottom:14px">
+              <canvas id="donutChart" width="180" height="180"></canvas>
+            </div>
+            <div id="donutLegend" style="display:flex;flex-direction:column;gap:9px"></div>
+          </div>
+        </div>
+      </div>
+
+      <!--
+        Payment gateway + Order status — part of view_reports (general).
+        Always visible to anyone who can view reports.
+      -->
+      <div class="charts-row-2">
+        <div class="chart-card">
+          <div class="ch"><h3>Payment Gateway Split</h3></div>
+          <div class="chart-body">
+            <div id="gatewayBreakdown" style="display:flex;flex-direction:column;gap:0"></div>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="ch"><h3>Order Status Distribution</h3></div>
+          <div class="chart-body">
+            <canvas id="barOrderStatus" width="400" height="220" style="max-width:100%"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!--
+        PERM: view_product_report
+        Top Selling Products section.
+        Replaced with locked placeholder if no perm.
+      -->
+      <div id="productReportSection" class="charts-row-2">
+        <div class="chart-card">
+          <div class="ch">
+            <h3>Top Selling Products</h3>
+            <select onchange="filterTopProducts(this.value)"
+              style="height:32px;padding:0 10px;border:1.5px solid var(--border);border-radius:8px;font-size:12.5px;outline:none">
+              <option value="revenue">By Revenue</option>
+              <option value="units">By Units</option>
+            </select>
+          </div>
+          <div class="chart-body" style="padding:12px 20px">
+            <div id="topProductsList"></div>
+          </div>
+        </div>
+
+        <!--
+          PERM: view_customer_report
+          Top Customers section — nested inside product row for layout.
+          Replaced with locked placeholder if no perm.
+        -->
+        <div id="customerReportSection">
+          <div class="chart-card" style="height:100%">
+            <div class="ch"><h3>Top Customers</h3><span class="badge badge-success">By Spend</span></div>
+            <div class="chart-body" style="padding:12px 20px">
+              <div id="topCustomersList"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!--
+        Coupon Performance — visible with view_reports (general stats).
+        No extra perm needed; coupons table is informational.
+      -->
+      <div class="chart-card" style="margin-bottom:24px">
+        <div class="ch"><h3>Coupon Performance</h3><span class="badge badge-gray">This Period</span></div>
+        <div class="table-wrapper">
+          <table class="data-table" id="cpnPerfTable">
+            <thead>
+              <tr>
+                <th>Coupon Code</th><th>Type</th><th>Total Uses</th>
+                <th>Revenue Generated</th><th>Discount Given</th><th>Conversion Rate</th>
+              </tr>
+            </thead>
+            <tbody id="cpnPerfBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Conversion funnel + repeat customers + AOV — general view_reports -->
+      <div class="charts-row-3">
+        <div class="chart-card">
+          <div class="ch"><h3>Conversion Funnel</h3></div>
+          <div class="chart-body" id="funnelBody" style="padding:16px 20px"></div>
+        </div>
+        <div class="chart-card">
+          <div class="ch"><h3>Repeat vs New Customers</h3></div>
+          <div class="chart-body" style="display:flex;justify-content:center;align-items:center;flex-direction:column;gap:14px">
+            <canvas id="custDonut" width="140" height="140"></canvas>
+            <div id="custDonutLegend" style="display:flex;gap:16px"></div>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="ch"><h3>Avg. Order Value</h3></div>
+          <div class="chart-body" id="aovBody" style="padding:16px 20px"></div>
+        </div>
+      </div>
+
+      <!--
+        PERM: export_reports
+        Entire export panel hidden when admin lacks export_reports.
+        Gated in initPage() via PermGuard.guard().
+      -->
+      <div class="export-card" id="exportPanel">
+        <h3>📥 Export Reports</h3>
+        <p>Download reports in your preferred format. All exports reflect the currently selected date range.</p>
+        <div class="export-grid">
+          <button class="export-btn" onclick="exportReport('sales','csv')">
+            <span class="ico">📊</span>
+            <div class="txt"><strong>Sales Report</strong><span>CSV · All orders &amp; revenue</span></div>
+          </button>
+          <button class="export-btn" onclick="exportReport('products','csv')">
+            <span class="ico">🛍️</span>
+            <div class="txt"><strong>Product Report</strong><span>CSV · Sales per product</span></div>
+          </button>
+          <button class="export-btn" onclick="exportReport('customers','csv')">
+            <span class="ico">👥</span>
+            <div class="txt"><strong>Customer Report</strong><span>CSV · Customer order history</span></div>
+          </button>
+          <button class="export-btn" onclick="exportReport('inventory','csv')">
+            <span class="ico">📦</span>
+            <div class="txt"><strong>Inventory Report</strong><span>CSV · Stock levels &amp; value</span></div>
+          </button>
+          <button class="export-btn" onclick="exportReport('transactions','csv')">
+            <span class="ico">💳</span>
+            <div class="txt"><strong>Transaction Report</strong><span>CSV · All payments</span></div>
+          </button>
+          <button class="export-btn" onclick="exportReport('gst','pdf')">
+            <span class="ico">📄</span>
+            <div class="txt"><strong>GST Report</strong><span>PDF · Tax summary</span></div>
+          </button>
+        </div>
+      </div>
+
+    </div><!-- /page-content -->
+  </div><!-- /main-content -->
+</div><!-- /admin-shell -->
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     SCRIPTS — Order: permissions.js → admin.js → page script
+═══════════════════════════════════════════════════════════ -->
+
+<!--
+  STEP 1 — Load PermGuard BEFORE admin.js and page script.
+  Adjust path to match your project structure.
+-->
+<script src="permissions.js"></script>
+<script src="admin.js"></script>
+
+<script>
+/* ════════════════════════════════════════════════════════════════
+   REPORTS PAGE — PERMGUARD INTEGRATION
+   ════════════════════════════════════════════════════════════════
+
+   Permission map (reports module):
+   ┌──────────────────────────┬──────────────────────────────────────────────────┐
+   │ Feature key              │ What it gates                                    │
+   ├──────────────────────────┼──────────────────────────────────────────────────┤
+   │ view_reports             │ Entire page (auto-blocked by PermGuard.init)     │
+   │ view_revenue_report      │ Revenue trend chart + Category sales donut row   │
+   │ view_product_report      │ Top Selling Products section                     │
+   │ view_customer_report     │ Top Customers section                            │
+   │ export_reports           │ Export panel + Export button in header           │
+   └──────────────────────────┴──────────────────────────────────────────────────┘
+
+   Sections always visible to anyone with view_reports:
+   - KPI cards
+   - Payment Gateway Split
+   - Order Status Distribution
+   - Coupon Performance
+   - Conversion Funnel
+   - Repeat vs New Customers
+   - Avg. Order Value
+*/
+
+/* ── API Config ─────────────────────────────────────────────── */
+const BASE_URL = 'http://34.231.15.242:8001/api';
+function getToken() {
+  return localStorage.getItem('adminToken') || sessionStorage.getItem('adminToken') || '';
+}
+async function apiFetch(path, options = {}) {
+  const res = await fetch(BASE_URL + path, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Token ' + getToken(),
+      ...(options.headers || {}),
+    },
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || 'API error');
+  return json;
+}
+
+const DONUT_COLORS  = ['#7C3AED','#F59E0B','#10B981','#3B82F6','#EF4444'];
+const AVATAR_COLORS = ['#7C3AED','#F59E0B','#10B981','#3B82F6','#EC4899'];
+let currentChartType = 'revenue';
+let data = null;
+
+
+/* ════════════════════════════════════════════════════════════════
+   STEP 2 — initPage()
+   Runs first — gates section visibility based on permissions.
+════════════════════════════════════════════════════════════════ */
+function initPage() {
+  PermGuard.init({ module: 'reports', loginUrl: 'admin-login.html' });
+
+  /* ── Populate topbar + sidebar with real admin data ──────── */
+  const admin  = PermGuard.getAdmin?.() || {};
+  const name   = (admin.firstName || admin.name || 'Admin').trim();
+  const role   = admin.role || '—';
+  const letter = name[0]?.toUpperCase() || 'A';
+  document.getElementById('topbarName').textContent    = name;
+  document.getElementById('topbarRole').textContent    = role;
+  document.getElementById('topbarAvatar').textContent  = letter;
+  document.getElementById('sidebarName').textContent   = name;
+  document.getElementById('sidebarRole').textContent   = role;
+  document.getElementById('sidebarAvatar').textContent = letter;
+
+  /* ── Gate export panel + header export button ────────────── */
+  PermGuard.guard('#exportPanel',     'reports', 'export_reports');
+  PermGuard.guard('#exportScrollBtn', 'reports', 'export_reports');
+
+  /* ── Gate revenue report section ─────────────────────────── */
+  if (!perm('reports', 'view_revenue_report')) {
+    replaceWithLocked('revenueReportSection',
+      '📊 Revenue Report',
+      'You do not have permission to view revenue analytics.');
+  }
+
+  /* ── Gate product report section ─────────────────────────── */
+  if (!perm('reports', 'view_product_report')) {
+    /* Replace only the product card inside the 2-col row */
+    const prodSection = document.getElementById('productReportSection');
+    const firstCard   = prodSection?.querySelector('.chart-card');
+    if (firstCard) {
+      firstCard.innerHTML = lockedHTML('🛍️ Product Report', 'You do not have permission to view product performance.');
+    }
+  }
+
+  /* ── Gate customer report section ────────────────────────── */
+  if (!perm('reports', 'view_customer_report')) {
+    replaceWithLocked('customerReportSection',
+      '👥 Customer Report',
+      'You do not have permission to view customer analytics.');
+  }
+}
+
+
+/* ─── Helper: replace a section with a locked placeholder ─── */
+function lockedHTML(title, msg) {
+  return `<div class="chart-card"><div class="ch"><h3>${title}</h3></div><div class="chart-body"><div class="section-locked"><span>🔒</span><strong>${title}</strong><p>${msg}</p></div></div></div>`;
+}
+
+function replaceWithLocked(sectionId, title, msg) {
+  const el = document.getElementById(sectionId);
+  if (el) el.innerHTML = `<div class="chart-card" style="width:100%"><div class="ch"><h3>${title}</h3></div><div class="chart-body"><div class="section-locked"><span>🔒</span><strong>${title}</strong><p>${msg}</p></div></div></div>`;
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   DATE PRESETS
+════════════════════════════════════════════════════════════════ */
+function setPreset(preset, btn) {
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const now = new Date();
+  let from = new Date(), to = new Date();
+  if      (preset === 'today')   { from = to = now; }
+  else if (preset === 'week')    { from = new Date(now); from.setDate(now.getDate()-6); }
+  else if (preset === 'month')   { from = new Date(now.getFullYear(), now.getMonth(), 1); }
+  else if (preset === 'quarter') { from = new Date(now.getFullYear(), Math.floor(now.getMonth()/3)*3, 1); }
+  else if (preset === 'year')    { from = new Date(now.getFullYear(), 0, 1); }
+  document.getElementById('dateFrom').value = from.toISOString().slice(0,10);
+  document.getElementById('dateTo').value   = to.toISOString().slice(0,10);
+  loadReports();
+}
+
+function customRange() {
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   LOAD REPORTS — real API
+════════════════════════════════════════════════════════════════ */
+async function loadReports() {
+  const from = document.getElementById('dateFrom').value;
+  const to   = document.getElementById('dateTo').value;
+
+  try {
+    showToast('info', 'Loading', 'Fetching report data…');
+    const params = [];
+    if (from) params.push('from=' + from);
+    if (to)   params.push('to=' + to);
+    const qs = params.length ? '?' + params.join('&') : '';
+
+    const res = await apiFetch('/reports/' + qs);
+    const raw = res.data;
+
+    // Map API response → local `data` shape used by all render functions
+    data = {
+      revenue_total: raw.kpis?.revenue_total || 0,
+      orders_total:  raw.kpis?.orders_total  || 0,
+      new_customers: raw.kpis?.new_customers || 0,
+      avg_order_value: raw.kpis?.avg_order_value || 0,
+      return_rate:   raw.kpis?.return_rate  || 0,
+      growth_revenue:   raw.kpis?.growth_revenue   || 0,
+      growth_orders:    raw.kpis?.growth_orders    || 0,
+      growth_customers: raw.kpis?.growth_customers || 0,
+      revenue_by_day:   raw.revenue_by_day   || [],
+      orders_by_day:    raw.orders_by_day    || [],
+      customers_by_day: raw.customers_by_day || [],
+      months:           raw.labels           || [],
+      category_sales:   raw.category_sales   || [],
+      top_products:     raw.top_products     || [],
+      top_customers:    raw.top_customers    || [],
+      gateway_split:    raw.gateway_split    || [],
+      order_status:     raw.order_status     || {},
+      coupon_perf:      raw.coupon_perf      || [],
+      funnel: {
+        add_to_cart: raw.funnel?.add_to_cart || 0,
+        checkout:    raw.funnel?.checkout    || 0,
+        purchased:   raw.funnel?.purchased   || 0,
+      },
+      new_vs_repeat: raw.new_vs_repeat || { new_count: 0, repeat_count: 0 },
+    };
+  } catch (e) {
+    showToast('error', 'Error', 'Failed to load reports: ' + (e.message || ''));
+    if (!data) data = {
+      revenue_total:0,orders_total:0,new_customers:0,avg_order_value:0,
+      return_rate:0,growth_revenue:0,growth_orders:0,growth_customers:0,
+      revenue_by_day:[],orders_by_day:[],customers_by_day:[],months:[],
+      category_sales:[],top_products:[],top_customers:[],gateway_split:[],
+      order_status:{},coupon_perf:[],funnel:{add_to_cart:0,checkout:0,purchased:0},
+      new_vs_repeat:{new_count:0,repeat_count:0},
+    };
+  }
+
+  /* Always render KPIs and general sections */
+  renderKPIs();
+  renderGatewaySplit();
+  renderOrderStatusChart();
+  renderCouponPerf();
+  renderFunnel();
+  renderCustDonut();
+  renderAOV();
+
+  /* Conditionally render gated sections */
+  if (perm('reports', 'view_revenue_report')) {
+    renderRevenueChart(currentChartType);
+    renderDonut();
+  }
+  if (perm('reports', 'view_product_report'))  renderTopProducts('revenue');
+  if (perm('reports', 'view_customer_report')) renderTopCustomers();
+}
+
+function refreshData() {
+  showToast('info', 'Refreshing', 'Loading latest data…');
+  setTimeout(() => { loadReports(); showToast('success', 'Updated', 'Reports refreshed'); }, 800);
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   KPI CARDS — visible to all view_reports admins
+════════════════════════════════════════════════════════════════ */
+function renderKPIs() {
+  const d = data;
+
+  /*
+    Revenue KPI shown only if admin has view_revenue_report.
+    Others are general and always shown.
+  */
+  const revenueKPI = perm('reports', 'view_revenue_report') ? `
+    <div class="kpi-card c1">
+      <div class="kpi-icon" style="background:var(--primary-light)">💰</div>
+      <div class="kpi-value">₹${(d.revenue_total/100000).toFixed(2)}L</div>
+      <div class="kpi-label">Total Revenue</div>
+      <div class="kpi-change up">▲ ${d.growth_revenue}% vs last period</div>
+    </div>` : `
+    <div class="kpi-card c1" style="opacity:.5">
+      <div class="kpi-icon" style="background:var(--body-bg)">🔒</div>
+      <div class="kpi-value" style="font-size:16px;color:var(--text-muted)">No Access</div>
+      <div class="kpi-label">Revenue (restricted)</div>
+    </div>`;
+
+  document.getElementById('kpiGrid').innerHTML = revenueKPI + `
+    <div class="kpi-card c2">
+      <div class="kpi-icon" style="background:var(--success-light)">🧾</div>
+      <div class="kpi-value">${d.orders_total.toLocaleString('en-IN')}</div>
+      <div class="kpi-label">Total Orders</div>
+      <div class="kpi-change up">▲ ${d.growth_orders}% vs last period</div>
+    </div>
+    <div class="kpi-card c3">
+      <div class="kpi-icon" style="background:var(--accent-light)">👥</div>
+      <div class="kpi-value">${d.new_customers}</div>
+      <div class="kpi-label">New Customers</div>
+      <div class="kpi-change up">▲ ${d.growth_customers}% vs last period</div>
+    </div>
+    <div class="kpi-card c4">
+      <div class="kpi-icon" style="background:var(--info-light)">📦</div>
+      <div class="kpi-value">₹${d.avg_order_value.toLocaleString('en-IN')}</div>
+      <div class="kpi-label">Avg. Order Value</div>
+      <div class="kpi-change up">▲ 7.2% vs last period</div>
+    </div>
+  `;
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   REVENUE CHART (view_revenue_report)
+════════════════════════════════════════════════════════════════ */
+function renderRevenueChart(type) {
+  if (!perm('reports', 'view_revenue_report')) return;
+  const canvas = document.getElementById('revenueChart');
+  if (!canvas) return;
+  canvas.width  = canvas.parentElement.clientWidth || 560;
+  canvas.height = 260;
+  const chartData = type === 'revenue' ? (data.revenue_by_day || []) :
+                    type === 'orders'  ? (data.orders_by_day  || []) : (data.customers_by_day || []);
+  const chartLabels = data.months || [];
+  if (!chartData.length || !chartLabels.length) return; // nothing to draw
+  const datasets = [{
+    data:  chartData,
+    color: type === 'revenue' ? '#7C3AED' : type === 'orders' ? '#10B981' : '#F59E0B',
+    label: type,
+  }];
+  drawLineChart('revenueChart', chartLabels, datasets);
+}
+
+function switchRevChart(type, btn) {
+  if (!perm('reports', 'view_revenue_report')) return;
+  currentChartType = type;
+  document.querySelectorAll('.ch .preset-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderRevenueChart(type);
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   CATEGORY DONUT (view_revenue_report)
+════════════════════════════════════════════════════════════════ */
+function renderDonut() {
+  if (!perm('reports', 'view_revenue_report')) return;
+  const d     = data.category_sales || [];
+  if (!d.length) {
+    document.getElementById('donutLegend').innerHTML = '<div style="text-align:center;padding:16px;color:var(--text-muted)">No category data</div>';
+    return;
+  }
+  const total = d.reduce((a,c) => a + c.revenue, 0) || 1;
+  drawDonutChart('donutChart', d, DONUT_COLORS);
+  document.getElementById('donutLegend').innerHTML = d.map((c,i) => `
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="width:11px;height:11px;border-radius:50%;background:${DONUT_COLORS[i]};flex-shrink:0"></div>
+      <span style="flex:1;font-size:13px">${c.name}</span>
+      <strong style="font-size:13px">₹${(c.revenue/1000).toFixed(0)}k</strong>
+      <span style="font-size:12px;color:var(--text-muted)">${Math.round(c.revenue/total*100)}%</span>
+    </div>`).join('');
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   GATEWAY SPLIT — general view_reports
+════════════════════════════════════════════════════════════════ */
+function renderGatewaySplit() {
+  const gws   = data.gateway_split || [];
+  const total = gws.reduce((a,g) => a + g.amount, 0) || 1; // avoid div-by-zero
+  if (!gws.length) {
+    document.getElementById('gatewayBreakdown').innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted)">No payment data for this period</div>';
+    return;
+  }
+  const colors = {Razorpay:'#7C3AED',PhonePe:'#10B981',COD:'#F59E0B',PayU:'#3B82F6'};
+  document.getElementById('gatewayBreakdown').innerHTML = gws.map(g => `
+    <div class="breakdown-row">
+      <div style="width:90px;font-size:13px;font-weight:600">${g.gateway}</div>
+      <div class="breakdown-bar">
+        <div class="breakdown-fill" style="width:${Math.round(g.amount/total*100)}%;background:${colors[g.gateway]||'var(--primary)'}"></div>
+      </div>
+      <div style="width:70px;text-align:right;font-size:13px;font-weight:700">₹${(g.amount/1000).toFixed(0)}k</div>
+      <div style="width:42px;text-align:right;font-size:12px;color:var(--text-muted)">${Math.round(g.amount/total*100)}%</div>
+    </div>`).join('');
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   ORDER STATUS BAR CHART — general view_reports
+════════════════════════════════════════════════════════════════ */
+function renderOrderStatusChart() {
+  const s      = data.order_status || {};
+  const labels = ['Pending','Processing','Shipped','Delivered','Cancelled','Returned'];
+  const vals   = [
+    s.pending || 0, s.processing || 0, s.shipped || 0,
+    s.delivered || 0, s.cancelled || 0, s.returned || 0
+  ];
+  // Skip chart if all zeros — canvas crash prevent
+  if (vals.every(v => v === 0)) {
+    const canvas = document.getElementById('barOrderStatus');
+    if (canvas) {
+      const ctx = canvas.getContext('2d');
+      canvas.width  = canvas.parentElement.clientWidth || 400;
+      canvas.height = 220;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = 'var(--text-muted)';
+      ctx.textAlign = 'center';
+      ctx.font = '13px sans-serif';
+      ctx.fillText('No order data for this period', canvas.width / 2, canvas.height / 2);
+    }
+    return;
+  }
+  const canvas = document.getElementById('barOrderStatus');
+  if (!canvas) return;
+  canvas.width  = canvas.parentElement.clientWidth || 400;
+  canvas.height = 220;
+  drawBarChart('barOrderStatus', labels, vals, '#7C3AED');
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   TOP PRODUCTS (view_product_report)
+════════════════════════════════════════════════════════════════ */
+const RANK_STYLES = [
+  {bg:'#FEF3C7',color:'#F59E0B'},{bg:'#F3F4F6',color:'#6B7280'},
+  {bg:'#FEE2E2',color:'#EF4444'},{bg:'var(--primary-light)',color:'var(--primary)'},
+  {bg:'var(--success-light)',color:'var(--success)'},
+];
+
+function renderTopProducts(by) {
+  if (!perm('reports', 'view_product_report')) return;
+  const sorted = [...data.top_products].sort((a,b) => b[by] - a[by]);
+  document.getElementById('topProductsList').innerHTML = sorted.map((p,i) => {
+    const s = RANK_STYLES[i] || RANK_STYLES[3];
+    return `
+      <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">
+        <div class="rank-num" style="background:${s.bg};color:${s.color}">${i+1}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.name}</div>
+          <div style="font-size:12px;color:var(--text-muted)">${p.category} · SKU: ${p.sku}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-weight:700;font-size:14px">₹${(p.revenue/1000).toFixed(0)}k</div>
+          <div style="font-size:12px;color:var(--text-muted)">${p.units} units</div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function filterTopProducts(by) { renderTopProducts(by); }
+
+
+/* ════════════════════════════════════════════════════════════════
+   TOP CUSTOMERS (view_customer_report)
+════════════════════════════════════════════════════════════════ */
+function renderTopCustomers() {
+  if (!perm('reports', 'view_customer_report')) return;
+  const sorted = [...data.top_customers].sort((a,b) => b.spent - a.spent);
+  document.getElementById('topCustomersList').innerHTML = sorted.map((c,i) => {
+    const col      = AVATAR_COLORS[i % AVATAR_COLORS.length];
+    const initials = c.name.split(' ').map(p=>p[0]).join('').slice(0,2);
+    return `
+      <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">
+        <div style="width:36px;height:36px;border-radius:50%;background:${col};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;color:#fff;flex-shrink:0">${initials}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;font-size:13.5px">${c.name}</div>
+          <div style="font-size:12px;color:var(--text-muted)">${c.orders} orders</div>
+        </div>
+        <div style="font-weight:700;font-size:14px;color:var(--success)">₹${c.spent.toLocaleString('en-IN')}</div>
+      </div>`;
+  }).join('');
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   COUPON PERFORMANCE — general view_reports
+════════════════════════════════════════════════════════════════ */
+function renderCouponPerf() {
+  const cpnPerf = data.coupon_perf || [];
+  if (!cpnPerf.length) {
+    const tbody = document.getElementById('cpnPerfBody');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-muted)">No coupon usage in this period</td></tr>';
+    return;
+  }
+  document.getElementById('cpnPerfBody').innerHTML = cpnPerf.map(c => {
+    const conv = data.orders_total > 0 ? ((c.uses / data.orders_total) * 100).toFixed(1) : '0.0';
+    return `
+      <tr>
+        <td><code style="font-weight:800;font-size:13px;letter-spacing:1px;color:var(--primary)">${c.code}</code></td>
+        <td><span class="badge badge-gray">${c.type}</span></td>
+        <td><strong>${c.uses}</strong></td>
+        <td><strong>₹${c.revenue.toLocaleString('en-IN')}</strong></td>
+        <td style="color:var(--danger);font-weight:600">−₹${c.discount.toLocaleString('en-IN')}</td>
+        <td>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="width:60px;height:5px;background:var(--border);border-radius:5px;overflow:hidden">
+              <div style="height:100%;width:${Math.min(100,conv*5)}%;background:var(--primary);border-radius:5px"></div>
+            </div>
+            <span style="font-size:12.5px;font-weight:600">${conv}%</span>
+          </div>
+        </td>
+      </tr>`;
+  }).join('');
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   FUNNEL / CUSTOMER DONUT / AOV — general view_reports
+════════════════════════════════════════════════════════════════ */
+function renderFunnel() {
+  const f = data.funnel;
+  // Backend returns add_to_cart, checkout, purchased (no visitors field)
+  const addToCart  = f.add_to_cart  || 0;
+  const checkout   = f.checkout     || 0;
+  const purchased  = f.purchased    || 0;
+  const maxVal     = addToCart || 1;  // avoid div-by-zero
+
+  const steps = [
+    {label:'Added to Cart', val:addToCart,  color:'#F59E0B'},
+    {label:'Checkout',      val:checkout,   color:'#10B981'},
+    {label:'Purchased',     val:purchased,  color:'#3B82F6'},
+  ];
+  const max = maxVal;
+  document.getElementById('funnelBody').innerHTML = steps.map((s,i) => `
+    <div style="margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px">
+        <span style="font-weight:600">${s.label}</span>
+        <span style="font-weight:800;color:${s.color}">${s.val.toLocaleString('en-IN')}</span>
+      </div>
+      <div style="height:28px;background:var(--border);border-radius:8px;overflow:hidden">
+        <div style="height:100%;width:${Math.round(s.val/max*100)}%;background:${s.color};border-radius:8px;display:flex;align-items:center;padding-left:10px">
+          <span style="font-size:12px;font-weight:700;color:#fff">${Math.round(s.val/max*100)}%</span>
+        </div>
+      </div>
+      ${i<steps.length-1?`<div style="font-size:11px;color:var(--text-muted);margin-top:3px">Drop-off: ${Math.round((s.val-steps[i+1].val)/s.val*100)}%</div>`:''}
+    </div>`).join('');
+}
+
+function renderCustDonut() {
+  const {new_count, repeat_count} = data.new_vs_repeat;
+  drawDonutChart('custDonut', [{name:'New',value:new_count},{name:'Repeat',value:repeat_count}], ['#7C3AED','#10B981']);
+  document.getElementById('custDonutLegend').innerHTML = `
+    <div style="display:flex;align-items:center;gap:6px;font-size:13px"><div style="width:10px;height:10px;border-radius:50%;background:#7C3AED"></div>New: <strong>${new_count}</strong></div>
+    <div style="display:flex;align-items:center;gap:6px;font-size:13px"><div style="width:10px;height:10px;border-radius:50%;background:#10B981"></div>Repeat: <strong>${repeat_count}</strong></div>
+  `;
+}
+
+function renderAOV() {
+  const d = data;
+  const repeatRate = (d.new_vs_repeat.repeat_count + d.new_vs_repeat.new_count) > 0
+    ? Math.round(d.new_vs_repeat.repeat_count / (d.new_vs_repeat.new_count + d.new_vs_repeat.repeat_count) * 100)
+    : 0;
+  const cartAbandon = d.funnel.add_to_cart > 0
+    ? Math.round((d.funnel.add_to_cart - d.funnel.purchased) / d.funnel.add_to_cart * 100)
+    : 0;
+  const metrics = [
+    {label:'Avg. Order Value',  val:`₹${Number(d.avg_order_value).toLocaleString('en-IN')}`, color:'var(--primary)'},
+    {label:'Return Rate',       val:`${d.return_rate || 0}%`,                                 color:'var(--danger)' },
+    {label:'Repeat Order Rate', val:`${repeatRate}%`,                                          color:'var(--success)'},
+    {label:'Cart Abandon Rate', val:`${cartAbandon}%`,                                         color:'var(--accent)' },
+  ];
+  document.getElementById('aovBody').innerHTML = metrics.map(m => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:13px;color:var(--text-muted)">${m.label}</span>
+      <strong style="font-size:16px;font-weight:800;color:${m.color}">${m.val}</strong>
+    </div>`).join('');
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   EXPORT — real API download
+════════════════════════════════════════════════════════════════ */
+function exportReport(type, format) {
+  if (!perm('reports', 'export_reports')) {
+    showToast('error', 'Access Denied', 'No permission to export reports.');
+    return;
+  }
+  const from = document.getElementById('dateFrom').value;
+  const to   = document.getElementById('dateTo').value;
+  const params = [`type=${type}`, `format=${format}`];
+  if (from) params.push('from=' + from);
+  if (to)   params.push('to=' + to);
+
+  const url = BASE_URL + '/reports/export/?' + params.join('&');
+  // Trigger file download via hidden anchor
+  const a = document.createElement('a');
+  a.href = url;
+  a.setAttribute('download', `${type}_report.${format}`);
+  // Pass auth header via fetch + blob for real download
+  showToast('info', 'Preparing', `${type}_report.${format} is being prepared…`);
+  fetch(url, { headers: { 'Authorization': 'Token ' + getToken() } })
+    .then(r => {
+      if (!r.ok) throw new Error('Export failed');
+      return r.blob();
+    })
+    .then(blob => {
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `${type}_report.${format}`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+      showToast('success', 'Downloaded', `${type}_report.${format} saved`);
+    })
+    .catch(() => showToast('error', 'Export Failed', 'Could not download report'));
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   HELPERS
+════════════════════════════════════════════════════════════════ */
+function showToast(type, title, msg) {
+  const icons = {success:'✅',error:'❌',info:'ℹ️',warning:'⚠️'};
+  const tc    = document.getElementById('toast-container');
+  const t     = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.innerHTML = `<span style="font-size:18px;">${icons[type]||'ℹ️'}</span><div><div style="font-size:13px;font-weight:600;">${title}</div><div style="font-size:12px;color:#6b7c75;margin-top:2px;">${msg}</div></div>`;
+  tc.appendChild(t);
+  setTimeout(() => t.remove(), 4000);
+}
+
+document.getElementById('sidebarToggle')?.addEventListener('click', () => {
+  const sidebar   = document.getElementById('sidebar');
+  const main      = document.getElementById('mainContent');
+  const collapsed = sidebar.classList.toggle('collapsed');
+  main.classList.toggle('expanded', collapsed);
+});
+
+/* Re-render charts on resize */
+let resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    if (perm('reports', 'view_revenue_report')) renderRevenueChart(currentChartType);
+    renderOrderStatusChart();
+  }, 200);
+});
+
+
+/* ════════════════════════════════════════════════════════════════
+   BOOT — initPage() FIRST, then load data
+════════════════════════════════════════════════════════════════ */
+window.addEventListener('DOMContentLoaded', () => {
+  /* STEP 2+3: init permissions before rendering anything */
+  initPage();
+
+  /* Set default date range to current month */
+  const now        = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  document.getElementById('dateFrom').value = monthStart.toISOString().slice(0, 10);
+  document.getElementById('dateTo').value   = now.toISOString().slice(0, 10);
+
+  /* Load data — render functions check perm() individually */
+  loadReports();
+});
+</script>
+</body>
+</html>

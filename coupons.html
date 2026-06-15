@@ -1,0 +1,1340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>Coupons – LoomIndica Admin</title>
+  <link rel="stylesheet" href="admin.css">
+  <style>
+    /* ═══════════════════════════════════════════════
+       RESPONSIVE CORE FIXES
+    ═══════════════════════════════════════════════ */
+    *, *::before, *::after { box-sizing: border-box; }
+    .page-content  { min-width: 0; overflow-x: hidden; }
+    .main-content  { min-width: 0; overflow-x: hidden; }
+    .card          { min-width: 0; }
+    .table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%; }
+    .data-table    { min-width: 780px; width: 100%; border-collapse: collapse; }
+
+    /* Page header wraps on mobile */
+    .page-header { display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:20px; }
+    .page-header .d-flex { flex-wrap:wrap; }
+
+    /* Stats grid — 4 → 2 → 1 */
+    .cpn-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    @media (max-width: 1024px) { .cpn-stats-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 540px)  { .cpn-stats-grid { grid-template-columns: 1fr; } }
+
+    /* ═══════════════════════════════════════════════
+       COUPON-SPECIFIC STYLES (unchanged from original)
+    ═══════════════════════════════════════════════ */
+    .filter-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:20px; }
+    .filter-bar input,
+    .filter-bar select { height:38px; padding:0 12px; border:1.5px solid var(--border); border-radius:9px; font-size:13.5px; outline:none; background:#fff; color:var(--text-dark); transition:var(--transition); }
+    .filter-bar input:focus,
+    .filter-bar select:focus { border-color:var(--primary); box-shadow:0 0 0 3px rgba(124,58,237,.1); }
+    .filter-bar input { min-width:220px; max-width:100%; }
+
+    .cpn-stat { background:#fff; border:1px solid var(--border); border-radius:12px; padding:18px 20px; display:flex; align-items:center; gap:14px; transition:var(--transition); }
+    .cpn-stat:hover { box-shadow:var(--shadow); }
+    .cpn-stat .ico { width:44px; height:44px; border-radius:11px; display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0; }
+    .cpn-stat .val { font-size:22px; font-weight:800; line-height:1.2; }
+    .cpn-stat .lbl { font-size:12px; color:var(--text-muted); margin-top:2px; }
+
+    .coupon-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(310px, 1fr)); gap:18px; margin-bottom:28px; }
+    .coupon-card { background:#fff; border-radius:14px; border:1.5px solid var(--border); overflow:hidden; transition:var(--transition); position:relative; cursor:pointer; }
+    .coupon-card:hover { box-shadow:var(--shadow); transform:translateY(-2px); }
+    .coupon-card.expired  { opacity:.65; }
+    .coupon-card.inactive { border-style:dashed; }
+    .coupon-stripe { height:5px; width:100%; }
+    .coupon-body { padding:16px 18px; }
+    .coupon-code-display { display:flex; align-items:center; justify-content:space-between; background:var(--body-bg); border:1.5px dashed var(--border); border-radius:9px; padding:10px 14px; margin:12px 0; cursor:pointer; transition:var(--transition); }
+    .coupon-code-display:hover { border-color:var(--primary); background:var(--primary-light); }
+    .coupon-code-display code { font-size:17px; font-weight:800; letter-spacing:2px; color:var(--primary); }
+    .coupon-code-display .copy-hint { font-size:11px; color:var(--text-muted); }
+    .coupon-value { font-size:24px; font-weight:800; }
+    .coupon-meta { display:flex; flex-direction:column; gap:5px; margin-top:10px; }
+    .coupon-meta-row { display:flex; align-items:center; gap:7px; font-size:12.5px; color:var(--text-muted); }
+    .coupon-meta-row strong { color:var(--text-dark); }
+    .coupon-progress { margin-top:12px; }
+    .coupon-progress-bar { height:5px; background:var(--border); border-radius:10px; overflow:hidden; margin-top:5px; }
+    .coupon-progress-fill { height:100%; border-radius:10px; transition:width .4s ease; }
+    .coupon-footer { display:flex; align-items:center; justify-content:space-between; padding:10px 18px; border-top:1px solid var(--border); background:var(--body-bg); flex-wrap:wrap; gap:8px; }
+    .coupon-type-badge { position:absolute; top:16px; right:14px; }
+
+    .view-toggle { display:flex; border:1.5px solid var(--border); border-radius:9px; overflow:hidden; }
+    .vt-btn { padding:7px 14px; font-size:13px; cursor:pointer; background:#fff; border:none; color:var(--text-muted); transition:var(--transition); }
+    .vt-btn.active { background:var(--primary); color:#fff; }
+
+    .usage-detail-row { display:flex; align-items:center; justify-content:space-between; padding:9px 0; border-bottom:1px solid var(--border); font-size:13.5px; }
+    .usage-detail-row:last-child { border-bottom:none; }
+    .rule-chip { display:inline-flex; align-items:center; gap:5px; background:var(--primary-light); color:var(--primary); padding:4px 10px; border-radius:20px; font-size:12px; font-weight:600; margin:3px; }
+
+    /* Read-only notice badge */
+    .readonly-notice { display:inline-flex; align-items:center; gap:6px; background:#FEF9C3; border:1px solid #FDE047; color:#854D0E; font-size:12px; font-weight:600; padding:4px 12px; border-radius:20px; }
+
+    /* Sidebar collapse */
+    .sidebar.collapsed { width:64px; }
+    .sidebar.collapsed .brand-text,
+    .sidebar.collapsed .nav-label,
+    .sidebar.collapsed .nav-section-title { opacity:0; pointer-events:none; width:0; }
+
+    @media (max-width:768px) {
+      .coupon-grid { grid-template-columns:1fr; }
+      .filter-bar input { min-width:100%; width:100%; }
+    }
+    @media (max-width:480px) {
+      .cpn-stat { padding:12px 14px; }
+      .cpn-stat .val { font-size:18px; }
+    }
+  </style>
+</head>
+<body>
+<div class="mobile-overlay"></div>
+<div id="toast-container"></div>
+
+<div class="admin-shell">
+
+  <!-- ═══ SIDEBAR ═══ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon">LI</div>
+      <div class="brand-text"><h3>LoomIndica</h3><span>Admin Panel</span></div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Main</div>
+      <div class="nav-item"><a href="dashboard.html"    class="nav-link"><span class="nav-icon">📊</span><span class="nav-label">Dashboard</span></a></div>
+      <div class="nav-section-label">Catalogue</div>
+      <div class="nav-item"><a href="products.html"     class="nav-link"><span class="nav-icon">🛍️</span><span class="nav-label">Products</span></a></div>
+      <div class="nav-item"><a href="categories.html"   class="nav-link"><span class="nav-icon">🗂️</span><span class="nav-label">Categories</span></a></div>
+      <div class="nav-item"><a href="inventory.html"    class="nav-link"><span class="nav-icon">📦</span><span class="nav-label">Inventory</span>
+        <!-- <span class="nav-badge">8</span> -->
+      </a></div>
+      <div class="nav-section-label">Sales</div>
+      <div class="nav-item"><a href="orders.html"       class="nav-link"><span class="nav-icon">🧾</span><span class="nav-label">Orders</span>
+        <!-- <span class="nav-badge">24</span> -->
+      </a></div>
+      <div class="nav-item"><a href="customers.html"    class="nav-link"><span class="nav-icon">👥</span><span class="nav-label">Customers</span></a></div>
+      <div class="nav-item"><a href="transactions.html" class="nav-link"><span class="nav-icon">💳</span><span class="nav-label">Transactions</span></a></div>
+      <div class="nav-section-label">Marketing</div>
+      <div class="nav-item"><a href="coupons.html"      class="nav-link active"><span class="nav-icon">🎟️</span><span class="nav-label">Coupons</span></a></div>
+      <div class="nav-item"><a href="banners.html"      class="nav-link"><span class="nav-icon">🖼️</span><span class="nav-label">Banners &amp; Offers</span></a></div>
+      <div class="nav-item"><a href="featured-collections.html"   class="nav-link" data-label="Featured"><span class="nav-icon">✨</span><span class="nav-label">Featured Collections</span></a></div>
+      <div class="nav-item"><a href="blogs.html"   class="nav-link" data-label="Blog"><span class="nav-icon">✍️</span><span class="nav-label">Blog</span></a></div>
+      <div class="nav-section-label">Analytics</div>
+      <div class="nav-item"><a href="reports.html"      class="nav-link"><span class="nav-icon">📈</span><span class="nav-label">Reports</span></a></div>
+      <div class="nav-section-label">System</div>
+      <div class="nav-item"><a href="settings.html"     class="nav-link"><span class="nav-icon">⚙️</span><span class="nav-label">Settings</span></a></div>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="sidebar-user">
+        <div class="user-avatar" id="sidebarAvatar">A</div>
+        <div class="user-info"><strong id="sidebarName">Admin</strong><span id="sidebarRole">—</span></div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ═══ MAIN CONTENT ═══ -->
+  <div class="main-content" id="mainContent">
+    <header class="topbar">
+      <button class="topbar-toggle" id="sidebarToggle">☰</button>
+      <div class="topbar-search">
+        <i>🔍</i>
+        <input placeholder="Search coupon code…" oninput="applyFilters()">
+      </div>
+      <div class="topbar-actions">
+        <div class="dropdown">
+          <div class="topbar-user" data-dropdown>
+            <div class="avatar" id="topbarAvatar">A</div>
+            <div class="topbar-user-info">
+              <strong id="topbarName">Admin</strong>
+              <span id="topbarRole">—</span>
+            </div>
+            <span style="margin-left:4px;color:var(--text-muted);font-size:11px">▾</span>
+          </div>
+          <div class="dropdown-menu">
+            <!-- PermGuard wires [data-logout] automatically -->
+            <div class="dropdown-item danger" data-logout>🚪 Logout</div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="page-content" id="pageContent">
+      <div class="page-header">
+        <div class="page-header-left">
+          <h1>Coupons &amp; Discounts</h1>
+          <div class="breadcrumb">
+            <span onclick="location.href='dashboard.html'">Home</span>
+            <i>›</i><span>Marketing</span><i>›</i><span>Coupons</span>
+          </div>
+        </div>
+        <div class="d-flex gap-8 align-center">
+
+          <!-- Read-only badge — shown when admin has view_coupons only -->
+          <div id="readonlyNotice" class="readonly-notice" style="display:none;">👁️ View Only</div>
+
+          <div class="view-toggle">
+            <button class="vt-btn active" id="btnGrid" onclick="switchView('grid')">⊞ Cards</button>
+            <button class="vt-btn" id="btnList" onclick="switchView('list')">☰ Table</button>
+          </div>
+
+          <!--
+            PERM: create_coupon
+            Hidden for admins without create_coupon.
+            Gated in initPage() via PermGuard.guard().
+          -->
+          <button class="btn btn-primary" id="createCouponBtn" onclick="openAddCoupon()">
+            + Create Coupon
+          </button>
+        </div>
+      </div>
+
+      <!-- Stats — always visible to view_coupons -->
+      <div class="cpn-stats-grid" id="cpnStats"></div>
+
+      <!-- Filter bar -->
+      <div class="filter-bar">
+        <input type="text" id="cpnSearch"    placeholder="🔍  Search by code or name…" oninput="applyFilters()">
+        <select           id="typeFilter"   onchange="applyFilters()">
+          <option value="">All Types</option>
+          <option value="percentage">% Percentage</option>
+          <option value="flat">₹ Flat Amount</option>
+          <option value="cashback">💰 Cashback</option>
+          <option value="free_shipping">🚚 Free Shipping</option>
+        </select>
+        <select           id="statusFilter" onchange="applyFilters()">
+          <option value="">All Status</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+          <option value="expired">Expired</option>
+          <option value="exhausted">Fully Used</option>
+        </select>
+        <button class="btn btn-secondary btn-sm" onclick="clearFilters()">✕ Clear</button>
+        <div style="margin-left:auto;font-size:13px;color:var(--text-muted)">
+          <strong id="cpnCount">—</strong> coupons
+        </div>
+      </div>
+
+      <!-- GRID VIEW -->
+      <div id="gridView">
+        <div class="coupon-grid" id="couponGrid"></div>
+      </div>
+
+      <!-- LIST VIEW -->
+      <div id="listView" style="display:none">
+        <div class="card">
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <!--
+                    Checkbox col — hidden for read-only admins in initPage()
+                  -->
+                  <th id="chkColHeader">
+                    <input type="checkbox" onchange="document.querySelectorAll('.cpn-chk').forEach(c=>c.checked=this.checked)">
+                  </th>
+                  <th>Code</th><th>Type</th><th>Value</th><th>Min. Order</th>
+                  <th>Usage</th><th>Applicable On</th><th>Expiry</th><th>Status</th>
+                  <!--
+                    Actions col — hidden for read-only admins in initPage()
+                  -->
+                  <th id="actionsColHeader">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="couponTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /page-content -->
+  </div><!-- /main-content -->
+</div><!-- /admin-shell -->
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     CREATE / EDIT COUPON MODAL
+     Gate: create_coupon (new) | edit_coupon (existing)
+           category_coupon  → Applicability tab — category section
+           cashback_coupon  → Rules tab — cashback settings section
+═══════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="couponModal">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <h3 id="couponModalTitle">Create Coupon</h3>
+      <button class="modal-close" onclick="closeModal('couponModal')">✕</button>
+    </div>
+    <div class="modal-body">
+
+      <!-- Step tabs -->
+      <div class="tab-nav" id="couponTabs">
+        <div class="tab-btn active" data-tab="basic"          onclick="switchCouponTab('basic',this)">📋 Basic</div>
+        <div class="tab-btn"        data-tab="rules"          onclick="switchCouponTab('rules',this)">📏 Rules &amp; Limits</div>
+        <div class="tab-btn"        data-tab="applicability"  onclick="switchCouponTab('applicability',this)">🎯 Applicability</div>
+      </div>
+
+      <!-- TAB: Basic -->
+      <div id="ctab-basic" class="tab-panel active">
+        <div class="form-row cols-2">
+          <div class="form-group">
+            <label class="form-label">Coupon Code <span class="required">*</span></label>
+            <div style="display:flex;gap:8px">
+              <input class="form-control" id="cpnCode" placeholder="e.g. LOOM20"
+                style="text-transform:uppercase;font-weight:700;letter-spacing:1px"
+                oninput="this.value=this.value.toUpperCase()">
+              <button class="btn btn-secondary btn-sm" onclick="generateCode()" title="Auto-generate">🎲</button>
+            </div>
+            <div class="form-hint">Only uppercase letters, numbers, hyphens. Max 20 chars.</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Coupon Name / Label</label>
+            <input class="form-control" id="cpnName" placeholder="e.g. Summer Sale 2026">
+          </div>
+        </div>
+        <div class="form-row cols-2">
+          <div class="form-group">
+            <label class="form-label">Discount Type <span class="required">*</span></label>
+            <select class="form-control" id="cpnType" onchange="updateDiscountUI()">
+              <option value="">— Select Type —</option>
+              <option value="percentage">% Percentage Discount</option>
+              <option value="flat">₹ Flat Amount Off</option>
+              <!--
+                PERM: cashback_coupon
+                Cashback option only rendered if admin has cashback_coupon perm.
+                Injected by initPage() via renderCashbackOption().
+              -->
+              <option value="cashback" id="cashbackTypeOption">💰 Cashback (wallet)</option>
+              <option value="free_shipping">🚚 Free Shipping</option>
+            </select>
+          </div>
+          <div class="form-group" id="discValueGroup">
+            <label class="form-label" id="discValueLabel">Discount Value <span class="required">*</span></label>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span id="discValuePrefix" style="font-size:16px;font-weight:700;color:var(--primary)">%</span>
+              <input class="form-control" type="number" id="cpnValue" placeholder="0" min="1">
+            </div>
+          </div>
+        </div>
+        <div class="form-group" id="maxCapGroup" style="display:none">
+          <label class="form-label">Maximum Discount Cap (₹)</label>
+          <input class="form-control" type="number" id="cpnMaxCap" placeholder="e.g. 500 — leave blank for no cap">
+          <div class="form-hint">e.g. 20% off but max ₹500 discount</div>
+        </div>
+        <div class="form-row cols-2">
+          <div class="form-group">
+            <label class="form-label">Valid From <span class="required">*</span></label>
+            <input class="form-control" type="datetime-local" id="cpnFrom">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Valid Until <span class="required">*</span></label>
+            <input class="form-control" type="datetime-local" id="cpnTo">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Description (shown to customer)</label>
+          <textarea class="form-control" rows="2" id="cpnDesc"
+            placeholder="e.g. Get 20% off on all sarees this summer!"></textarea>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;background:var(--body-bg);padding:12px 14px;border-radius:9px">
+          <label class="toggle"><input type="checkbox" id="cpnActive" checked><span class="toggle-slider"></span></label>
+          <div>
+            <div style="font-weight:600;font-size:13.5px">Active</div>
+            <div style="font-size:12px;color:var(--text-muted)">Uncheck to create as inactive/draft</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB: Rules & Limits -->
+      <div id="ctab-rules" class="tab-panel" style="display:none">
+        <div class="form-row cols-2">
+          <div class="form-group">
+            <label class="form-label">Minimum Order Value (₹)</label>
+            <input class="form-control" type="number" id="cpnMinOrder"
+              placeholder="e.g. 500 — 0 for no minimum" min="0">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Maximum Order Value (₹)</label>
+            <input class="form-control" type="number" id="cpnMaxOrder"
+              placeholder="leave blank for no limit">
+          </div>
+        </div>
+        <div class="form-row cols-2">
+          <div class="form-group">
+            <label class="form-label">Total Usage Limit</label>
+            <input class="form-control" type="number" id="cpnMaxUses"
+              placeholder="leave blank for unlimited" min="1">
+            <div class="form-hint">Max total times this coupon can be used</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Usage Per Customer</label>
+            <input class="form-control" type="number" id="cpnPerUser"
+              placeholder="leave blank for unlimited" min="1">
+            <div class="form-hint">Max times one customer can use this</div>
+          </div>
+        </div>
+
+        <!--
+          PERM: cashback_coupon
+          Cashback settings block — shown only if admin has cashback_coupon.
+          Hidden via initPage() when perm is absent.
+        -->
+        <div id="cashbackGroup"
+          style="display:none;background:var(--success-light);border:1.5px solid var(--success);border-radius:10px;padding:14px 16px;margin-bottom:16px">
+          <div style="font-weight:700;font-size:13.5px;color:var(--success);margin-bottom:10px">💰 Cashback Settings</div>
+          <div class="form-row cols-2">
+            <div class="form-group" style="margin-bottom:0">
+              <label class="form-label">Cashback Expiry (days)</label>
+              <input class="form-control" type="number" id="cpnCashbackExpiry" placeholder="e.g. 30">
+              <div class="form-hint">Days until cashback expires in wallet</div>
+            </div>
+            <div class="form-group" style="margin-bottom:0">
+              <label class="form-label">Min. Redeem Amount (₹)</label>
+              <input class="form-control" type="number" id="cpnCashbackMin" placeholder="e.g. 200">
+              <div class="form-hint">Minimum balance needed to redeem</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Stackable with Other Coupons?</label>
+          <div style="display:flex;gap:16px">
+            <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13.5px">
+              <input type="radio" name="stackable" value="no" checked> No – one coupon per order
+            </label>
+            <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13.5px">
+              <input type="radio" name="stackable" value="yes"> Yes – can combine
+            </label>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;background:var(--body-bg);padding:12px 14px;border-radius:9px">
+          <label class="toggle"><input type="checkbox" id="cpnFirstOrder"><span class="toggle-slider"></span></label>
+          <div>
+            <div style="font-weight:600;font-size:13.5px">First Order Only</div>
+            <div style="font-size:12px;color:var(--text-muted)">Restrict to customers placing their first order</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB: Applicability -->
+      <div id="ctab-applicability" class="tab-panel" style="display:none">
+        <div class="form-group">
+          <label class="form-label">Apply On</label>
+          <div style="display:flex;flex-wrap:wrap;gap:10px">
+            <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13.5px">
+              <input type="radio" name="applyOn" value="all" checked onchange="toggleApplicability()"> All Products
+            </label>
+            <!--
+              PERM: category_coupon
+              "Specific Categories" option only shown if admin has category_coupon.
+              Gated via initPage() → hideCategoryOption().
+            -->
+            <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13.5px"
+              id="categoryApplyOption">
+              <input type="radio" name="applyOn" value="category" onchange="toggleApplicability()"> Specific Categories
+            </label>
+            <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13.5px">
+              <input type="radio" name="applyOn" value="product" onchange="toggleApplicability()"> Specific Products
+            </label>
+          </div>
+        </div>
+
+        <!--
+          PERM: category_coupon
+          Category checkbox list — only shown when admin has category_coupon.
+          Hidden via initPage().
+        -->
+        <div id="categoryApply" style="display:none">
+          <div class="form-group">
+            <label class="form-label">Select Categories</label>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px" id="catCheckboxes"></div>
+          </div>
+        </div>
+
+        <div id="productApply" style="display:none">
+          <div class="form-group">
+            <label class="form-label">Add Products by SKU or Name</label>
+            <div style="display:flex;gap:8px">
+              <input class="form-control" id="productSearch" placeholder="Type product name or SKU…">
+              <button class="btn btn-primary btn-sm" onclick="addProductToList()">Add</button>
+            </div>
+            <div id="selectedProducts" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px"></div>
+          </div>
+        </div>
+
+        <div class="form-group mt-16">
+          <label class="form-label">Customer Eligibility</label>
+          <select class="form-control" id="cpnEligibility">
+            <option value="all">All Customers</option>
+            <option value="new">New Customers Only</option>
+            <option value="returning">Returning Customers Only</option>
+            <option value="specific">Specific Customers (by email)</option>
+          </select>
+        </div>
+
+        <div class="form-group" id="specificEmailGroup" style="display:none">
+          <label class="form-label">Customer Emails</label>
+          <textarea class="form-control" rows="3" id="cpnEmails"
+            placeholder="Comma-separated email addresses…"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Payment Method Restriction</label>
+          <div style="display:flex;flex-wrap:wrap;gap:10px">
+            <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13.5px"><input type="checkbox" checked> All Payment Methods</label>
+            <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13.5px"><input type="checkbox"> Online Only</label>
+            <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13.5px"><input type="checkbox"> COD Only</label>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /modal-body -->
+    <div class="modal-footer" id="couponModalFooter">
+      <button class="btn btn-secondary" onclick="closeModal('couponModal')">Cancel</button>
+      <!--
+        Save as Draft + Publish buttons — injected by buildCouponModalFooter()
+        based on create_coupon / edit_coupon permissions.
+      -->
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     COUPON DETAIL MODAL
+     Gate: view_coupons (already on page)
+           edit_coupon  → "Edit Coupon" button in footer
+           delete_coupon → "Delete" button injected in footer
+═══════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="cpnDetailModal">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <h3 id="cpnDetailTitle">Coupon Details</h3>
+      <button class="modal-close" onclick="closeModal('cpnDetailModal')">✕</button>
+    </div>
+    <div class="modal-body" id="cpnDetailBody"></div>
+    <div class="modal-footer" id="cpnDetailFooter">
+      <button class="btn btn-secondary" onclick="closeModal('cpnDetailModal')">Close</button>
+      <!--
+        Edit and Delete buttons injected by buildDetailFooter()
+        based on permissions.
+      -->
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     DELETE MODAL
+     Gate: delete_coupon
+     Only reachable via askDelete() which checks perm() first.
+═══════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="cpnDelModal">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <h3>Delete Coupon</h3>
+      <button class="modal-close" onclick="closeModal('cpnDelModal')">✕</button>
+    </div>
+    <div class="modal-body" style="text-align:center;padding:32px 24px">
+      <div style="font-size:52px;margin-bottom:16px">🗑️</div>
+      <h3>Delete "<span id="cpnDelCode" style="color:var(--danger)"></span>"?</h3>
+      <p style="color:var(--text-muted);font-size:13.5px;margin-top:8px">
+        This will permanently delete the coupon. Existing orders using this coupon will not be affected.
+      </p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('cpnDelModal')">Cancel</button>
+      <button class="btn btn-danger" onclick="doDelete()">Yes, Delete</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     SCRIPTS — Order: permissions.js → admin.js → page script
+═══════════════════════════════════════════════════════════ -->
+
+<!--
+  STEP 1 — Load PermGuard BEFORE admin.js and page script.
+  Adjust path to match your project structure.
+-->
+<script src="permissions.js"></script>
+<script src="admin.js"></script>
+
+<script>
+/* ════════════════════════════════════════════════════════════════
+   COUPONS PAGE — PERMGUARD INTEGRATION
+   ════════════════════════════════════════════════════════════════
+
+   Permission map (coupons module):
+   ┌──────────────────────────┬──────────────────────────────────────────────────┐
+   │ Feature key              │ What it gates                                    │
+   ├──────────────────────────┼──────────────────────────────────────────────────┤
+   │ view_coupons             │ Entire page (auto-blocked by PermGuard.init)     │
+   │ create_coupon            │ "+ Create Coupon" btn, modal Save/Publish btns   │
+   │ edit_coupon              │ ✏️ btn in cards/table, "Edit" btn in detail modal │
+   │ delete_coupon            │ 🗑️ btn in cards/table, delete modal              │
+   │ category_coupon          │ "Specific Categories" option + category checkboxes│
+   │ cashback_coupon          │ Cashback type option + cashback settings section │
+   └──────────────────────────┴──────────────────────────────────────────────────┘
+*/
+
+/* ── API Config ─────────────────────────────────────────────── */
+const BASE_URL = 'http://34.231.15.242:8001/api';
+
+function getToken() {
+  return localStorage.getItem('adminToken') || sessionStorage.getItem('adminToken') || '';
+}
+
+async function apiFetch(path, options = {}) {
+  const res = await fetch(BASE_URL + path, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Token ' + getToken(),
+      ...(options.headers || {}),
+    },
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || 'API error');
+  return json;
+}
+
+let COUPONS = [];  // populated from API
+
+let filtered    = [...COUPONS];
+let deleteId    = null;
+let editId      = null;
+let detailId    = null;
+let currentView = 'grid';
+
+const TYPE_CONFIG = {
+  percentage:   {label:'% Discount', color:'#7C3AED',bg:'var(--primary-light)',stripe:'#7C3AED',prefix:'%', icon:'🏷️'},
+  flat:         {label:'₹ Flat Off', color:'#F59E0B',bg:'var(--accent-light)',  stripe:'#F59E0B',prefix:'₹', icon:'💵'},
+  cashback:     {label:'Cashback',   color:'#10B981',bg:'var(--success-light)', stripe:'#10B981',prefix:'%', icon:'💰'},
+  free_shipping:{label:'Free Ship',  color:'#3B82F6',bg:'var(--info-light)',    stripe:'#3B82F6',prefix:'',  icon:'🚚'},
+};
+
+
+/* ════════════════════════════════════════════════════════════════
+   STEP 2 — initPage()
+   Always runs first, before renderStats() / render().
+════════════════════════════════════════════════════════════════ */
+function initPage() {
+  PermGuard.init({ module: 'coupons', loginUrl: 'admin-login.html' });
+
+  /* ── Populate topbar + sidebar with real admin data ──────── */
+  const admin  = PermGuard.getAdmin?.() || {};
+  const name   = (admin.firstName || admin.name || 'Admin').trim();
+  const role   = admin.role || '—';
+  const letter = name[0]?.toUpperCase() || 'A';
+  document.getElementById('topbarName').textContent    = name;
+  document.getElementById('topbarRole').textContent    = role;
+  document.getElementById('topbarAvatar').textContent  = letter;
+  document.getElementById('sidebarName').textContent   = name;
+  document.getElementById('sidebarRole').textContent   = role;
+  document.getElementById('sidebarAvatar').textContent = letter;
+
+  /* ── Gate "+ Create Coupon" header button ────────────────── */
+  PermGuard.guard('#createCouponBtn', 'coupons', 'create_coupon');
+
+  /* ── Determine write access ──────────────────────────────── */
+  const canCreate   = perm('coupons', 'create_coupon');
+  const canEdit     = perm('coupons', 'edit_coupon');
+  const canDelete   = perm('coupons', 'delete_coupon');
+  const canCategory = perm('coupons', 'category_coupon');
+  const canCashback = perm('coupons', 'cashback_coupon');
+  const hasAnyWrite = canCreate || canEdit || canDelete;
+
+  /* ── Show "View Only" badge if no write perms ────────────── */
+  if (!hasAnyWrite) {
+    document.getElementById('readonlyNotice').style.display = 'inline-flex';
+  }
+
+  /* ── Hide checkbox + Actions columns in table view ───────── */
+  if (!hasAnyWrite) {
+    document.getElementById('chkColHeader').style.display    = 'none';
+    document.getElementById('actionsColHeader').style.display = 'none';
+  }
+
+  /* ── Gate cashback type option in create/edit modal ─────── */
+  if (!canCashback) {
+    const opt = document.getElementById('cashbackTypeOption');
+    if (opt) opt.style.display = 'none';
+  }
+
+  /* ── Gate category option in Applicability tab ───────────── */
+  if (!canCategory) {
+    const catOpt = document.getElementById('categoryApplyOption');
+    if (catOpt) catOpt.style.display = 'none';
+    document.getElementById('categoryApply').style.display = 'none';
+  }
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   RENDER STATS — from API
+════════════════════════════════════════════════════════════════ */
+async function renderStats() {
+  try {
+    const res = await apiFetch('/coupons/stats/');
+    const d = res.data || {};
+    document.getElementById('cpnStats').innerHTML = `
+      <div class="cpn-stat"><div class="ico" style="background:var(--primary-light)">🎟️</div><div><div class="val" style="color:var(--primary)">${d.total ?? 0}</div><div class="lbl">Total Coupons</div></div></div>
+      <div class="cpn-stat"><div class="ico" style="background:var(--success-light)">✅</div><div><div class="val" style="color:var(--success)">${d.active ?? 0}</div><div class="lbl">Active</div></div></div>
+      <div class="cpn-stat"><div class="ico" style="background:var(--info-light)">📊</div><div><div class="val" style="color:var(--info)">${d.total_uses ?? 0}</div><div class="lbl">Total Uses</div></div></div>
+      <div class="cpn-stat"><div class="ico" style="background:var(--danger-light)">⏱</div><div><div class="val" style="color:var(--danger)">${d.expired ?? 0}</div><div class="lbl">Expired</div></div></div>
+    `;
+  } catch (e) {
+    console.error('Stats load failed', e);
+  }
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   COUPON CARD HTML
+   Edit, Pause/Activate, Delete buttons rendered conditionally
+   based on perm() calls.
+════════════════════════════════════════════════════════════════ */
+function couponCardHTML(c) {
+  const cfg = TYPE_CONFIG[c.type] || TYPE_CONFIG.percentage;
+  const st  = getCouponStatus(c);
+  const pct = c.maxUses ? Math.min(100, Math.round(c.usedCount / c.maxUses * 100)) : 0;
+  const barColor = pct > 90 ? 'var(--danger)' : pct > 70 ? 'var(--accent)' : 'var(--success)';
+  const valueDisplay = c.type === 'free_shipping' ? 'FREE SHIPPING' :
+                       c.type === 'flat'          ? `₹${c.value} OFF` :
+                                                    `${c.value}% OFF`;
+
+  /* Permission checks for this card's action buttons */
+  const canEdit   = perm('coupons', 'edit_coupon');
+  const canDelete = perm('coupons', 'delete_coupon');
+  const canCreate = perm('coupons', 'create_coupon');   /* toggle active needs edit/create */
+  const canToggle = canEdit || canCreate;
+
+  const actionBtns = (canEdit || canToggle || canDelete) ? `
+    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+      ${canEdit   ? `<button class="btn btn-secondary btn-sm btn-icon" title="Edit" onclick="openEdit(${c.id})">✏️</button>` : ''}
+      ${canToggle ? `<button class="btn ${c.active?'btn-secondary':'btn-success'} btn-sm" style="font-size:12px;padding:5px 10px" onclick="toggleActive(${c.id})" title="${c.active?'Deactivate':'Activate'}">${c.active ? '⏸ Pause' : '▶ Activate'}</button>` : ''}
+      ${canDelete ? `<button class="btn btn-danger btn-sm btn-icon" title="Delete" onclick="askDelete(${c.id})">🗑️</button>` : ''}
+    </div>` : '';
+
+  return `
+    <div class="coupon-card ${st}" onclick="openDetail(${c.id})">
+      <div class="coupon-stripe" style="background:${cfg.stripe}"></div>
+      <div class="coupon-type-badge">
+        <span class="badge" style="background:${cfg.bg};color:${cfg.color};font-size:10.5px">${cfg.icon} ${cfg.label}</span>
+      </div>
+      <div class="coupon-body">
+        <div style="font-size:12.5px;font-weight:600;color:var(--text-muted)">${c.name||c.code}</div>
+        <div class="coupon-value" style="color:${cfg.color};margin-top:6px">${valueDisplay}</div>
+        ${c.maxCap ? `<div style="font-size:12px;color:var(--text-muted);margin-top:2px">Max cap: ₹${c.maxCap}</div>` : ''}
+        <div class="coupon-code-display" onclick="event.stopPropagation();copyCode('${c.code}')">
+          <code>${c.code}</code>
+          <span class="copy-hint">📋 Click to copy</span>
+        </div>
+        <div class="coupon-meta">
+          ${c.minOrder ? `<div class="coupon-meta-row">🛒 Min order: <strong>₹${c.minOrder.toLocaleString('en-IN')}</strong></div>` : '<div class="coupon-meta-row">🛒 No minimum order</div>'}
+          <div class="coupon-meta-row">📅 Valid till: <strong>${formatExpiry(c.to)}</strong></div>
+          <div class="coupon-meta-row">👤 Per customer: <strong>${c.perUser || 'Unlimited'} use${c.perUser===1?'':'s'}</strong></div>
+          ${c.firstOrder ? '<div class="coupon-meta-row" style="color:var(--primary)">⭐ First order only</div>' : ''}
+        </div>
+        ${c.maxUses ? `
+          <div class="coupon-progress">
+            <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-muted)">
+              <span>Uses: <strong>${c.usedCount}</strong> / ${c.maxUses}</span><span>${pct}%</span>
+            </div>
+            <div class="coupon-progress-bar"><div class="coupon-progress-fill" style="width:${pct}%;background:${barColor}"></div></div>
+          </div>
+        ` : `<div style="font-size:12px;color:var(--text-muted);margin-top:10px">Uses: <strong>${c.usedCount}</strong> / Unlimited</div>`}
+      </div>
+      <div class="coupon-footer" onclick="event.stopPropagation()">
+        ${statusBadgeCpn(st)}
+        ${actionBtns}
+      </div>
+    </div>`;
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   RENDER TABLE
+   Action buttons per row rendered conditionally with perm().
+════════════════════════════════════════════════════════════════ */
+function renderTable() {
+  document.getElementById('cpnCount').textContent = filtered.length;
+  const b = document.getElementById('couponTableBody');
+  if (!filtered.length) {
+    b.innerHTML = `<tr><td colspan="10"><div class="empty-state"><div style="font-size:48px">🎟️</div><h3>No coupons found</h3></div></td></tr>`;
+    return;
+  }
+
+  const canEdit    = perm('coupons', 'edit_coupon');
+  const canDelete  = perm('coupons', 'delete_coupon');
+  const hasAnyWrite = canEdit || canDelete;
+
+  b.innerHTML = filtered.map(c => {
+    const cfg = TYPE_CONFIG[c.type] || TYPE_CONFIG.percentage;
+    const st  = getCouponStatus(c);
+    const valDisplay = c.type==='free_shipping' ? 'Free Shipping' : c.type==='flat' ? `₹${c.value}` : `${c.value}%`;
+
+    const actionCell = hasAnyWrite ? `
+      <td>
+        <div style="display:flex;gap:5px;flex-wrap:wrap;">
+          <button class="btn btn-secondary btn-sm btn-icon" onclick="openDetail(${c.id})" title="View">👁️</button>
+          ${canEdit   ? `<button class="btn btn-secondary btn-sm btn-icon" onclick="openEdit(${c.id})" title="Edit">✏️</button>` : ''}
+          ${canDelete ? `<button class="btn btn-danger btn-sm btn-icon" onclick="askDelete(${c.id})" title="Delete">🗑️</button>` : ''}
+        </div>
+      </td>` : '';
+
+    const chkCell = hasAnyWrite ? `<td><input type="checkbox" class="cpn-chk"></td>` : `<td style="display:none"></td>`;
+
+    return `
+      <tr>
+        ${chkCell}
+        <td>
+          <div style="font-weight:800;letter-spacing:1.5px;font-size:14px;cursor:pointer;color:var(--primary)" onclick="openDetail(${c.id})">${c.code}</div>
+          <div style="font-size:12px;color:var(--text-muted)">${c.name||''}</div>
+        </td>
+        <td><span class="badge" style="background:${cfg.bg};color:${cfg.color}">${cfg.icon} ${cfg.label}</span></td>
+        <td><strong>${valDisplay}</strong>${c.maxCap?`<span style="font-size:11px;color:var(--text-muted);margin-left:4px">cap ₹${c.maxCap}</span>`:''}</td>
+        <td>${c.minOrder ? `₹${c.minOrder.toLocaleString('en-IN')}` : '<span style="color:var(--text-muted)">None</span>'}</td>
+        <td>
+          <div style="font-size:13px">${c.usedCount} / ${c.maxUses||'∞'}</div>
+          ${c.maxUses ? `<div class="coupon-progress-bar" style="margin-top:4px;width:80px"><div class="coupon-progress-fill" style="width:${Math.min(100,Math.round(c.usedCount/c.maxUses*100))}%;background:var(--primary)"></div></div>` : ''}
+        </td>
+        <td><span class="badge badge-gray">${c.applyOn==='all'?'All Products':c.applyOn==='category'?'Categories':'Products'}</span></td>
+        <td style="font-size:12.5px">${formatExpiry(c.to)}</td>
+        <td>${statusBadgeCpn(st)}</td>
+        ${actionCell}
+      </tr>`;
+  }).join('');
+
+  /* Sync column header visibility */
+  document.getElementById('actionsColHeader').style.display           = hasAnyWrite ? '' : 'none';
+  document.getElementById('chkColHeader').style.display               = hasAnyWrite ? '' : 'none';
+}
+
+function renderGrid() {
+  document.getElementById('cpnCount').textContent = filtered.length;
+  const grid = document.getElementById('couponGrid');
+  if (!filtered.length) {
+    const canCreate = perm('coupons', 'create_coupon');
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div style="font-size:48px">🎟️</div><h3>No coupons found</h3><p>Create your first coupon or adjust your filters</p>${canCreate?'<button class="btn btn-primary mt-16" onclick="openAddCoupon()">+ Create Coupon</button>':''}</div>`;
+    return;
+  }
+  grid.innerHTML = filtered.map(couponCardHTML).join('');
+}
+
+function render() {
+  if (currentView === 'grid') renderGrid();
+  else renderTable();
+}
+
+function switchView(v) {
+  currentView = v;
+  document.getElementById('gridView').style.display = v === 'grid' ? 'block' : 'none';
+  document.getElementById('listView').style.display = v === 'list' ? 'block' : 'none';
+  document.getElementById('btnGrid').classList.toggle('active', v === 'grid');
+  document.getElementById('btnList').classList.toggle('active', v === 'list');
+  render();
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   LOAD COUPONS FROM API
+════════════════════════════════════════════════════════════════ */
+async function loadCoupons() {
+  try {
+    const search = document.getElementById('cpnSearch').value.trim();
+    const type   = document.getElementById('typeFilter').value;
+    const status = document.getElementById('statusFilter').value;
+
+    let params = [];
+    if (search) params.push('search=' + encodeURIComponent(search));
+    if (type)   params.push('type=' + encodeURIComponent(type));
+    if (status) params.push('status=' + encodeURIComponent(status));
+
+    const qs = params.length ? '?' + params.join('&') : '';
+    const res = await apiFetch('/coupons/' + qs);
+    const items = (res.data && res.data.items) ? res.data.items : [];
+
+    // Normalise API response → internal COUPONS format used by render functions
+    COUPONS = items.map(c => ({
+      id: c.id,
+      code: c.code,
+      name: c.description || c.code,
+      type: c.discount_type,
+      value: c.discount_value,
+      maxCap: c.maximum_discount,
+      minOrder: c.minimum_order_amount,
+      maxOrder: null,
+      maxUses: c.usage_limit,
+      usedCount: c.used_count,
+      perUser: null,
+      from: c.valid_from ? c.valid_from.slice(0, 10) : '',
+      to: c.valid_until ? c.valid_until.slice(0, 10) : '',
+      active: c.is_active,
+      firstOrder: false,
+      applyOn: 'all',
+      cashbackExpiry: null,
+      desc: c.description || '',
+      recentUses: c.recent_uses || [],
+      status: c.status,
+    }));
+    filtered = [...COUPONS];
+    render();
+  } catch (e) {
+    showToast('error', 'Load Failed', 'Could not load coupons from server');
+    console.error(e);
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   FILTERS
+════════════════════════════════════════════════════════════════ */
+function applyFilters() { loadCoupons(); }
+
+function clearFilters() {
+  document.getElementById('cpnSearch').value    = '';
+  document.getElementById('typeFilter').value   = '';
+  document.getElementById('statusFilter').value = '';
+  loadCoupons();
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   DETAIL MODAL — fetch from API
+════════════════════════════════════════════════════════════════ */
+async function openDetail(id) {
+  detailId = id;
+  let c = COUPONS.find(x => x.id === id);
+  // fetch full detail (includes recent_uses) from API
+  try {
+    const res = await apiFetch(`/coupons/${id}/`);
+    const raw = res.data;
+    c = {
+      id: raw.id, code: raw.code, name: raw.description || raw.code,
+      type: raw.discount_type, value: raw.discount_value,
+      maxCap: raw.maximum_discount, minOrder: raw.minimum_order_amount,
+      maxUses: raw.usage_limit, usedCount: raw.used_count,
+      from: raw.valid_from ? raw.valid_from.slice(0,10) : '',
+      to: raw.valid_until ? raw.valid_until.slice(0,10) : '',
+      active: raw.is_active, desc: raw.description || '', perUser: null,
+      firstOrder: false, applyOn: 'all',
+      recentUses: (raw.recent_uses || []).map(u => ({
+        user: u.customer_name, order: u.order_number,
+        discount: '₹' + u.discount_amount, date: u.date,
+      })),
+    };
+  } catch(e) { /* use cached */ }
+  if (!c) return;
+  const cfg = TYPE_CONFIG[c.type] || TYPE_CONFIG.percentage;
+  const st  = getCouponStatus(c);
+  const pct = c.maxUses ? Math.min(100, Math.round(c.usedCount / c.maxUses * 100)) : null;
+
+  document.getElementById('cpnDetailTitle').textContent = `Coupon – ${c.code}`;
+  document.getElementById('cpnDetailBody').innerHTML = `
+    <div style="background:linear-gradient(135deg,${cfg.bg},#fff);border-radius:12px;padding:20px 24px;margin-bottom:20px;border:1.5px solid ${cfg.color}20">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px">
+        <div>
+          <div style="font-size:13px;font-weight:600;color:var(--text-muted)">${c.name||'Coupon'}</div>
+          <div style="font-size:28px;font-weight:800;color:${cfg.color};margin-top:4px">
+            ${c.type==='free_shipping'?'FREE SHIPPING':c.type==='flat'?`₹${c.value} OFF`:`${c.value}% OFF`}
+          </div>
+          <div style="font-size:12.5px;color:var(--text-muted);margin-top:4px">${c.desc||''}</div>
+        </div>
+        <div style="text-align:right">
+          ${statusBadgeCpn(st)}
+          <div style="font-family:monospace;font-size:20px;font-weight:800;letter-spacing:2px;color:${cfg.color};margin-top:8px;cursor:pointer" onclick="copyCode('${c.code}')" title="Copy code">${c.code} 📋</div>
+        </div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">
+      ${[
+        ['Min. Order Value',  c.minOrder ? `₹${c.minOrder.toLocaleString('en-IN')}` : 'No minimum'],
+        ['Max. Discount Cap', c.maxCap   ? `₹${c.maxCap.toLocaleString('en-IN')}`   : 'No cap'],
+        ['Total Usage Limit', c.maxUses  ? c.maxUses : 'Unlimited'],
+        ['Per Customer Limit',c.perUser  || 'Unlimited'],
+        ['Valid From',        formatExpiry(c.from)],
+        ['Valid Until',       formatExpiry(c.to)],
+        ['Applies On',        c.applyOn==='all'?'All Products':c.applyOn==='category'?'Specific Categories':'Specific Products'],
+        ['First Order Only',  c.firstOrder ? '✅ Yes' : '❌ No'],
+      ].map(([l,v]) => `
+        <div style="background:var(--body-bg);border-radius:9px;padding:12px 14px">
+          <div style="font-size:11.5px;color:var(--text-muted);font-weight:600;margin-bottom:4px">${l}</div>
+          <div style="font-weight:700;font-size:13.5px">${v}</div>
+        </div>`).join('')}
+    </div>
+    <div style="font-weight:700;font-size:14px;margin-bottom:12px">📊 Usage Statistics</div>
+    <div style="background:var(--body-bg);border-radius:12px;padding:16px;margin-bottom:20px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <span style="font-size:13.5px">Total Uses: <strong>${c.usedCount}</strong> / ${c.maxUses||'∞'}</span>
+        ${pct!==null ? `<span style="font-size:13px;font-weight:700;color:${pct>90?'var(--danger)':pct>70?'var(--accent)':'var(--success)'}">${pct}% used</span>` : '<span style="font-size:12px;color:var(--text-muted)">Unlimited</span>'}
+      </div>
+      ${pct!==null ? `<div class="coupon-progress-bar"><div class="coupon-progress-fill" style="width:${pct}%;background:${pct>90?'var(--danger)':pct>70?'var(--accent)':'var(--success)'}"></div></div>` : ''}
+    </div>
+    ${c.recentUses && c.recentUses.length ? `
+      <div style="font-weight:700;font-size:14px;margin-bottom:10px">🕐 Recent Usage</div>
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead><tr><th>Customer</th><th>Order</th><th>Discount Given</th><th>Date</th></tr></thead>
+          <tbody>
+            ${c.recentUses.map(u=>`
+              <tr>
+                <td><strong>${u.user}</strong></td>
+                <td><span style="color:var(--primary);font-weight:600">${u.order}</span></td>
+                <td><strong style="color:var(--danger)">${u.discount}</strong></td>
+                <td>${u.date}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    ` : '<div style="text-align:center;padding:24px;color:var(--text-muted);font-size:13.5px">No usage records yet</div>'}
+  `;
+
+  /* Build footer based on permissions */
+  buildDetailFooter(c);
+  openModal('cpnDetailModal');
+}
+
+/* ── Detail modal footer ───────────────────────────────────── */
+function buildDetailFooter(c) {
+  const footer = document.getElementById('cpnDetailFooter');
+  footer.innerHTML = `<button class="btn btn-secondary" onclick="closeModal('cpnDetailModal')">Close</button>`;
+
+  /* Edit button — needs edit_coupon */
+  if (perm('coupons', 'edit_coupon')) {
+    footer.innerHTML += `<button class="btn btn-outline-primary" onclick="editFromDetail()">✏️ Edit Coupon</button>`;
+  }
+
+  /* Delete button — needs delete_coupon */
+  if (perm('coupons', 'delete_coupon')) {
+    footer.innerHTML += `<button class="btn btn-danger btn-sm" onclick="closeModal('cpnDetailModal');askDelete(${c.id})">🗑️ Delete</button>`;
+  }
+}
+
+function editFromDetail() {
+  closeModal('cpnDetailModal');
+  openEdit(detailId);
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   TOGGLE ACTIVE — real API
+════════════════════════════════════════════════════════════════ */
+async function toggleActive(id) {
+  if (!perm('coupons', 'edit_coupon') && !perm('coupons', 'create_coupon')) {
+    showToast('error', 'Access Denied', 'No permission to activate/pause coupons.');
+    return;
+  }
+  try {
+    const res = await apiFetch(`/coupons/${id}/toggle/`, { method: 'PUT' });
+    const updated = res.data;
+    showToast(updated.is_active ? 'success' : 'info',
+      updated.is_active ? 'Activated' : 'Paused',
+      `Coupon ${updated.code} is now ${updated.is_active ? 'active' : 'paused'}`);
+    await loadCoupons();
+    await renderStats();
+  } catch(e) {
+    showToast('error', 'Error', 'Failed to update coupon status');
+  }
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   ADD / EDIT MODAL
+   Guard: create_coupon (new) | edit_coupon (existing)
+════════════════════════════════════════════════════════════════ */
+function openAddCoupon() {
+  if (!perm('coupons', 'create_coupon')) {
+    showToast('error', 'Access Denied', 'No permission to create coupons.');
+    return;
+  }
+  editId = null;
+  document.getElementById('couponModalTitle').textContent = 'Create Coupon';
+  resetCouponForm();
+  const now   = new Date();
+  const later = new Date(now); later.setMonth(later.getMonth() + 1);
+  document.getElementById('cpnFrom').value = now.toISOString().slice(0, 16);
+  document.getElementById('cpnTo').value   = later.toISOString().slice(0, 16);
+  buildCouponModalFooter(false);
+  openModal('couponModal');
+}
+
+function openEdit(id) {
+  if (!perm('coupons', 'edit_coupon')) {
+    showToast('error', 'Access Denied', 'No permission to edit coupons.');
+    return;
+  }
+  const c = COUPONS.find(x => x.id === id);
+  if (!c) return;
+  editId = id;
+  document.getElementById('couponModalTitle').textContent = `Edit Coupon – ${c.code}`;
+  resetCouponForm();
+  document.getElementById('cpnCode').value    = c.code;
+  document.getElementById('cpnName').value    = c.name || '';
+  document.getElementById('cpnType').value    = c.type;
+  document.getElementById('cpnValue').value   = c.value;
+  document.getElementById('cpnMaxCap').value  = c.maxCap  || '';
+  document.getElementById('cpnMinOrder').value = c.minOrder || '';
+  document.getElementById('cpnMaxOrder').value = c.maxOrder || '';
+  document.getElementById('cpnMaxUses').value = c.maxUses  || '';
+  document.getElementById('cpnPerUser').value = c.perUser  || '';
+  document.getElementById('cpnFrom').value    = c.from ? c.from + 'T00:00' : '';
+  document.getElementById('cpnTo').value      = c.to   ? c.to   + 'T00:00' : '';
+  document.getElementById('cpnDesc').value    = c.desc || '';
+  document.getElementById('cpnActive').checked = c.active;
+  updateDiscountUI();
+  buildCouponModalFooter(true);
+  openModal('couponModal');
+  switchCouponTab('basic', document.querySelector('.tab-btn[data-tab="basic"]'));
+}
+
+/* ── Modal footer for create/edit ──────────────────────────── */
+function buildCouponModalFooter(isEdit) {
+  const footer = document.getElementById('couponModalFooter');
+  footer.innerHTML = `<button class="btn btn-secondary" onclick="closeModal('couponModal')">Cancel</button>`;
+
+  if (!isEdit && perm('coupons', 'create_coupon')) {
+    footer.innerHTML += `
+      <button class="btn btn-secondary" onclick="saveCoupon('inactive')">💾 Save as Draft</button>
+      <button class="btn btn-primary"   onclick="saveCoupon('active')">✅ Publish Coupon</button>`;
+  } else if (isEdit && perm('coupons', 'edit_coupon')) {
+    footer.innerHTML += `
+      <button class="btn btn-primary" onclick="saveCoupon(null)">💾 Save Changes</button>`;
+  }
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   SAVE COUPON — real API
+════════════════════════════════════════════════════════════════ */
+async function saveCoupon(status) {
+  const isNew = !editId;
+  if (isNew  && !perm('coupons', 'create_coupon')) { showToast('error','Access Denied','No permission to create coupons.'); return; }
+  if (!isNew && !perm('coupons', 'edit_coupon'))   { showToast('error','Access Denied','No permission to edit coupons.');   return; }
+
+  const code = document.getElementById('cpnCode').value.trim().toUpperCase();
+  if (!code) { showToast('warning', 'Required', 'Coupon code is required'); return; }
+  const type = document.getElementById('cpnType').value;
+  if (!type) { showToast('warning', 'Required', 'Please select a discount type'); return; }
+  if (type !== 'free_shipping' && !document.getElementById('cpnValue').value) {
+    showToast('warning', 'Required', 'Discount value is required'); return;
+  }
+
+  const isActive = status !== null ? status === 'active' : document.getElementById('cpnActive').checked;
+
+  const payload = {
+    code,
+    description: document.getElementById('cpnDesc').value || document.getElementById('cpnName').value,
+    discount_type: type === 'flat' ? 'flat' : 'percentage',
+    discount_value: Number(document.getElementById('cpnValue').value) || 0,
+    minimum_order_amount: Number(document.getElementById('cpnMinOrder').value) || 0,
+    maximum_discount: Number(document.getElementById('cpnMaxCap').value) || null,
+    usage_limit: Number(document.getElementById('cpnMaxUses').value) || null,
+    valid_from: document.getElementById('cpnFrom').value || new Date().toISOString(),
+    valid_until: document.getElementById('cpnTo').value || new Date().toISOString(),
+    is_active: isActive,
+  };
+
+  try {
+    if (editId) {
+      await apiFetch(`/coupons/${editId}/`, {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+      });
+    } else {
+      await apiFetch('/coupons/', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+    }
+    closeModal('couponModal');
+    await renderStats();
+    await loadCoupons();
+    showToast('success', editId ? 'Updated' : 'Created',
+      `Coupon "${code}" ${editId ? 'updated' : 'created'} successfully`);
+    editId = null;
+  } catch(e) {
+    showToast('error', 'Error', e.message || 'Failed to save coupon');
+  }
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   DELETE
+   Guard: delete_coupon
+════════════════════════════════════════════════════════════════ */
+function askDelete(id) {
+  if (!perm('coupons', 'delete_coupon')) {
+    showToast('error', 'Access Denied', 'No permission to delete coupons.');
+    return;
+  }
+  const c = COUPONS.find(x => x.id === id);
+  if (!c) return;
+  deleteId = id;
+  document.getElementById('cpnDelCode').textContent = c.code;
+  openModal('cpnDelModal');
+}
+
+async function doDelete() {
+  if (!perm('coupons', 'delete_coupon')) {
+    showToast('error', 'Access Denied', 'No permission to delete coupons.');
+    closeModal('cpnDelModal'); return;
+  }
+  try {
+    await apiFetch(`/coupons/${deleteId}/`, { method: 'DELETE' });
+    closeModal('cpnDelModal');
+    await renderStats();
+    await loadCoupons();
+    showToast('success', 'Deleted', 'Coupon removed successfully');
+  } catch {
+    showToast('error', 'Error', 'Failed to delete coupon');
+  }
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   MODAL FORM HELPERS
+════════════════════════════════════════════════════════════════ */
+function resetCouponForm() {
+  ['cpnCode','cpnName','cpnValue','cpnMaxCap','cpnMinOrder','cpnMaxOrder',
+   'cpnMaxUses','cpnPerUser','cpnFrom','cpnTo','cpnDesc'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  document.getElementById('cpnType').value      = '';
+  document.getElementById('cpnActive').checked  = true;
+  document.getElementById('cpnFirstOrder').checked = false;
+  document.getElementById('maxCapGroup').style.display  = 'none';
+  document.getElementById('cashbackGroup').style.display = 'none';
+}
+
+function updateDiscountUI() {
+  const type     = document.getElementById('cpnType').value;
+  const prefix   = document.getElementById('discValuePrefix');
+  const capGroup = document.getElementById('maxCapGroup');
+  const cashGroup = document.getElementById('cashbackGroup');
+  const valGroup = document.getElementById('discValueGroup');
+  if (!type) { prefix.textContent = '#'; return; }
+  prefix.textContent        = type === 'flat' ? '₹' : type === 'free_shipping' ? '—' : '%';
+  valGroup.style.display    = type === 'free_shipping' ? 'none' : 'block';
+  capGroup.style.display    = (type === 'percentage' || type === 'cashback') ? 'block' : 'none';
+  /* Only show cashback group if admin has cashback_coupon */
+  cashGroup.style.display   = (type === 'cashback' && perm('coupons', 'cashback_coupon')) ? 'block' : 'none';
+}
+
+function switchCouponTab(name, el) {
+  document.querySelectorAll('#couponTabs .tab-btn').forEach(b => b.classList.remove('active'));
+  if (el) el.classList.add('active');
+  ['basic','rules','applicability'].forEach(t => {
+    const p = document.getElementById('ctab-' + t);
+    if (p) p.style.display = t === name ? 'block' : 'none';
+  });
+}
+
+function toggleApplicability() {
+  const val = document.querySelector('input[name="applyOn"]:checked').value;
+  document.getElementById('categoryApply').style.display = (val === 'category' && perm('coupons','category_coupon')) ? 'block' : 'none';
+  document.getElementById('productApply').style.display  = val === 'product' ? 'block' : 'none';
+}
+
+document.getElementById('cpnEligibility')?.addEventListener('change', function() {
+  document.getElementById('specificEmailGroup').style.display = this.value === 'specific' ? 'block' : 'none';
+});
+
+function addProductToList() {
+  const val  = document.getElementById('productSearch').value.trim();
+  if (!val) return;
+  const wrap = document.getElementById('selectedProducts');
+  const chip = document.createElement('span');
+  chip.className = 'rule-chip';
+  chip.innerHTML = `${val} <button onclick="this.closest('.rule-chip').remove()" style="background:none;border:none;cursor:pointer;color:var(--primary);font-size:14px;margin-left:2px">×</button>`;
+  wrap.appendChild(chip);
+  document.getElementById('productSearch').value = '';
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   HELPERS
+════════════════════════════════════════════════════════════════ */
+function getCouponStatus(c) {
+  const now = new Date();
+  if (new Date(c.to) < now)                  return 'expired';
+  if (c.maxUses && c.usedCount >= c.maxUses) return 'exhausted';
+  if (!c.active)                             return 'inactive';
+  return 'active';
+}
+
+function statusBadgeCpn(st) {
+  const map = {
+    active:   ['badge-success', '● Active'],
+    inactive: ['badge-gray',    '○ Inactive'],
+    expired:  ['badge-danger',  '⏱ Expired'],
+    exhausted:['badge-warning', '✓ Fully Used'],
+  };
+  const [cls, lbl] = map[st] || ['badge-gray', st];
+  return `<span class="badge ${cls}">${lbl}</span>`;
+}
+
+function formatExpiry(d) {
+  return d ? new Date(d).toLocaleDateString('en-IN', {day:'2-digit',month:'short',year:'numeric'}) : '—';
+}
+
+function copyCode(code) {
+  navigator.clipboard.writeText(code).catch(() => {});
+  showToast('success', 'Copied!', `Code "${code}" copied to clipboard`);
+}
+
+function generateCode() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  const code  = 'LOOM' + Array.from({length:6}, () => chars[Math.floor(Math.random()*chars.length)]).join('');
+  document.getElementById('cpnCode').value = code;
+}
+
+function openModal(id)  { document.getElementById(id)?.classList.add('open'); }
+function closeModal(id) { document.getElementById(id)?.classList.remove('open'); }
+
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.remove('open'); });
+});
+
+function showToast(type, title, msg) {
+  const icons = { success:'✅', error:'❌', info:'ℹ️', warning:'⚠️' };
+  const tc    = document.getElementById('toast-container');
+  const t     = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.innerHTML = `<span style="font-size:18px;">${icons[type]||'ℹ️'}</span><div><div style="font-size:13px;font-weight:600;">${title}</div><div style="font-size:12px;color:#6b7c75;margin-top:2px;">${msg}</div></div>`;
+  tc.appendChild(t);
+  setTimeout(() => t.remove(), 4000);
+}
+
+document.getElementById('sidebarToggle')?.addEventListener('click', () => {
+  const sidebar   = document.getElementById('sidebar');
+  const main      = document.getElementById('mainContent');
+  const collapsed = sidebar.classList.toggle('collapsed');
+  main.classList.toggle('expanded', collapsed);
+});
+
+
+/* ════════════════════════════════════════════════════════════════
+   BOOT
+════════════════════════════════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', () => {
+  /* Populate category checkboxes */
+  const cats = ['Saree','Printed Saree','Plain Saree','Silk Saree','Kolkata Silk','Kurtas','Dupatta','Stoles'];
+  document.getElementById('catCheckboxes').innerHTML = cats.map(cat =>
+    `<label style="display:flex;align-items:center;gap:7px;font-size:13.5px;cursor:pointer;background:var(--body-bg);padding:8px 12px;border-radius:8px;border:1px solid var(--border)"><input type="checkbox"> ${cat}</label>`
+  ).join('');
+
+  /* STEP 2+3: initPage first, then load from API */
+  initPage();
+  renderStats();
+  loadCoupons();
+});
+</script>
+</body>
+</html>

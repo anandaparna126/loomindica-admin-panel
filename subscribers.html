@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Subscribers – LoomIndica Admin</title>
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+<div id="toast-container"></div>
+<div class="admin-shell">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon">LI</div>
+      <div class="brand-text"><h3>LoomIndica</h3><span>Admin Panel</span></div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Main</div>
+      <div class="nav-item"><a href="dashboard.html" class="nav-link"><span class="nav-icon">📊</span><span class="nav-label">Dashboard</span></a></div>
+      <div class="nav-section-label">Catalogue</div>
+      <div class="nav-item"><a href="products.html" class="nav-link"><span class="nav-icon">🛍️</span><span class="nav-label">Products</span></a></div>
+      <div class="nav-item"><a href="categories.html" class="nav-link"><span class="nav-icon">🗂️</span><span class="nav-label">Categories</span></a></div>
+      <div class="nav-section-label">Marketing</div>
+      <div class="nav-item"><a href="subscribers.html" class="nav-link active"><span class="nav-icon">✉️</span><span class="nav-label">Newsletter</span></a></div>
+    </nav>
+  </aside>
+
+  <div class="main-content" id="mainContent">
+    <header class="topbar">
+      <button class="topbar-toggle" id="sidebarToggle">☰</button>
+      <div class="topbar-search"><i>🔍</i><input placeholder="Search subscribers…"></div>
+      <div class="topbar-actions">
+        <div class="dropdown">
+          <div class="topbar-user" data-dropdown>
+            <div class="avatar">A</div>
+            <div class="topbar-user-info"><strong>Admin</strong><span>Admin</span></div>
+          </div>
+          <div class="dropdown-menu"><div class="dropdown-item danger" data-logout>🚪 Logout</div></div>
+        </div>
+      </div>
+    </header>
+
+    <div class="page-content">
+      <div class="page-header">
+        <h1>Newsletter Subscribers</h1>
+        <div class="breadcrumb"><span>Home</span><i>›</i><span>Marketing</span><i>›</i><span>Subscribers</span></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h3>Subscriber List</h3>
+          <button class="btn btn-secondary btn-sm" onclick="exportSubscribers()">📥 Export CSV</button>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Email</th>
+                <th>Joined Date</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="subListBody">
+              <tr><td colspan="4" style="text-align:center;padding:40px;color:var(--text-muted)">Loading subscribers…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="permissions.js"></script>
+<script src="admin.js"></script>
+<script>
+async function loadSubscribers() {
+  const tbody = document.getElementById('subListBody');
+  try {
+    const json = await API.get('/newsletter/subscribers/');
+    const subs = json.data || json.results || [];
+    
+    if (subs.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:40px;color:var(--text-muted)">No subscribers found.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = subs.map(s => `
+      <tr>
+        <td><strong>${s.email}</strong></td>
+        <td style="color:var(--text-muted)">${s.date_joined || '—'}</td>
+        <td><span class="badge ${s.is_active ? 'badge-success' : 'badge-gray'}">${s.is_active ? 'Active' : 'Unsubscribed'}</span></td>
+        <td>
+          <button class="btn btn-sm btn-danger" onclick="deleteSubscriber(${s.id})">Remove</button>
+        </td>
+      </tr>
+    `).join('');
+  } catch (e) {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:40px;color:var(--danger)">Failed to load subscribers.</td></tr>';
+  }
+}
+
+async function deleteSubscriber(id) {
+  if (!confirm('Permanently remove this subscriber?')) return;
+  try {
+    await API.delete(`/newsletter/subscribers/${id}/`);
+    showToast('success', 'Removed', 'Subscriber removed successfully');
+    loadSubscribers();
+  } catch (e) {
+    showToast('error', 'Action Failed', 'Could not remove subscriber');
+  }
+}
+
+function exportSubscribers() {
+  showToast('info', 'Export', 'Preparing CSV export…');
+  // Logic for CSV export...
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  PermGuard.init({ module: 'marketing', loginUrl: 'admin-login.html' });
+  loadSubscribers();
+});
+</script>
+</body>
+</html>

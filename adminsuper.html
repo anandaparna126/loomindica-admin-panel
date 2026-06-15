@@ -1,0 +1,1361 @@
+<script>
+// ============================================================
+//  CONFIG — SET YOUR BASE URL HERE
+// ============================================================
+const BASE_URL = 'http://182.70.253.15:8011/api';
+
+// ── Token helpers ──
+const getToken = () => localStorage.getItem('superAdminToken') || '';
+const authHeaders = () => ({
+  'Content-Type': 'application/json',
+  'Authorization': `Token ${getToken()}`
+});
+
+// ── Guard: redirect to login if no token ──
+if (!getToken()) window.location.href = 'superadmin-login.html';
+
+// ============================================================
+//  REAL API LAYER
+//  Each method hits the actual Django endpoint.
+//  On any network/auth failure it shows a toast and re-throws.
+// ============================================================
+const SA_API = {
+
+  /* ----------------------------------------------------------
+     GET /api/superadmin/admins/
+     Returns: [{ id, firstName, lastName, email, phone, role,
+                 permissions:{module:[featureKey,...]},
+                 status, dept, city, createdAt, lastLogin,
+                 loginCount }]
+  ---------------------------------------------------------- */
+  async getAdmins() {
+    const res = await apiFetch(`${BASE_URL}/superadmin/admins/`);
+    const data = await res.json();
+    // Normalise: Django may return snake_case → convert to camelCase
+    return (data.results ?? data).map(normaliseAdmin);
+  },
+
+  /* ----------------------------------------------------------
+     POST /api/superadmin/admins/create/
+     Body: { first_name, last_name, email, password, phone,
+             role, permissions, is_active, send_credentials,
+             force_reset, department, city }
+     Returns: { success: true, admin: {...} }
+  ---------------------------------------------------------- */
+  async createAdmin(payload) {
+    const res = await apiFetch(`${BASE_URL}/superadmin/admins/create/`, {
+      method: 'POST',
+      body: JSON.stringify(toSnake(payload))
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || data.message || 'Create failed');
+    logActivity('Admin Created', `Created ${payload.firstName} ${payload.lastName} (${payload.role})`);
+    return { success: true, admin: normaliseAdmin(data.admin ?? data) };
+  },
+
+  /* ----------------------------------------------------------
+     PATCH /api/superadmin/admins/<id>/
+     Body: { first_name?, last_name?, email?, phone?, role?,
+             permissions?, status?, password? }
+     Returns: { success: true }
+  ---------------------------------------------------------- */
+  async updateAdmin(id, payload) {
+    const res = await apiFetch(`${BASE_URL}/superadmin/admins/${id}/`, {
+      method: 'PATCH',
+      body: JSON.stringify(toSnake(payload))
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || data.message || 'Update failed');
+    logActivity('Admin Updated', `Updated admin ID ${id}`);
+    return { success: true };
+  },
+
+  /* ----------------------------------------------------------
+     DELETE /api/superadmin/admins/<id>/
+     Returns: { success: true }
+  ---------------------------------------------------------- */
+  async deleteAdmin(id) {
+    const admin = ADMINS_CACHE.find(a => a.id === id);
+    const res = await apiFetch(`${BASE_URL}/superadmin/admins/${id}/`, { method: 'DELETE' });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.detail || 'Delete failed');
+    }
+    logActivity('Admin Deleted', `Deleted ${admin?.firstName} ${admin?.lastName}`);
+    return { success: true };
+  },
+
+  /* ----------------------------------------------------------
+     PATCH /api/superadmin/admins/<id>/toggle-status/
+     Returns: { success: true, status: 'active'|'inactive' }
+  ---------------------------------------------------------- */
+  async toggleAdminStatus(id) {
+    const res = await apiFetch(`${BASE_URL}/superadmin/admins/${id}/toggle-status/`, {
+      method: 'PATCH'
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Toggle failed');
+    logActivity('Status Toggled', `Admin ${id} status changed to ${data.status}`);
+    return { success: true, status: data.status };
+  },
+
+  /* ----------------------------------------------------------
+     GET /api/superadmin/stats/
+     Returns: { totalAdmins, totalOrders, totalRevenue, totalProducts }
+  ---------------------------------------------------------- */
+  async getStats() {
+    const res = await apiFetch(`${BASE_URL}/superadmin/stats/`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Stats failed');
+    return {
+      totalAdmins:   data.total_admins   ?? data.totalAdmins   ?? 0,
+      totalOrders:   data.total_orders   ?? data.totalOrders   ?? 0,
+      totalRevenue:  data.total_revenue  ?? data.totalRevenue  ?? 0,
+      totalProducts: data.total_products ?? data.totalProducts ?? 0,
+    };
+  },
+
+  /* ----------------------------------------------------------
+     GET /api/superadmin/activity-log/
+     Returns: [{ time, actor, role, action, details, ip }]
+  ---------------------------------------------------------- */
+  async getActivityLog() {
+    const res = await apiFetch(`${BASE_URL}/superadmin/activity-log/`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Log failed');
+    const list = data.results ?? data;
+    return list.map(l => ({
+      time:   l.time || l.created_at || l.timestamp,
+      actor:  l.actor || l.actor_name,
+      role:   l.role  || l.actor_role,
+      action: l.action,
+      details:l.details || l.description || '',
+      ip:     l.ip || l.ip_address || '—',
+    }));
+  },
+
+  /* ----------------------------------------------------------
+     PATCH /api/superadmin/roles/<role>/permissions/
+     Body: { permissions: { module: [featureKey, ...] } }
+     Returns: { success: true }
+  ---------------------------------------------------------- */
+  async saveRolePermissions(role, permissions) {
+    const res = await apiFetch(`${BASE_URL}/superadmin/roles/${role}/permissions/`, {
+      method: 'PATCH',
+      body: JSON.stringify({ permissions })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Save role perms failed');
+    ROLE_DEFAULTS[role] = permissions;
+    logActivity('Role Permissions Updated', `Updated default permissions for role: ${role}`);
+    return { success: true };
+  },
+
+  /* ----------------------------------------------------------
+     POST /api/superadmin/permissions/custom/
+     Body: { name, key, icon, module, risk, desc, roles }
+     Returns: { success: true }
+  ---------------------------------------------------------- */
+  async saveCustomPermission(perm) {
+    const res = await apiFetch(`${BASE_URL}/superadmin/permissions/custom/`, {
+      method: 'POST',
+      body: JSON.stringify({
+        name: perm.name, key: perm.key, icon: perm.icon,
+        module: perm.module, risk: perm.risk,
+        description: perm.desc, roles: perm.roles
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Save custom perm failed');
+    return { success: true };
+  },
+
+  /* ----------------------------------------------------------
+     DELETE /api/superadmin/permissions/custom/<key>/
+     Returns: { success: true }
+  ---------------------------------------------------------- */
+  async deleteCustomPermission(key) {
+    const res = await apiFetch(`${BASE_URL}/superadmin/permissions/custom/${key}/`, {
+      method: 'DELETE'
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.detail || 'Delete perm failed');
+    }
+    return { success: true };
+  }
+};
+
+// ============================================================
+//  FETCH WRAPPER — handles auth errors, network errors, toasts
+// ============================================================
+async function apiFetch(url, options = {}) {
+  try {
+    const res = await fetch(url, {
+      ...options,
+      headers: { ...authHeaders(), ...(options.headers || {}) }
+    });
+    if (res.status === 401 || res.status === 403) {
+      showToast('Session expired', 'Please log in again.', 'error');
+      setTimeout(() => { window.location.href = 'superadmin-login.html'; }, 1500);
+      throw new Error('Unauthorised');
+    }
+    return res;
+  } catch (err) {
+    if (err.message !== 'Unauthorised') {
+      showToast('Network error', err.message || 'Could not reach server.', 'error');
+    }
+    throw err;
+  }
+}
+
+// ============================================================
+//  FIELD NORMALISATION HELPERS
+//  Django returns snake_case; UI uses camelCase.
+// ============================================================
+function normaliseAdmin(a) {
+  return {
+    id:          a.id,
+    firstName:   a.first_name  ?? a.firstName  ?? '',
+    lastName:    a.last_name   ?? a.lastName   ?? '',
+    email:       a.email ?? '',
+    phone:       a.phone ?? '',
+    role:        a.role  ?? 'viewer',
+    permissions: normalisePermissions(a.permissions ?? {}),
+    status:      a.status ?? 'active',
+    dept:        a.department ?? a.dept ?? '',
+    city:        a.city ?? '',
+    createdAt:   a.created_at ?? a.createdAt ?? '',
+    lastLogin:   a.last_login  ?? a.lastLogin  ?? null,
+    loginCount:  a.login_count ?? a.loginCount ?? 0,
+  };
+}
+
+// Permissions from Django may come as { module: [keys] } or { module: { featureKey: bool } }
+function normalisePermissions(raw) {
+  const out = {};
+  for (const [mod, val] of Object.entries(raw)) {
+    if (Array.isArray(val)) {
+      out[mod] = val;
+    } else if (typeof val === 'object' && val !== null) {
+      out[mod] = Object.entries(val).filter(([,v]) => v).map(([k]) => k);
+    } else {
+      out[mod] = [];
+    }
+  }
+  return out;
+}
+
+// camelCase payload → snake_case for Django
+function toSnake(obj) {
+  const map = {
+    firstName:'first_name', lastName:'last_name',
+    isActive:'is_active', sendCredentials:'send_credentials',
+    forceReset:'force_reset',
+  };
+  const out = {};
+  for (const [k, v] of Object.entries(obj)) out[map[k] ?? k] = v;
+  return out;
+}
+
+// ============================================================
+//  LOCAL ACTIVITY LOG (client-side mirror; real data from API)
+// ============================================================
+let ACTIVITY_LOG = [];
+function logActivity(action, details) {
+  ACTIVITY_LOG.unshift({
+    time: new Date().toISOString(),
+    actor: 'Super Admin', role: 'superadmin',
+    action, details, ip: '—'
+  });
+}
+
+// ============================================================
+//  ADMINS CACHE — keeps loaded list to avoid repeated fetches
+// ============================================================
+let ADMINS_CACHE = [];
+
+// ============================================================
+//  CUSTOM PERMS LOCAL STATE
+// ============================================================
+let CUSTOM_PERMS = [];
+
+// ============================================================
+//  PERMISSION MODULES DEFINITION
+// ============================================================
+const MODULES = [
+  { key: 'dashboard', icon: '📊', name: 'Dashboard', features: [
+    { key: 'view_dashboard',    name: 'View Dashboard',       desc: 'Access main dashboard with stats & charts', cols: ['view'] },
+    { key: 'export_report',     name: 'Export Reports',       desc: 'Download dashboard report as PDF/CSV',      cols: ['view','export'] },
+    { key: 'view_revenue',      name: 'View Revenue Data',    desc: 'See revenue totals and charts',             cols: ['view'] },
+    { key: 'view_notifications',name: 'View Notifications',   desc: 'Access system alerts (low stock, pending)', cols: ['view'] },
+  ]},
+  { key: 'products', icon: '🛍️', name: 'Products', features: [
+    { key: 'view_products',    name: 'View Products',              desc: 'Browse product listing and details',           cols: ['view'] },
+    { key: 'add_product',      name: 'Add Product',                desc: 'Create new product with all details',          cols: ['view','create'] },
+    { key: 'edit_product',     name: 'Edit Product',               desc: 'Modify product info, images, pricing',         cols: ['view','edit'] },
+    { key: 'delete_product',   name: 'Delete Product',             desc: 'Permanently remove a product',                 cols: ['view','delete'] },
+    { key: 'publish_product',  name: 'Publish / Unpublish',        desc: 'Toggle product visibility on storefront',      cols: ['view','edit'] },
+    { key: 'combo_suggestion', name: 'Manage Combo Suggestions',   desc: 'Enable/disable combo pairing for products',    cols: ['view','edit'] },
+    { key: 'export_products',  name: 'Export Products',            desc: 'Download product list as CSV',                 cols: ['view','export'] },
+  ]},
+  { key: 'categories', icon: '🗂️', name: 'Categories', features: [
+    { key: 'view_categories',  name: 'View Categories',  desc: 'See category tree and hierarchy',            cols: ['view'] },
+    { key: 'add_category',     name: 'Add Category',     desc: 'Create head or sub-category',                cols: ['view','create'] },
+    { key: 'edit_category',    name: 'Edit Category',    desc: 'Rename or reorder categories',               cols: ['view','edit'] },
+    { key: 'delete_category',  name: 'Delete Category',  desc: 'Remove category and all descendants',        cols: ['view','delete'] },
+    { key: 'reorder_categories',name:'Reorder / Sort',   desc: 'Change display order of categories',         cols: ['view','edit'] },
+  ]},
+  { key: 'inventory', icon: '📦', name: 'Inventory', features: [
+    { key: 'view_inventory',          name: 'View Inventory',             desc: 'See stock levels and product statuses',      cols: ['view'] },
+    { key: 'edit_stock',              name: 'Update Stock Quantity',       desc: 'Edit individual product stock qty',          cols: ['view','edit'] },
+    { key: 'bulk_stock_update',       name: 'Bulk Stock Update',           desc: 'Update multiple products stock at once',     cols: ['view','edit'] },
+    { key: 'edit_pricing',            name: 'Edit Pricing (MRP / Selling)',desc: 'Change MRP, selling price, discount',        cols: ['view','edit'] },
+    { key: 'set_low_stock_threshold', name: 'Set Low Stock Alert',         desc: 'Configure low stock warning level',          cols: ['view','edit'] },
+    { key: 'export_inventory',        name: 'Export Inventory',            desc: 'Download inventory CSV',                     cols: ['view','export'] },
+  ]},
+  { key: 'orders', icon: '🧾', name: 'Orders', features: [
+    { key: 'view_orders',         name: 'View Orders',               desc: 'Browse all orders and details',                  cols: ['view'] },
+    { key: 'create_order',        name: 'Create Manual Order',       desc: 'Place order on behalf of customer',              cols: ['view','create'] },
+    { key: 'update_order_status', name: 'Update Order Status',       desc: 'Mark as Processing / Shipped / Delivered',       cols: ['view','edit'] },
+    { key: 'cancel_order',        name: 'Cancel Order',              desc: 'Cancel a pending or processing order',            cols: ['view','edit'] },
+    { key: 'manage_returns',      name: 'Manage Returns',            desc: 'Process return requests and refunds',             cols: ['view','edit'] },
+    { key: 'update_tracking',     name: 'Update Tracking ID',        desc: 'Add or edit shipment tracking number',            cols: ['view','edit'] },
+    { key: 'export_orders',       name: 'Export Orders',             desc: 'Download order CSV/PDF',                         cols: ['view','export'] },
+  ]},
+  { key: 'customers', icon: '👥', name: 'Customers', features: [
+    { key: 'view_customers',       name: 'View Customers',             desc: 'Browse customer list and profiles',              cols: ['view'] },
+    { key: 'view_customer_orders', name: 'View Customer Order History',desc: 'Access per-customer order history',              cols: ['view'] },
+    { key: 'edit_customer_notes',  name: 'Add/Edit Admin Notes',       desc: 'Add internal notes to a customer profile',       cols: ['view','edit'] },
+    { key: 'block_customer',       name: 'Block / Unblock Customer',   desc: 'Restrict or restore customer account access',    cols: ['view','edit'] },
+    { key: 'export_customers',     name: 'Export Customer List',       desc: 'Download customer CSV',                          cols: ['view','export'] },
+  ]},
+  { key: 'transactions', icon: '💳', name: 'Transactions', features: [
+    { key: 'view_transactions',      name: 'View Transactions',       desc: 'See all payment records',                        cols: ['view'] },
+    { key: 'view_transaction_detail',name: 'View Transaction Details', desc: 'Open full transaction info & gateway ref',       cols: ['view'] },
+    { key: 'process_refund',         name: 'Process Refund',          desc: 'Initiate full or partial refund via gateway',     cols: ['view','edit'] },
+    { key: 'export_transactions',    name: 'Export Transactions',     desc: 'Download transaction CSV/PDF',                   cols: ['view','export'] },
+  ]},
+  { key: 'coupons', icon: '🎟️', name: 'Coupons', features: [
+    { key: 'view_coupons',    name: 'View Coupons',                   desc: 'See coupon list and stats',                       cols: ['view'] },
+    { key: 'create_coupon',   name: 'Create Coupon',                  desc: 'Add flat/% discount or cashback coupons',         cols: ['view','create'] },
+    { key: 'edit_coupon',     name: 'Edit Coupon',                    desc: 'Modify value, expiry, usage limits',              cols: ['view','edit'] },
+    { key: 'delete_coupon',   name: 'Delete Coupon',                  desc: 'Permanently remove a coupon',                     cols: ['view','delete'] },
+    { key: 'category_coupon', name: 'Category-Specific Coupons',      desc: 'Create coupons restricted to categories',         cols: ['view','create','edit'] },
+    { key: 'cashback_coupon', name: 'Cashback Coupons',               desc: 'Create & manage cashback type coupons',           cols: ['view','create','edit'] },
+  ]},
+  { key: 'banners', icon: '🖼️', name: 'Banners & Offers', features: [
+    { key: 'view_banners',    name: 'View Banners',    desc: 'See active and inactive banners',                cols: ['view'] },
+    { key: 'create_banner',   name: 'Create Banner',   desc: 'Upload and publish a new banner',               cols: ['view','create'] },
+    { key: 'edit_banner',     name: 'Edit Banner',     desc: 'Update banner image, link, or order',           cols: ['view','edit'] },
+    { key: 'delete_banner',   name: 'Delete Banner',   desc: 'Remove a banner permanently',                   cols: ['view','delete'] },
+    { key: 'schedule_banner', name: 'Schedule Banner', desc: 'Set start/end dates for banner display',         cols: ['view','edit'] },
+  ]},
+  { key: 'reports', icon: '📈', name: 'Reports & Analytics', features: [
+    { key: 'view_reports',          name: 'View Reports',              desc: 'Access all analytics charts and summaries',   cols: ['view'] },
+    { key: 'view_revenue_report',   name: 'Revenue Reports',           desc: 'See detailed revenue breakdowns',             cols: ['view'] },
+    { key: 'view_product_report',   name: 'Product Performance',       desc: 'Top products, sales by category',             cols: ['view'] },
+    { key: 'view_customer_report',  name: 'Customer Analytics',        desc: 'New vs returning customers, LTV',             cols: ['view'] },
+    { key: 'export_reports',        name: 'Export Reports',            desc: 'Download any report as CSV or PDF',           cols: ['view','export'] },
+  ]},
+  { key: 'settings', icon: '⚙️', name: 'Settings', features: [
+    { key: 'view_settings',          name: 'View Settings',            desc: 'Access settings page',                        cols: ['view'] },
+    { key: 'edit_store_info',        name: 'Edit Store Information',   desc: 'Update store name, logo, contact',            cols: ['view','edit'] },
+    { key: 'manage_payment_config',  name: 'Payment Gateway Config',   desc: 'Manage Razorpay/PhonePe API keys',            cols: ['view','edit'] },
+    { key: 'manage_shipping_config', name: 'Shipping Config',          desc: 'Manage shipping partners and rates',          cols: ['view','edit'] },
+    { key: 'manage_email_config',    name: 'Email / SMS Config',       desc: 'SMTP and notification settings',              cols: ['view','edit'] },
+    { key: 'manage_tax_config',      name: 'Tax / GST Config',         desc: 'Configure GST rates and tax rules',           cols: ['view','edit'] },
+  ]},
+];
+
+// ============================================================
+//  ROLE DEFAULTS
+// ============================================================
+const ROLE_DEFAULTS = {
+  admin: {
+    dashboard:    ['view_dashboard','export_report','view_revenue','view_notifications'],
+    products:     ['view_products','add_product','edit_product','delete_product','publish_product','combo_suggestion','export_products'],
+    categories:   ['view_categories','add_category','edit_category','delete_category','reorder_categories'],
+    inventory:    ['view_inventory','edit_stock','bulk_stock_update','edit_pricing','set_low_stock_threshold','export_inventory'],
+    orders:       ['view_orders','create_order','update_order_status','cancel_order','manage_returns','update_tracking','export_orders'],
+    customers:    ['view_customers','view_customer_orders','edit_customer_notes','block_customer','export_customers'],
+    transactions: ['view_transactions','view_transaction_detail','process_refund','export_transactions'],
+    coupons:      ['view_coupons','create_coupon','edit_coupon','delete_coupon','category_coupon','cashback_coupon'],
+    banners:      ['view_banners','create_banner','edit_banner','delete_banner','schedule_banner'],
+    reports:      ['view_reports','view_revenue_report','view_product_report','view_customer_report','export_reports'],
+    settings:     ['view_settings','edit_store_info','manage_payment_config','manage_shipping_config','manage_email_config','manage_tax_config'],
+  },
+  manager: {
+    dashboard:    ['view_dashboard','view_notifications'],
+    products:     ['view_products'],
+    categories:   ['view_categories'],
+    inventory:    ['view_inventory','edit_stock'],
+    orders:       ['view_orders','update_order_status','cancel_order','manage_returns','update_tracking','export_orders'],
+    customers:    ['view_customers','view_customer_orders','edit_customer_notes','block_customer'],
+    transactions: ['view_transactions','view_transaction_detail'],
+    coupons:      ['view_coupons','create_coupon','edit_coupon'],
+    banners:      ['view_banners'],
+    reports:      ['view_reports','view_revenue_report'],
+    settings:     [],
+  },
+  viewer: {
+    dashboard:    ['view_dashboard','view_notifications'],
+    products:     ['view_products'],
+    categories:   ['view_categories'],
+    inventory:    ['view_inventory'],
+    orders:       ['view_orders'],
+    customers:    ['view_customers','view_customer_orders'],
+    transactions: ['view_transactions'],
+    coupons:      ['view_coupons'],
+    banners:      ['view_banners'],
+    reports:      ['view_reports','view_revenue_report','view_product_report','view_customer_report'],
+    settings:     ['view_settings'],
+  },
+  custom: {},
+};
+
+// ============================================================
+//  NAVIGATION
+// ============================================================
+const sections = ['dashboard','admins','create-admin','roles','store-stats','activity-log','settings'];
+const sectionTitles = {
+  dashboard:'Dashboard', admins:'Admin Accounts', 'create-admin':'Create Admin',
+  roles:'Roles & Permissions', 'store-stats':'Store Analytics',
+  'activity-log':'Activity Log', settings:'System Settings'
+};
+
+function showSection(name) {
+  sections.forEach(s => document.getElementById('sec-'+s).classList.add('hidden'));
+  document.getElementById('sec-'+name)?.classList.remove('hidden');
+  document.getElementById('topbarTitle').textContent = sectionTitles[name] || name;
+  document.querySelectorAll('.sidebar .nav-link').forEach(l =>
+    l.classList.toggle('active', l.getAttribute('onclick')?.includes("'"+name+"'"))
+  );
+  if (name === 'dashboard')     loadDashboard();
+  if (name === 'admins')        loadAndRenderAdmins();
+  if (name === 'activity-log')  loadActivityLog();
+  if (name === 'create-admin')  { resetAdminForm(); renderCreatePermModules(); }
+}
+
+// ============================================================
+//  DASHBOARD
+// ============================================================
+async function loadDashboard() {
+  try {
+    const stats = await SA_API.getStats();
+    document.getElementById('statAdmins').textContent    = stats.totalAdmins;
+    document.getElementById('statOrders').textContent    = stats.totalOrders.toLocaleString('en-IN');
+    document.getElementById('statRevenue').textContent   = '₹'+(stats.totalRevenue/100000).toFixed(2)+'L';
+    document.getElementById('statProducts').textContent  = stats.totalProducts;
+    document.getElementById('statAdminsChg').textContent = ADMINS_CACHE.length + ' total accounts';
+    document.getElementById('statOrdersChg').textContent = '↑ vs last month';
+    document.getElementById('statRevenueChg').textContent= '↑ vs last month';
+    document.getElementById('statProductsChg').textContent = 'updated';
+  } catch { /* toast already shown */ }
+
+  try {
+    const admins = await SA_API.getAdmins();
+    ADMINS_CACHE = admins;
+    document.getElementById('adminCountBadge').textContent = admins.length;
+    renderDashAdminList();
+  } catch { /* toast already shown */ }
+
+  renderCharts();
+  const hr = new Date().getHours();
+  document.getElementById('greetMsg').textContent =
+    `${hr<12?'Good morning':hr<17?'Good afternoon':'Good evening'}! Here's your system overview.`;
+  
+  // Load recent activity for dashboard
+  try {
+    const logs = await SA_API.getActivityLog();
+    ACTIVITY_LOG = logs;
+    renderDashActivity();
+  } catch { /* non-critical, ignore */ }
+}
+
+function renderDashAdminList() {
+  const list = document.getElementById('dashAdminList');
+  if (!ADMINS_CACHE.length) {
+    list.innerHTML = '<div style="padding:30px;text-align:center;color:var(--text-muted);font-size:13px;">No admins found.</div>';
+    return;
+  }
+  list.innerHTML = ADMINS_CACHE.slice(0,5).map(a => `
+    <div style="display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid var(--border);">
+      <div class="admin-avatar" style="background:${avatarColor(a.id)};">${a.firstName[0]||'?'}${a.lastName[0]||'?'}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13px;font-weight:600;">${a.firstName} ${a.lastName}</div>
+        <div style="font-size:11px;color:var(--text-muted);">${a.email}</div>
+      </div>
+      <span class="badge ${a.status==='active'?'badge-success':'badge-secondary'}">${a.status}</span>
+      <span class="badge badge-primary">${a.role}</span>
+    </div>`).join('');
+}
+
+function renderDashActivity() {
+  const el = document.getElementById('dashActivity');
+  if (!el || !ACTIVITY_LOG.length) return;
+  const icons = { 'Admin Created':'👤','Admin Updated':'✏️','Admin Deleted':'🗑️','Status Toggled':'🔄','Role Permissions Updated':'🔑','Login':'🔐' };
+  el.innerHTML = ACTIVITY_LOG.slice(0,5).map(l => `
+    <div class="activity-row">
+      <div class="activity-icon" style="background:var(--primary-bg);">${icons[l.action]||'📋'}</div>
+      <div>
+        <div class="activity-text"><strong>${l.actor}</strong> – ${l.details}</div>
+        <div class="activity-time">${timeAgo(l.time)}</div>
+      </div>
+    </div>`).join('');
+}
+
+let chartsRendered = false;
+function renderCharts() {
+  if (chartsRendered) return;
+  chartsRendered = true;
+  const rCtx = document.getElementById('revenueChart')?.getContext('2d');
+  if (rCtx) new Chart(rCtx, {
+    type: 'bar',
+    data: { labels:['Nov','Dec','Jan','Feb','Mar','Apr'], datasets:[{ label:'Revenue', data:[180000,240000,210000,195000,265000,284500], backgroundColor:'rgba(45,106,79,0.75)', borderRadius:6 }] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{ticks:{callback:v=>'₹'+(v/1000)+'k',font:{size:11}},grid:{color:'rgba(0,0,0,0.04)'}},x:{grid:{display:false},ticks:{font:{size:11}}}}}
+  });
+  const lCtx = document.getElementById('loginChart')?.getContext('2d');
+  if (lCtx) new Chart(lCtx, {
+    type:'line',
+    data:{ labels:['Mon','Tue','Wed','Thu','Fri','Sat','Sun'], datasets:[{label:'Logins',data:[8,12,6,10,15,4,7],borderColor:'#d4a017',backgroundColor:'rgba(212,160,23,0.08)',fill:true,tension:0.4,pointBackgroundColor:'#d4a017',pointRadius:4,borderWidth:2.5}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,grid:{color:'rgba(0,0,0,0.04)'},ticks:{font:{size:11}}},x:{grid:{display:false},ticks:{font:{size:11}}}}}
+  });
+}
+
+// ============================================================
+//  ADMINS TABLE
+// ============================================================
+async function loadAndRenderAdmins() {
+  document.getElementById('adminsTableBody').innerHTML =
+    '<tr><td colspan="8" style="text-align:center;padding:40px;"><div class="spinner" style="margin:auto;"></div></td></tr>';
+  try {
+    ADMINS_CACHE = await SA_API.getAdmins();
+    document.getElementById('adminCountBadge').textContent = ADMINS_CACHE.length;
+  } catch { return; }
+  renderAdminsTable();
+}
+
+function renderAdminsTable() {
+  const search  = document.getElementById('adminSearch')?.value.toLowerCase() || '';
+  const roleF   = document.getElementById('roleFilter')?.value || '';
+  const statusF = document.getElementById('statusFilter')?.value || '';
+
+  const filtered = ADMINS_CACHE.filter(a => {
+    const matchName = (a.firstName+' '+a.lastName).toLowerCase().includes(search) || a.email.toLowerCase().includes(search);
+    return (!search || matchName) && (!roleF || a.role===roleF) && (!statusF || a.status===statusF);
+  });
+
+  const tbody = document.getElementById('adminsTableBody');
+  if (!filtered.length) {
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text-muted);">No admins found.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(a => {
+    // ── BUG FIX: count unique feature keys across all modules ──
+    // The old code counted raw array lengths which could add up > actual feature total
+    // because one feature key might appear in multiple checked checkboxes (view+edit).
+    // Correct approach: count distinct feature keys that appear in permissions.
+    const allGrantedKeys = new Set();
+    Object.values(a.permissions || {}).forEach(arr => (arr||[]).forEach(k => allGrantedKeys.add(k)));
+    const totalPerms = allGrantedKeys.size;
+
+    return `
+    <tr>
+      <td>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="admin-avatar" style="background:${avatarColor(a.id)};font-size:12px;">${a.firstName[0]||'?'}${a.lastName[0]||'?'}</div>
+          <div>
+            <div style="font-weight:600;">${a.firstName} ${a.lastName}</div>
+            <div style="font-size:11px;color:var(--text-muted);">${a.dept||'—'} · ${a.city||'—'}</div>
+          </div>
+        </div>
+      </td>
+      <td style="font-size:12px;">${a.email}</td>
+      <td style="font-size:12px;color:var(--text-secondary);">${a.phone}</td>
+      <td>
+        <span class="badge badge-primary">${a.role}</span>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:3px;">${totalPerms} permissions</div>
+      </td>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="badge ${a.status==='active'?'badge-success':'badge-secondary'}">${a.status}</span>
+          <label class="toggle-switch" title="Toggle Status">
+            <input type="checkbox" ${a.status==='active'?'checked':''} onchange="toggleStatus(${a.id},this)">
+            <div class="toggle-slider"></div>
+          </label>
+        </div>
+      </td>
+      <td style="font-size:12px;color:var(--text-secondary);">${formatDate(a.createdAt)}</td>
+      <td style="font-size:12px;color:var(--text-secondary);">${a.lastLogin?formatDate(a.lastLogin):'<span style="color:var(--text-muted);">Never</span>'}</td>
+      <td>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-sm btn-secondary" title="Edit" onclick="openEditAdmin(${a.id})"><i class="fa-solid fa-pen"></i></button>
+          <button class="btn btn-sm btn-danger" title="Delete" onclick="openDeleteAdmin(${a.id},'${(a.firstName+' '+a.lastName).replace(/'/g,"\\'")}')"><i class="fa-solid fa-trash"></i></button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function resetAdminFilters() {
+  document.getElementById('adminSearch').value = '';
+  document.getElementById('roleFilter').value  = '';
+  document.getElementById('statusFilter').value= '';
+  renderAdminsTable();
+}
+
+async function toggleStatus(id, checkbox) {
+  const prev = checkbox.checked;
+  checkbox.disabled = true;
+  try {
+    const result = await SA_API.toggleAdminStatus(id);
+    const admin = ADMINS_CACHE.find(a => a.id === id);
+    if (admin) admin.status = result.status;
+    showToast('Status updated', `Admin is now ${result.status}.`, 'success');
+    renderAdminsTable();
+  } catch {
+    checkbox.checked = !prev; // revert on error
+  } finally {
+    checkbox.disabled = false;
+  }
+}
+
+// ============================================================
+//  GRANULAR PERMISSION RENDER — BUG FIX
+//
+//  ROOT CAUSE of the "granted > total" bug:
+//  Each feature has cols like ['view','edit']. When a feature
+//  is checked, ALL cols render a checked checkbox. The old
+//  summary counted every checked <input> independently, so
+//  a feature with 2 cols counted as 2 even though it is ONE
+//  feature. Fix: count distinct feature KEYS, not checkboxes.
+// ============================================================
+function renderCreatePermModules(granted = {}) {
+  const container = document.getElementById('createPermModules');
+  if (!container) return;
+  container.innerHTML = '';
+  MODULES.forEach(mod => {
+    const grantedKeys = granted[mod.key] || [];
+    const totalFeatures  = mod.features.length;
+    // Count unique features that have AT LEAST ONE granted col
+    const grantedFeatureCount = mod.features.filter(f => grantedKeys.includes(f.key)).length;
+    const allGranted = grantedFeatureCount === totalFeatures;
+
+    const block = document.createElement('div');
+    block.className = 'perm-module-block';
+    block.id = `cmod_${mod.key}`;
+    block.innerHTML = `
+      <div class="perm-module-header" onclick="toggleCreateModule('${mod.key}')">
+        <span class="perm-module-icon">${mod.icon}</span>
+        <span class="perm-module-name">${mod.name}</span>
+        <span class="perm-module-summary" id="csummary_${mod.key}">${grantedFeatureCount}/${totalFeatures} features</span>
+        <label class="toggle-switch small" onclick="event.stopPropagation()">
+          <input type="checkbox" id="cmaster_${mod.key}" ${allGranted?'checked':''}
+            onchange="masterToggleCreate('${mod.key}',this.checked)">
+          <div class="toggle-slider"></div>
+        </label>
+        <i class="fa-solid fa-chevron-right perm-chevron"></i>
+      </div>
+      <div class="perm-module-body">
+        <table class="perm-table">
+          <thead><tr>
+            <th>Feature</th>
+            <th class="col-view">View</th>
+            <th class="col-create">Create</th>
+            <th class="col-edit">Edit</th>
+            <th class="col-delete">Delete</th>
+            <th class="col-export">Export</th>
+          </tr></thead>
+          <tbody>
+            ${mod.features.map(f => `
+              <tr>
+                <td><div class="perm-feature-name">${f.name}</div><div class="perm-feature-desc">${f.desc}</div></td>
+                ${['view','create','edit','delete','export'].map(col => `
+                  <td>${f.cols.includes(col)
+                    ? `<input type="checkbox" class="perm-check col-${col}"
+                         data-module="${mod.key}" data-key="${f.key}" data-col="${col}"
+                         ${grantedKeys.includes(f.key)?'checked':''}
+                         onchange="onCreatePermChange('${mod.key}')">`
+                    : `<span style="color:var(--border);font-size:12px;">—</span>`
+                  }</td>`).join('')}
+              </tr>`).join('')}
+          </tbody>
+        </table>
+        <div class="perm-table-footer">
+          <label class="check-all-row" onclick="grantAllInCreateModule('${mod.key}',true)">
+            <i class="fa-solid fa-check-double"></i> Grant all
+          </label>
+          <label class="check-all-row" style="margin-left:12px;" onclick="grantAllInCreateModule('${mod.key}',false)">
+            <i class="fa-solid fa-xmark"></i> Revoke all
+          </label>
+        </div>
+      </div>`;
+    container.appendChild(block);
+  });
+  updateCreateSummary();
+}
+
+function toggleCreateModule(key) {
+  document.getElementById(`cmod_${key}`)?.classList.toggle('expanded');
+}
+
+function expandAllCreate() {
+  document.querySelectorAll('#createPermModules .perm-module-block').forEach(b => b.classList.add('expanded'));
+}
+
+function masterToggleCreate(moduleKey, checked) {
+  const mod = MODULES.find(m => m.key === moduleKey);
+  mod?.features.forEach(f => {
+    document.querySelectorAll(`#createPermModules input.perm-check[data-module="${moduleKey}"][data-key="${f.key}"]`)
+      .forEach(cb => cb.checked = checked);
+  });
+  updateCreateModuleSummary(moduleKey);
+  updateCreateSummary();
+}
+
+function grantAllInCreateModule(moduleKey, grant) {
+  masterToggleCreate(moduleKey, grant);
+  const master = document.getElementById(`cmaster_${moduleKey}`);
+  if (master) master.checked = grant;
+}
+
+function onCreatePermChange(moduleKey) {
+  updateCreateModuleSummary(moduleKey);
+  updateCreateSummary();
+}
+
+// ── KEY FIX: count by unique feature key, not by checkbox count ──
+function updateCreateModuleSummary(moduleKey) {
+  const mod = MODULES.find(m => m.key === moduleKey);
+  if (!mod) return;
+  const totalFeatures = mod.features.length;
+  // A feature is "granted" if at least one of its col-checkboxes is checked
+  const grantedFeatures = mod.features.filter(f => {
+    return !!document.querySelector(
+      `#createPermModules input.perm-check[data-module="${moduleKey}"][data-key="${f.key}"]:checked`
+    );
+  }).length;
+
+  const el = document.getElementById(`csummary_${moduleKey}`);
+  if (el) el.textContent = `${grantedFeatures}/${totalFeatures} features`;
+
+  const master = document.getElementById(`cmaster_${moduleKey}`);
+  if (master) master.checked = grantedFeatures === totalFeatures && totalFeatures > 0;
+}
+
+// ── KEY FIX: summary counts features, not raw checkbox ticks ──
+function updateCreateSummary() {
+  const lines = [];
+  MODULES.forEach(mod => {
+    const totalFeatures = mod.features.length;
+    const grantedFeatures = mod.features.filter(f =>
+      !!document.querySelector(
+        `#createPermModules input.perm-check[data-module="${mod.key}"][data-key="${f.key}"]:checked`
+      )
+    ).length;
+    if (grantedFeatures > 0) {
+      lines.push(`${mod.icon} <strong>${mod.name}</strong>: ${grantedFeatures}/${totalFeatures}`);
+    }
+  });
+  const el = document.getElementById('createPermSummary');
+  if (el) el.innerHTML = lines.length
+    ? lines.join(' &nbsp;·&nbsp; ')
+    : '<span style="color:var(--text-muted);">No permissions granted yet.</span>';
+}
+
+function setCreatePerms(grant) {
+  MODULES.forEach(mod => {
+    mod.features.forEach(f => {
+      document.querySelectorAll(`#createPermModules input.perm-check[data-key="${f.key}"]`)
+        .forEach(cb => cb.checked = grant);
+    });
+    updateCreateModuleSummary(mod.key);
+    const master = document.getElementById(`cmaster_${mod.key}`);
+    if (master) master.checked = grant;
+  });
+  updateCreateSummary();
+}
+
+// Collect permissions as { module: [featureKey, ...] }
+// Only includes a feature key once, even if multiple cols are checked
+function collectCreatePermissions() {
+  const perms = {};
+  MODULES.forEach(mod => {
+    const granted = mod.features
+      .filter(f => !!document.querySelector(
+        `#createPermModules input.perm-check[data-module="${mod.key}"][data-key="${f.key}"]:checked`
+      ))
+      .map(f => f.key);
+    if (granted.length) perms[mod.key] = granted;
+  });
+  return perms;
+}
+
+// ============================================================
+//  CREATE ADMIN FORM
+// ============================================================
+function resetAdminForm() {
+  editingAdminId = null;
+  document.getElementById('adminFormTitle').textContent    = 'Create New Admin';
+  document.getElementById('adminFormSubtitle').textContent = 'Fill in the details and assign granular permissions';
+  document.getElementById('createBtnText').textContent     = 'Create Admin';
+  ['adminFirstName','adminLastName','adminEmail','adminPhone','adminDept','adminCity','adminPassword','adminPasswordConfirm']
+    .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  document.getElementById('adminRole').value    = '';
+  document.getElementById('adminActive').checked        = true;
+  document.getElementById('sendCredentials').checked    = true;
+  document.getElementById('forceReset').checked         = false;
+  document.getElementById('credPreviewCard').style.display = 'none';
+  // Reset strength bar
+  document.getElementById('pwdStrengthFill').style.width = '0%';
+  document.getElementById('pwdStrengthText').textContent = 'Enter password to check strength';
+  document.querySelectorAll('.pwd-check').forEach(el => {
+    el.style.color = 'var(--text-muted)';
+    el.textContent = '✗ ' + el.textContent.replace(/^[✓✗]\s/, '');
+  });
+}
+
+function applyCreateRoleDefaults() {
+  const role = document.getElementById('adminRole').value;
+  const granted = (role && ROLE_DEFAULTS[role]) ? ROLE_DEFAULTS[role] : {};
+  renderCreatePermModules(granted);
+  if (role) MODULES.slice(0,3).forEach(m => document.getElementById(`cmod_${m.key}`)?.classList.add('expanded'));
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('adminPassword')?.addEventListener('input', checkPasswordStrength);
+  document.getElementById('adminEmail')?.addEventListener('input', updateCredPreview);
+  document.getElementById('adminPassword')?.addEventListener('input', updateCredPreview);
+  document.getElementById('newPermName')?.addEventListener('input', function() {
+    document.getElementById('newPermKey').value =
+      this.value.toLowerCase().replace(/[^a-z0-9]/g,'_').replace(/_+/g,'_').replace(/^_|_$/g,'');
+  });
+  renderCreatePermModules();
+});
+
+function checkPasswordStrength() {
+  const pwd = document.getElementById('adminPassword').value;
+  const rules = { length: pwd.length>=8, upper:/[A-Z]/.test(pwd), number:/[0-9]/.test(pwd), special:/[^A-Za-z0-9]/.test(pwd) };
+  document.querySelectorAll('.pwd-check').forEach(el => {
+    const rule = el.dataset.rule;
+    el.style.color = rules[rule] ? 'var(--success)' : 'var(--text-muted)';
+    el.textContent = (rules[rule]?'✓ ':'✗ ') + el.textContent.replace(/^[✓✗]\s/,'');
+  });
+  const score = Object.values(rules).filter(Boolean).length;
+  const colors = ['','var(--danger)','var(--warning)','#d4a017','var(--success)'];
+  const labels = ['','Weak','Fair','Good','Strong'];
+  document.getElementById('pwdStrengthFill').style.cssText =
+    `width:${score*25}%;background:${colors[score]};height:100%;border-radius:10px;transition:var(--transition);`;
+  document.getElementById('pwdStrengthText').textContent =
+    score > 0 ? labels[score]+' password' : 'Enter password to check strength';
+}
+
+function updateCredPreview() {
+  const email = document.getElementById('adminEmail').value;
+  const pwd   = document.getElementById('adminPassword').value;
+  const card  = document.getElementById('credPreviewCard');
+  if (email && pwd) {
+    document.getElementById('previewEmail').textContent = email;
+    document.getElementById('previewPwd').textContent   = '••••••••';
+    card.style.display = '';
+  } else { card.style.display = 'none'; }
+}
+
+function togglePwd(inputId, iconId) {
+  const input = document.getElementById(inputId);
+  const icon  = document.getElementById(iconId);
+  input.type  = input.type === 'password' ? 'text' : 'password';
+  icon.className = input.type === 'text' ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye';
+}
+
+let editingAdminId = null;
+let deleteAdminId  = null;
+
+async function submitAdminForm() {
+  const firstName = document.getElementById('adminFirstName').value.trim();
+  const lastName  = document.getElementById('adminLastName').value.trim();
+  const email     = document.getElementById('adminEmail').value.trim();
+  const phone     = document.getElementById('adminPhone').value.trim();
+  const password  = document.getElementById('adminPassword').value;
+  const confirmPwd= document.getElementById('adminPasswordConfirm').value;
+  const role      = document.getElementById('adminRole').value;
+
+  if (!firstName||!lastName)  { showToast('Missing field','Please enter first and last name.','error'); return; }
+  if (!email||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showToast('Invalid email','Please enter a valid email.','error'); return; }
+  if (!phone||phone.length<10){ showToast('Invalid phone','Please enter a valid 10-digit phone.','error'); return; }
+  if (!role)                  { showToast('Missing field','Please select a role.','error'); return; }
+  if (!editingAdminId) {
+    if (!password)            { showToast('Missing field','Please enter a password.','error'); return; }
+    if (password!==confirmPwd){ showToast('Password mismatch','Passwords do not match.','error'); return; }
+    if (password.length<8)    { showToast('Weak password','Password must be at least 8 characters.','error'); return; }
+  }
+
+  const permissions = collectCreatePermissions();
+  const btn = document.getElementById('createAdminBtn');
+  btn.disabled = true;
+  const origHTML = btn.innerHTML;
+  btn.innerHTML = '<div class="spinner" style="border-color:rgba(255,255,255,0.3);border-top-color:#fff;"></div> Saving…';
+
+  try {
+    const payload = {
+      firstName, lastName, email, phone, role, permissions,
+      dept:            document.getElementById('adminDept').value,
+      city:            document.getElementById('adminCity').value,
+      isActive:        document.getElementById('adminActive').checked,
+      sendCredentials: document.getElementById('sendCredentials').checked,
+      forceReset:      document.getElementById('forceReset').checked,
+      ...(password && { password }),
+    };
+
+    if (editingAdminId) {
+      // EDIT path — reached via showSection('create-admin') after openEditAdmin
+      await SA_API.updateAdmin(editingAdminId, payload);
+      showToast('Admin updated! ✅', `${firstName} ${lastName} has been updated.`, 'success');
+    } else {
+      // CREATE path
+      const result = await SA_API.createAdmin(payload);
+      if (!result.success) throw new Error(result.message || 'Failed');
+      showToast('Admin created! 🎉', `${firstName} ${lastName} can now log in.`, 'success');
+    }
+    // Refresh cache & navigate back
+    ADMINS_CACHE = await SA_API.getAdmins().catch(() => ADMINS_CACHE);
+    document.getElementById('adminCountBadge').textContent = ADMINS_CACHE.length;
+    setTimeout(() => showSection('admins'), 1200);
+  } catch (err) {
+    showToast('Error', err.message || 'Server error.', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = origHTML;
+  }
+}
+
+// ============================================================
+//  EDIT ADMIN MODAL
+// ============================================================
+function renderEditPermModules(grantedPerms = {}) {
+  const container = document.getElementById('editPermModules');
+  if (!container) return;
+  container.innerHTML = '';
+  MODULES.forEach(mod => {
+    const grantedKeys = grantedPerms[mod.key] || [];
+    // ── BUG FIX: count unique features, not raw arrays ──
+    const grantedFeatureCount = mod.features.filter(f => grantedKeys.includes(f.key)).length;
+
+    const block = document.createElement('div');
+    block.style.cssText = 'border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:6px;';
+    block.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;padding:9px 12px;background:#fafcfa;cursor:pointer;font-size:13px;font-weight:600;"
+           onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
+        <span>${mod.icon}</span>
+        <span style="flex:1;">${mod.name}</span>
+        <span id="emod_summary_${mod.key}" style="font-size:11px;color:var(--text-muted);">${grantedFeatureCount}/${mod.features.length}</span>
+        <i class="fa-solid fa-chevron-down" style="font-size:10px;color:var(--text-muted);"></i>
+      </div>
+      <div style="display:none;padding:10px 12px;background:#fff;">
+        ${mod.features.map(f => `
+          <label style="display:flex;align-items:center;gap:8px;font-size:12px;padding:5px 0;border-bottom:1px solid var(--border);cursor:pointer;">
+            <input type="checkbox" class="edit-perm-check"
+              data-module="${mod.key}" data-key="${f.key}"
+              ${grantedKeys.includes(f.key)?'checked':''}
+              onchange="updateEditModuleSummary('${mod.key}')">
+            <div>
+              <div style="font-weight:500;">${f.name}</div>
+              <div style="font-size:11px;color:var(--text-muted);">${f.desc}</div>
+            </div>
+          </label>`).join('')}
+      </div>`;
+    container.appendChild(block);
+  });
+}
+
+function updateEditModuleSummary(moduleKey) {
+  const mod = MODULES.find(m => m.key === moduleKey);
+  if (!mod) return;
+  const granted = mod.features.filter(f =>
+    !!document.querySelector(`#editPermModules input.edit-perm-check[data-module="${moduleKey}"][data-key="${f.key}"]:checked`)
+  ).length;
+  const el = document.getElementById(`emod_summary_${moduleKey}`);
+  if (el) el.textContent = `${granted}/${mod.features.length}`;
+}
+
+function applyEditRoleDefaults() {
+  const role = document.getElementById('editRole').value;
+  if (role && ROLE_DEFAULTS[role]) renderEditPermModules(ROLE_DEFAULTS[role]);
+}
+
+function collectEditPermissions() {
+  const perms = {};
+  MODULES.forEach(mod => {
+    const granted = mod.features
+      .filter(f => !!document.querySelector(
+        `#editPermModules input.edit-perm-check[data-module="${mod.key}"][data-key="${f.key}"]:checked`
+      ))
+      .map(f => f.key);
+    if (granted.length) perms[mod.key] = granted;
+  });
+  return perms;
+}
+
+function openEditAdmin(id) {
+  const admin = ADMINS_CACHE.find(a => a.id === id);
+  if (!admin) return;
+  editingAdminId = id;
+  document.getElementById('editFirstName').value = admin.firstName;
+  document.getElementById('editLastName').value  = admin.lastName;
+  document.getElementById('editEmail').value     = admin.email;
+  document.getElementById('editPhone').value     = admin.phone;
+  document.getElementById('editRole').value      = admin.role;
+  document.getElementById('editStatus').value    = admin.status;
+  document.getElementById('editPassword').value  = '';
+  renderEditPermModules(admin.permissions || ROLE_DEFAULTS[admin.role] || {});
+  openModal('editAdminModal');
+}
+
+async function saveAdminEdit() {
+  const firstName = document.getElementById('editFirstName').value.trim();
+  const lastName  = document.getElementById('editLastName').value.trim();
+  if (!firstName || !lastName) { showToast('Missing field', 'Name is required.', 'error'); return; }
+
+  const data = {
+    firstName, lastName,
+    email:       document.getElementById('editEmail').value.trim(),
+    phone:       document.getElementById('editPhone').value.trim(),
+    role:        document.getElementById('editRole').value,
+    status:      document.getElementById('editStatus').value,
+    permissions: collectEditPermissions(),
+  };
+  const newPwd = document.getElementById('editPassword').value;
+  if (newPwd) {
+    if (newPwd.length < 8) { showToast('Weak password','Must be at least 8 characters.','error'); return; }
+    data.password = newPwd;
+  }
+
+  try {
+    await SA_API.updateAdmin(editingAdminId, data);
+    // Update local cache immediately
+    const idx = ADMINS_CACHE.findIndex(a => a.id === editingAdminId);
+    if (idx > -1) ADMINS_CACHE[idx] = { ...ADMINS_CACHE[idx], ...data };
+    closeModal('editAdminModal');
+    showToast('Admin updated', `${firstName} ${lastName} has been updated.`, 'success');
+    renderAdminsTable();
+  } catch { /* toast already shown */ }
+}
+
+// ============================================================
+//  DELETE ADMIN
+// ============================================================
+function openDeleteAdmin(id, name) {
+  deleteAdminId = id;
+  document.getElementById('deleteAdminName').textContent = name;
+  openModal('deleteAdminModal');
+}
+
+document.getElementById('confirmDeleteAdminBtn').addEventListener('click', async () => {
+  if (!deleteAdminId) return;
+  const btn = document.getElementById('confirmDeleteAdminBtn');
+  btn.disabled = true;
+  btn.textContent = 'Deleting…';
+  try {
+    await SA_API.deleteAdmin(deleteAdminId);
+    ADMINS_CACHE = ADMINS_CACHE.filter(a => a.id !== deleteAdminId);
+    closeModal('deleteAdminModal');
+    showToast('Admin deleted', 'Admin account removed.', 'success');
+    document.getElementById('adminCountBadge').textContent = ADMINS_CACHE.length;
+    renderAdminsTable();
+  } catch { /* toast already shown */ }
+  finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa-solid fa-trash"></i> Delete';
+    deleteAdminId = null;
+  }
+});
+
+// ============================================================
+//  ACTIVITY LOG
+// ============================================================
+async function loadActivityLog() {
+  document.getElementById('activityLogBody').innerHTML =
+    '<tr><td colspan="6" style="text-align:center;padding:40px;"><div class="spinner" style="margin:auto;"></div></td></tr>';
+  try {
+    const logs = await SA_API.getActivityLog();
+    ACTIVITY_LOG = logs;
+    document.getElementById('activityLogBody').innerHTML = logs.map(l => `
+      <tr>
+        <td style="font-size:11px;color:var(--text-muted);white-space:nowrap;">${new Date(l.time).toLocaleString('en-IN')}</td>
+        <td style="font-weight:600;">${l.actor}</td>
+        <td><span class="badge ${l.role==='superadmin'?'badge-gold':l.role==='admin'?'badge-primary':'badge-secondary'}">${l.role}</span></td>
+        <td>${l.action}</td>
+        <td style="font-size:12px;color:var(--text-secondary);">${l.details}</td>
+        <td style="font-size:11px;font-family:monospace;color:var(--text-muted);">${l.ip}</td>
+      </tr>`).join('');
+  } catch {
+    document.getElementById('activityLogBody').innerHTML =
+      '<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--text-muted);">Could not load activity log.</td></tr>';
+  }
+}
+
+// ============================================================
+//  ROLES & PERMISSIONS PAGE
+// ============================================================
+function switchRolesTab(tab, btn) {
+  ['overview','matrix','custom'].forEach(t => document.getElementById(`rtab-${t}`)?.classList.add('hidden'));
+  document.querySelectorAll('.pill-tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(`rtab-${tab}`)?.classList.remove('hidden');
+  if (btn) btn.classList.add('active');
+  if (tab === 'matrix') renderMatrix();
+  if (tab === 'custom') { renderCustomPerms(); renderAssignCustomPerms(); }
+}
+
+function renderMatrix() {
+  const tbody = document.getElementById('matrixBody');
+  tbody.innerHTML = '';
+  MODULES.forEach(mod => {
+    const gr = tbody.insertRow();
+    gr.className = 'module-group-row';
+    gr.innerHTML = `<td colspan="5">${mod.icon} ${mod.name}</td>`;
+    mod.features.forEach(f => {
+      const tr = tbody.insertRow();
+      tr.innerHTML = `
+        <td class="feature-indent">${f.name}</td>
+        <td><i class="fa-solid fa-check check-icon"></i></td>
+        ${['admin','manager','viewer'].map(role => {
+          const ok = (ROLE_DEFAULTS[role][mod.key] || []).includes(f.key);
+          return ok
+            ? `<td><i class="fa-solid fa-check check-icon"></i></td>`
+            : `<td><i class="fa-solid fa-minus cross-icon"></i></td>`;
+        }).join('')}`;
+    });
+  });
+}
+
+function editRole(role) {
+  document.getElementById('editRoleTitle').textContent = `Edit Permissions — ${role.charAt(0).toUpperCase()+role.slice(1)}`;
+  const body = document.getElementById('editRoleBody');
+  body.innerHTML = `
+    <div class="alert alert-warning">
+      <i class="fa-solid fa-triangle-exclamation"></i>
+      Changes here update the DEFAULT permissions for ALL new admins with this role. Existing admins are not affected.
+    </div>
+    <div id="roleEditModules"></div>`;
+  const container = document.getElementById('roleEditModules');
+  const granted = ROLE_DEFAULTS[role] || {};
+  MODULES.forEach(mod => {
+    const grantedKeys = granted[mod.key] || [];
+    const block = document.createElement('div');
+    block.className = 'perm-module-block mb-12 expanded';
+    block.innerHTML = `
+      <div class="perm-module-header" onclick="this.parentElement.classList.toggle('expanded')">
+        <span class="perm-module-icon">${mod.icon}</span>
+        <span class="perm-module-name">${mod.name}</span>
+        <i class="fa-solid fa-chevron-right perm-chevron"></i>
+      </div>
+      <div class="perm-module-body">
+        ${mod.features.map(f => `
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;padding:7px 0;border-bottom:1px solid var(--border);cursor:pointer;">
+            <input type="checkbox" class="perm-check col-view"
+              data-role="${role}" data-mod="${mod.key}" data-fkey="${f.key}"
+              ${grantedKeys.includes(f.key)?'checked':''}>
+            <div>
+              <div style="font-weight:500;">${f.name}</div>
+              <div style="font-size:11px;color:var(--text-muted);">${f.desc}</div>
+            </div>
+          </label>`).join('')}
+      </div>`;
+    container.appendChild(block);
+  });
+  openModal('editRoleModal');
+}
+
+async function saveRolePerms() {
+  const checks = document.querySelectorAll('#roleEditModules input[type=checkbox]');
+  const role = checks[0]?.dataset.role;
+  if (!role) return;
+  const newPerms = {};
+  checks.forEach(cb => {
+    const { mod, fkey } = cb.dataset;
+    if (!newPerms[mod]) newPerms[mod] = [];
+    if (cb.checked) newPerms[mod].push(fkey);
+  });
+  try {
+    await SA_API.saveRolePermissions(role, newPerms);
+    closeModal('editRoleModal');
+    renderMatrix();
+    showToast('Role permissions saved', 'Default permissions updated for new admins.', 'success');
+  } catch { /* toast already shown */ }
+}
+
+// ============================================================
+//  CUSTOM PERMISSIONS
+// ============================================================
+function renderCustomPerms() {
+  const list = document.getElementById('customPermList');
+  if (!list) return;
+  if (!CUSTOM_PERMS.length) {
+    list.innerHTML = '<div style="font-size:13px;color:var(--text-muted);padding:12px;">No custom permissions yet. Click Add to create one.</div>';
+    return;
+  }
+  list.innerHTML = '';
+  CUSTOM_PERMS.forEach((p, i) => {
+    const riskBadge = {low:'<span class="badge badge-green">Low</span>',medium:'<span class="badge badge-amber">Medium</span>',high:'<span class="badge badge-red">High</span>'}[p.risk];
+    const item = document.createElement('div');
+    item.className = 'custom-perm-item';
+    item.innerHTML = `
+      <div class="custom-perm-item-icon">${p.icon||'🔑'}</div>
+      <div class="custom-perm-item-info">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="custom-perm-item-name">${p.name}</span>
+          <span class="custom-perm-item-key">${p.key}</span>
+          ${riskBadge}
+        </div>
+        <div class="custom-perm-item-meta">${p.desc}${p.module?` · Module: ${p.module}`:''} · Roles: ${p.roles.join(', ')||'none'}</div>
+      </div>
+      <div class="custom-perm-actions">
+        <button class="btn btn-xs btn-secondary" onclick="editCustomPerm(${i})"><i class="fa-solid fa-pen"></i></button>
+        <button class="btn btn-xs btn-danger-soft" onclick="deleteCustomPerm(${i})"><i class="fa-solid fa-trash"></i></button>
+      </div>`;
+    list.appendChild(item);
+  });
+}
+
+function renderAssignCustomPerms() {
+  const container = document.getElementById('assignCustomPerms');
+  if (!container) return;
+  container.innerHTML = '';
+  ['admin','manager','viewer'].forEach(role => {
+    const div = document.createElement('div');
+    div.style.marginBottom = '16px';
+    div.innerHTML = `<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-secondary);margin-bottom:8px;">${role==='admin'?'🛠️':role==='manager'?'🗂️':'👁️'} ${role.charAt(0).toUpperCase()+role.slice(1)}</div>`;
+    if (!CUSTOM_PERMS.length) { div.innerHTML += '<div style="font-size:12px;color:var(--text-muted);">No custom permissions yet.</div>'; }
+    CUSTOM_PERMS.forEach(p => {
+      const checked = (p.roles||[]).includes(role);
+      const row = document.createElement('label');
+      row.style.cssText = 'display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:6px;cursor:pointer;';
+      row.innerHTML = `<input type="checkbox" ${checked?'checked':''} onchange="toggleCustomPermRole('${p.key}','${role}',this.checked)"> <span>${p.icon||'🔑'} ${p.name}</span> <span class="custom-perm-item-key" style="font-size:10px;">${p.key}</span>`;
+      div.appendChild(row);
+    });
+    container.appendChild(div);
+  });
+}
+
+function toggleCustomPermRole(permKey, role, checked) {
+  const perm = CUSTOM_PERMS.find(p => p.key === permKey);
+  if (!perm) return;
+  if (checked && !perm.roles.includes(role)) perm.roles.push(role);
+  if (!checked) perm.roles = perm.roles.filter(r => r !== role);
+  showToast('Updated', `${permKey} assignment changed.`, 'success');
+}
+
+async function deleteCustomPerm(i) {
+  if (!confirm(`Delete permission "${CUSTOM_PERMS[i].name}"? This will revoke it from all admins.`)) return;
+  const key = CUSTOM_PERMS[i].key;
+  try {
+    await SA_API.deleteCustomPermission(key);
+    CUSTOM_PERMS.splice(i, 1);
+    renderCustomPerms();
+    renderAssignCustomPerms();
+    showToast('Permission deleted', '', 'success');
+  } catch { /* toast */ }
+}
+
+function editCustomPerm(i) {
+  const p = CUSTOM_PERMS[i];
+  document.getElementById('newPermName').value   = p.name;
+  document.getElementById('newPermKey').value    = p.key;
+  document.getElementById('newPermModule').value = p.module || '';
+  document.getElementById('newPermIcon').value   = p.icon || '';
+  document.getElementById('newPermRisk').value   = p.risk || 'low';
+  document.getElementById('newPermDesc').value   = p.desc || '';
+  document.getElementById('grantAdmin').checked   = (p.roles||[]).includes('admin');
+  document.getElementById('grantManager').checked = (p.roles||[]).includes('manager');
+  document.getElementById('grantViewer').checked  = (p.roles||[]).includes('viewer');
+  openModal('addPermModal');
+}
+
+async function saveCustomPerm() {
+  const name = document.getElementById('newPermName').value.trim();
+  const key  = document.getElementById('newPermKey').value.trim();
+  if (!name||!key) { showToast('Required fields missing','Name and Key are required.','error'); return; }
+  const roles = [];
+  if (document.getElementById('grantAdmin').checked)   roles.push('admin');
+  if (document.getElementById('grantManager').checked) roles.push('manager');
+  if (document.getElementById('grantViewer').checked)  roles.push('viewer');
+  const perm = {
+    name, key,
+    icon:   document.getElementById('newPermIcon').value.trim() || '🔑',
+    module: document.getElementById('newPermModule').value,
+    risk:   document.getElementById('newPermRisk').value,
+    desc:   document.getElementById('newPermDesc').value.trim(),
+    roles
+  };
+  try {
+    await SA_API.saveCustomPermission(perm);
+    const existing = CUSTOM_PERMS.findIndex(p => p.key === key);
+    if (existing >= 0) CUSTOM_PERMS[existing] = perm; else CUSTOM_PERMS.push(perm);
+    renderCustomPerms();
+    renderAssignCustomPerms();
+    closeModal('addPermModal');
+    showToast(`Permission "${name}" saved`, '', 'success');
+  } catch { /* toast */ }
+}
+
+// ============================================================
+//  UTILITIES
+// ============================================================
+function openModal(id) { document.getElementById(id)?.classList.add('open'); }
+function closeModal(id) { document.getElementById(id)?.classList.remove('open'); }
+document.addEventListener('click', e => {
+  if (e.target.classList.contains('modal-overlay')) e.target.classList.remove('open');
+});
+
+function showToast(title, msg='', type='success') {
+  const icons = { success:'✅', error:'❌', warning:'⚠️', info:'ℹ️' };
+  const tc = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.innerHTML = `<span style="font-size:18px;">${icons[type]||'ℹ️'}</span><div><div style="font-size:13px;font-weight:600;">${title}</div>${msg?`<div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">${msg}</div>`:''}</div>`;
+  tc.appendChild(toast);
+  setTimeout(() => toast.remove(), 4200);
+}
+
+function formatDate(d) {
+  if (!d) return '—';
+  return new Date(d).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' });
+}
+
+function timeAgo(d) {
+  if (!d) return '—';
+  const diff = Date.now() - new Date(d).getTime();
+  const mins = Math.floor(diff/60000);
+  if (mins < 1)   return 'Just now';
+  if (mins < 60)  return `${mins}m ago`;
+  const hrs = Math.floor(mins/60);
+  if (hrs < 24)   return `${hrs}h ago`;
+  return formatDate(d);
+}
+
+function avatarColor(id) {
+  const c = ['#2d6a4f','#3182ce','#805ad5','#b7791f','#e53e3e','#dd6b20','#38a169'];
+  return c[id % c.length];
+}
+
+function logout() {
+  localStorage.removeItem('superAdminToken');
+  localStorage.removeItem('superAdminData');
+  window.location.href = 'superadmin-login.html';
+}
+
+// Sidebar toggle
+document.getElementById('sidebarToggle').addEventListener('click', () => {
+  const sidebar = document.getElementById('sidebar');
+  const main    = document.getElementById('mainContent');
+  sidebar.classList.toggle('collapsed');
+  main.classList.toggle('expanded', sidebar.classList.contains('collapsed'));
+});
+
+// ============================================================
+//  INIT
+// ============================================================
+loadDashboard();
+</script>

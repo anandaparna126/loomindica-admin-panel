@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>Customers – LoomIndica Admin</title>
+  <link rel="stylesheet" href="admin.css">
+  <style>
+    .filter-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:20px}
+    .filter-bar input,.filter-bar select{height:38px;padding:0 12px;border:1.5px solid var(--border);border-radius:9px;font-size:13.5px;outline:none;background:#fff;transition:var(--transition)}
+    .filter-bar input:focus,.filter-bar select:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(124,58,237,.08)}
+    .filter-bar input{width:260px}
+    .cust-avatar{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#fff;flex-shrink:0}
+    .stat-chip{background:var(--body-bg);border:1px solid var(--border);border-radius:10px;padding:12px 16px;text-align:center}
+    .stat-chip .val{font-size:22px;font-weight:800;font-family:'Sora',sans-serif}
+    .stat-chip .lbl{font-size:12px;color:var(--text-muted);margin-top:3px}
+    .order-mini-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
+    .order-mini-row:last-child{border-bottom:none}
+    /* Tab hiding */
+    .tab-btn.perm-hidden{display:none !important}
+    /* Sidebar */
+    .sidebar.collapsed{width:64px}
+    .sidebar.collapsed .brand-text,.sidebar.collapsed .nav-label,.sidebar.collapsed .nav-section-label{opacity:0;pointer-events:none;width:0}
+    /* Responsive */
+    @media(max-width:900px){#custStats{grid-template-columns:1fr 1fr !important}}
+    @media(max-width:600px){
+      .filter-bar{flex-direction:column;align-items:stretch}
+      .filter-bar input,.filter-bar select{width:100%}
+      .page-header{flex-direction:column;align-items:flex-start;gap:10px}
+      #custStats{grid-template-columns:1fr 1fr !important}
+    }
+    @media(max-width:400px){#custStats{grid-template-columns:1fr !important}}
+  </style>
+</head>
+<body>
+<div class="mobile-overlay"></div>
+<div id="toast-container"></div>
+
+<div class="admin-shell">
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand"><div class="brand-icon">LI</div><div class="brand-text"><h3>LoomIndica</h3><span>Admin Panel</span></div></div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Main</div>
+      <div class="nav-item"><a href="dashboard.html" class="nav-link"><span class="nav-icon">📊</span><span class="nav-label">Dashboard</span></a></div>
+      <div class="nav-section-label">Catalogue</div>
+      <div class="nav-item"><a href="products.html"   class="nav-link"><span class="nav-icon">🛍️</span><span class="nav-label">Products</span></a></div>
+      <div class="nav-item"><a href="categories.html" class="nav-link"><span class="nav-icon">🗂️</span><span class="nav-label">Categories</span></a></div>
+      <div class="nav-item"><a href="inventory.html"  class="nav-link"><span class="nav-icon">📦</span><span class="nav-label">Inventory</span>
+        <!-- <span class="nav-badge">8</span> -->
+      </a></div>
+      <div class="nav-section-label">Sales</div>
+      <div class="nav-item"><a href="orders.html"       class="nav-link"><span class="nav-icon">🧾</span><span class="nav-label">Orders</span>
+        <!-- <span class="nav-badge">24</span> -->
+      </a></div>
+      <div class="nav-item"><a href="customers.html"    class="nav-link active"><span class="nav-icon">👥</span><span class="nav-label">Customers</span></a></div>
+      <div class="nav-item"><a href="transactions.html" class="nav-link"><span class="nav-icon">💳</span><span class="nav-label">Transactions</span></a></div>
+      <div class="nav-section-label">Marketing</div>
+      <div class="nav-item"><a href="coupons.html" class="nav-link"><span class="nav-icon">🎟️</span><span class="nav-label">Coupons</span></a></div>
+      <div class="nav-item"><a href="banners.html" class="nav-link"><span class="nav-icon">🖼️</span><span class="nav-label">Banners &amp; Offers</span></a></div>
+      <div class="nav-item"><a href="featured-collections.html"   class="nav-link" data-label="Featured"><span class="nav-icon">✨</span><span class="nav-label">Featured Collections</span></a></div>
+      <div class="nav-item"><a href="blogs.html"   class="nav-link" data-label="Blog"><span class="nav-icon">✍️</span><span class="nav-label">Blog</span></a></div>
+      <div class="nav-section-label">Analytics</div>
+      <div class="nav-item"><a href="reports.html"  class="nav-link"><span class="nav-icon">📈</span><span class="nav-label">Reports</span></a></div>
+      <div class="nav-section-label">System</div>
+      <div class="nav-item"><a href="settings.html" class="nav-link"><span class="nav-icon">⚙️</span><span class="nav-label">Settings</span></a></div>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="sidebar-user">
+        <div class="user-avatar">A</div>
+        <div class="user-info"><strong>Admin</strong><span>Role</span></div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main-content" id="mainContent">
+    <header class="topbar">
+      <button class="topbar-toggle" id="sidebarToggle">☰</button>
+      <div class="topbar-search">
+        <i>🔍</i>
+        <input type="text" id="topbarSearch" placeholder="Search customers…" oninput="applyFilters()">
+      </div>
+      <div class="topbar-actions">
+        <div class="dropdown">
+          <div class="topbar-user" data-dropdown>
+            <div class="avatar">A</div>
+            <div class="topbar-user-info"><strong>Admin</strong><span>Role</span></div>
+            <span style="margin-left:4px;color:var(--text-muted);font-size:11px">▾</span>
+          </div>
+          <div class="dropdown-menu">
+            <div class="dropdown-item">👤 My Profile</div>
+            <div class="dropdown-item">⚙️ Settings</div>
+            <div class="dropdown-divider"></div>
+            <div class="dropdown-item danger" data-logout>🚪 Logout</div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="page-content">
+      <div class="page-header">
+        <div class="page-header-left">
+          <h1>Customers</h1>
+          <div class="breadcrumb">
+            <span onclick="location.href='dashboard.html'">Home</span>
+            <i>›</i><span>Sales</span><i>›</i><span>Customers</span>
+          </div>
+        </div>
+        <!-- id="exportCustomersBtn" → gated by export_customers -->
+        <button class="btn btn-secondary btn-sm" id="exportCustomersBtn" onclick="exportCSV()">
+          📥 Export CSV
+        </button>
+      </div>
+
+      <!-- Stat chips — always visible (view_customers baseline) -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px" id="custStats"></div>
+
+      <!-- Filter bar -->
+      <div class="filter-bar">
+        <input type="text" id="custSearch" placeholder="🔍  Search name, email, phone…" oninput="applyFilters()">
+        <select id="statusFilter" onchange="applyFilters()">
+          <option value="">All Customers</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+          <option value="blocked">Blocked</option>
+        </select>
+        <select id="sortBy" onchange="applyFilters()">
+          <option value="newest">Newest First</option>
+          <option value="most_orders">Most Orders</option>
+          <option value="highest_spend">Highest Spend</option>
+        </select>
+        <button class="btn btn-secondary btn-sm" onclick="clearFilters()">✕ Clear</button>
+        <div style="margin-left:auto;font-size:13px;color:var(--text-muted)">
+          <strong id="custCount">—</strong> customers
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="card">
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th><input type="checkbox" onchange="document.querySelectorAll('.row-chk').forEach(c=>c.checked=this.checked)"></th>
+                <th>Customer</th>
+                <th>Phone</th>
+                <th>Joined</th>
+                <!-- thTotalOrders + thLastOrder hidden if no view_customer_orders -->
+                <th id="thTotalOrders">Total Orders</th>
+                <th>Total Spent</th>
+                <th id="thLastOrder">Last Order</th>
+                <th>Status</th>
+                <th id="thActions">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="custBody">
+              <tr><td colspan="9" style="text-align:center;padding:48px;color:var(--text-muted)">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="card-footer" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+          <span style="font-size:13px;color:var(--text-muted)">
+            Showing <strong id="custShown">—</strong> of <strong id="custTotal">—</strong> customers
+          </span>
+          <div class="pagination">
+            <button class="page-btn">‹</button>
+            <button class="page-btn active">1</button>
+            <button class="page-btn">2</button>
+            <button class="page-btn">›</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     CUSTOMER PROFILE MODAL
+     All internal gates applied INSIDE openProfile()
+     after the modal body is built — per guide rule.
+══════════════════════════════════════════════ -->
+<div class="modal-overlay" id="custModal">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <h3 id="custModalTitle">Customer Profile</h3>
+      <button class="modal-close" onclick="closeModal('custModal')">✕</button>
+    </div>
+
+    <div class="modal-body" style="padding:0">
+      <div class="tab-nav" id="modalTabNav" style="padding:0 24px;margin:0">
+        <!-- Profile: always shown -->
+        <div class="tab-btn active" data-tab="profile"   onclick="switchModalTab('profile',this)">👤 Profile</div>
+        <!-- Orders: id="tabOrdersBtn" → gated by view_customer_orders in openProfile() -->
+        <div class="tab-btn"        data-tab="orders"    onclick="switchModalTab('orders',this)"   id="tabOrdersBtn">🧾 Orders</div>
+        <!-- Addresses: always shown -->
+        <div class="tab-btn"        data-tab="addresses" onclick="switchModalTab('addresses',this)">📍 Addresses</div>
+        <!-- Notes: always shown as tab, but textarea disabled if no edit_customer_notes -->
+        <div class="tab-btn"        data-tab="notes"     onclick="switchModalTab('notes',this)"    id="tabNotesBtn">📝 Notes</div>
+      </div>
+
+      <div style="padding:20px 24px">
+        <div class="tab-panel active" id="panel-profile">
+          <div id="custProfileBody"></div>
+        </div>
+        <div class="tab-panel" id="panel-orders">
+          <div id="custOrdersBody"></div>
+        </div>
+        <div class="tab-panel" id="panel-addresses">
+          <div id="custAddressBody"></div>
+        </div>
+        <!-- Notes panel -->
+        <div class="tab-panel" id="panel-notes">
+          <div class="form-group">
+            <label class="form-label">Admin Notes</label>
+            <!--
+              id="adminNotesInput" →
+              PermGuard.disableIfNo() called in openProfile() after DOM is ready
+            -->
+            <textarea class="form-control" id="adminNotesInput" rows="5"
+              placeholder="Internal notes about this customer (not visible to customer)…"></textarea>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <button class="btn btn-primary btn-sm" id="saveNoteBtn" onclick="saveNote()">
+              💾 Save Note
+            </button>
+            <!-- Read-only hint — shown when notes editing is not permitted -->
+            <div id="notesReadonlyHint"
+              style="display:none;font-size:12.5px;color:var(--text-muted);
+                background:var(--body-bg);padding:8px 14px;border-radius:8px;
+                border:1px solid var(--border)">
+              🔒 Read-only. Contact Super Admin for edit access.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer" style="justify-content:space-between">
+      <div>
+        <!--
+          id="blockCustomerBtn" →
+          gated by block_customer in openProfile() after DOM is ready.
+          Completely hidden if no permission.
+        -->
+        <button class="btn btn-danger btn-sm" id="blockCustomerBtn" onclick="toggleBlock()">
+          🚫 Block Customer
+        </button>
+      </div>
+      <button class="btn btn-secondary" onclick="closeModal('custModal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- SCRIPTS — order: permissions.js → admin.js → page script -->
+<script src="permissions.js"></script>
+<script src="admin.js"></script>
+<script>
+/* ── Data ──────────────────────────────────────────────── */
+const AVATARCOLORS = ['#7C3AED','#F59E0B','#10B981','#3B82F6','#EF4444','#EC4899','#8B5CF6'];
+
+let CUSTOMERS = [];  // Load from API
+let filtered = [];
+let viewId = null;
+let STATS = {};
+
+/* ── API Helper ─────────────────────────────────────────── */
+if (typeof API === 'undefined') {
+  window.API = {
+    async get(url) {
+      const token = localStorage.getItem('admin_token');
+      const response = await fetch(`/api${url}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Token ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const json = await response.json();
+      return json.data || json;
+    },
+    async put(url, body) {
+      const token = localStorage.getItem('admin_token');
+      const response = await fetch(`/api${url}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Token ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const json = await response.json();
+      return json.data || json;
+    },
+    async delete(url) {
+      const token = localStorage.getItem('admin_token');
+      const response = await fetch(`/api${url}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Token ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const json = await response.json();
+      return json.data || json;
+    }
+  };
+}
+
+/* ── Stub functions for early HTML binding ───────────── */
+function deleteCustomer() {}
+function openProfile() {}
+function applyFilters() {}
+
+/* ── Avatar helpers ──────────────────────────────────── */
+function avColor(n){ return AVATARCOLORS[n.charCodeAt(0) % AVATARCOLORS.length]; }
+function av(name, size=38){
+  const ini = name.split(' ').map(p=>p[0]).join('').slice(0,2);
+  return `<div class="cust-avatar" style="width:${size}px;height:${size}px;font-size:${Math.round(size*.35)}px;background:${avColor(name)}">${ini}</div>`;
+}
+
+/* ── Permission flags — set in initPage() ────────────── */
+let CAN_VIEW_CUSTOMERS, CAN_VIEW_ORDERS, CAN_EDIT_NOTES, CAN_BLOCK, CAN_EXPORT;
+
+/* ════════════════════════════════════════════════════════
+   Load Customers from API
+════════════════════════════════════════════════════════ */
+async function loadCustomers() {
+  try {
+    const result = await API.get('/customers/?page=1&per_page=100');
+    CUSTOMERS = result.data.items || [];
+    console.log('Loaded customers:', result);
+    filtered = [...CUSTOMERS];
+    STATS = result.data.stats || {};
+    renderStats();
+    renderTable();
+  } catch (e) {
+    showToast('error', 'Load Failed', `Could not load customers: ${e.message}`);
+    console.error('loadCustomers error:', e);
+  }
+}
+
+
+/* ════════════════════════════════════════════════════════
+   STEP 2 — initPage()
+   Called first, before any render function.
+   All static element gates live here.
+   Modal-internal gates live in openProfile().
+════════════════════════════════════════════════════════ */
+function initPage() {
+  /* Redirects to login if no token.
+     Shows "No Access" page if zero customers permissions. */
+  PermGuard.init({ module: 'customers', loginUrl: 'admin-login.html' });
+
+  /* Cache flags once */
+  CAN_VIEW_CUSTOMERS = perm('customers', 'view_customers');
+  CAN_VIEW_ORDERS    = perm('customers', 'view_customer_orders');
+  CAN_EDIT_NOTES     = perm('customers', 'edit_customer_notes');
+  CAN_BLOCK          = perm('customers', 'block_customer');
+  CAN_EXPORT         = perm('customers', 'export_customers');
+
+  /* ── Guide-specified static gate ── */
+  PermGuard.guard('#exportCustomersBtn', 'customers', 'export_customers');
+
+  /* ── Extra elements (present in file but not in guide) ── */
+
+  /* "Total Orders" and "Last Order" columns — data comes from order history */
+  if (!CAN_VIEW_ORDERS) {
+    document.getElementById('thTotalOrders').style.display = 'none';
+    document.getElementById('thLastOrder').style.display   = 'none';
+  }
+
+  /* Hide Actions column header entirely when user has no actionable permissions */
+  if (!CAN_BLOCK) {
+    /* Still show it because view (👁️) and email (📧) buttons are always there */
+  }
+
+  /* Load customers from API */
+  loadCustomers();
+}
+
+/* ════════════════════════════════════════════════════════
+   RENDER — Stats
+════════════════════════════════════════════════════════ */
+function renderStats() {
+  const total    = CUSTOMERS.length;
+  const active   = CUSTOMERS.filter(c=>c.is_active).length;
+  const inactive = CUSTOMERS.filter(c=>!c.is_active).length;
+  const topSpend = Math.max(...CUSTOMERS.map(c=>c.stats?.total_spent || 0), 0);
+  document.getElementById('custStats').innerHTML = `
+    <div class="stat-chip"><div class="val" style="color:var(--primary)">${STATS.total || total}</div><div class="lbl">Total Customers</div></div>
+    <div class="stat-chip"><div class="val" style="color:var(--success)">${STATS.active || active}</div><div class="lbl">Active</div></div>
+    <div class="stat-chip"><div class="val" style="color:var(--danger)">${STATS.inactive || inactive}</div><div class="lbl">Inactive</div></div>
+    <div class="stat-chip"><div class="val" style="color:var(--accent)">₹${(topSpend/100000).toFixed(0)}L</div><div class="lbl">Total Spend</div></div>
+  `;
+}
+
+/* ════════════════════════════════════════════════════════
+   RENDER — Table
+   Per-row conditional buttons use perm() directly.
+════════════════════════════════════════════════════════ */
+function renderTable() {
+  document.getElementById('custCount').textContent = filtered.length;
+  document.getElementById('custShown').textContent = filtered.length;
+  document.getElementById('custTotal').textContent = CUSTOMERS.length;
+  const b = document.getElementById('custBody');
+
+  if (!filtered.length) {
+    b.innerHTML = `<tr><td colspan="9"><div class="empty-state">
+      <div style="font-size:48px">👥</div>
+      <h3>No customers found</h3>
+      <p>Try adjusting your search or filters</p>
+    </div></td></tr>`;
+    return;
+  }
+
+  b.innerHTML = filtered.map(c => {
+    /* View profile button — always shown (view_customers baseline) */
+    const viewBtn = `<button class="btn btn-secondary btn-sm btn-icon" title="View Profile" onclick="openProfile(${c.id})">👁️</button>`;
+
+    /* Email button — always shown (no specific permission needed) */
+    const emailBtn = `<button class="btn btn-secondary btn-sm btn-icon" title="Send Email" onclick="showToast('info','Email','Email feature coming soon')">📧</button>`;
+
+    /* Quick block/unblock in row — only if block_customer */
+    const blockBtn = CAN_BLOCK
+      ? `<button class="btn btn-sm btn-icon ${!c.is_active?'btn-success':'btn-danger'}"
+           title="${!c.is_active?'Activate':'Deactivate'}" onclick="quickToggleStatus(${c.id})">
+           ${!c.is_active?'✅':'🚫'}
+         </button>`
+      : '';
+
+    // Calculate last order date
+    const lastOrderDate = c.stats?.last_order_date ? new Date(c.stats.last_order_date).toLocaleDateString() : '—';
+    const joinedDate = c.created_at ? new Date(c.created_at).toLocaleDateString() : '—';
+    const status = c.is_active ? 'active' : 'inactive';
+
+    return `<tr>
+      <td><input type="checkbox" class="row-chk" data-id="${c.id}"></td>
+      <td>
+        <div style="display:flex;align-items:center;gap:10px">
+          ${av(c.name)}
+          <div>
+            <div style="font-weight:600;font-size:13.5px">${c.name}</div>
+            <div style="font-size:12px;color:var(--text-muted)">${c.email}</div>
+          </div>
+        </div>
+      </td>
+      <td style="font-size:13px">${c.phone}</td>
+      <td style="font-size:12.5px;color:var(--text-muted)">${joinedDate}</td>
+      ${CAN_VIEW_ORDERS ? `<td><span style="font-weight:700">${c.stats?.total_orders || 0}</span> orders</td>` : ''}
+      <td><span style="font-weight:700;color:var(--success)">₹${(c.stats?.total_spent || 0).toLocaleString('en-IN')}</span></td>
+      ${CAN_VIEW_ORDERS ? `<td style="font-size:12.5px;color:var(--text-muted)">${lastOrderDate}</td>` : ''}
+      <td>
+        <span class="badge ${status==='active'?'badge-success':'badge-gray'}">
+          ${status==='active'?'● Active':'○ Inactive'}
+        </span>
+      </td>
+      <td><div style="display:flex;gap:6px">${viewBtn}${emailBtn}${blockBtn}</div></td>
+    </tr>`;
+  }).join('');
+}
+
+/* ── Filters ── */
+function applyFilters() {
+  const q  = (document.getElementById('custSearch').value + document.getElementById('topbarSearch').value).toLowerCase();
+  const st = document.getElementById('statusFilter').value;
+  const so = document.getElementById('sortBy').value;
+  
+  filtered = CUSTOMERS.filter(c => {
+    const matchSearch = !q || (c.name + c.email + c.phone).toLowerCase().includes(q);
+    const matchStatus = !st || (st === 'active' ? c.is_active : !c.is_active);
+    return matchSearch && matchStatus;
+  });
+  
+  // Sort
+  if (so === 'most_orders')   filtered.sort((a, b) => (b.stats?.total_orders || 0) - (a.stats?.total_orders || 0));
+  if (so === 'highest_spend') filtered.sort((a, b) => (b.stats?.total_spent || 0) - (a.stats?.total_spent || 0));
+  if (so === 'newest') filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  
+  renderTable();
+}
+
+function clearFilters() {
+  ['custSearch','statusFilter'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('sortBy').value='newest';
+  filtered=[...CUSTOMERS]; 
+  renderTable();
+}
+
+/* ════════════════════════════════════════════════════════
+   OPEN PROFILE MODAL
+   ── Guide rule: gate all modal-internal elements HERE,
+      after the modal body is built, not in initPage(). ──
+════════════════════════════════════════════════════════ */
+function openProfile(id) {
+  const c = CUSTOMERS.find(x => x.id === id); 
+  if (!c) {
+    showToast('error', 'Error', 'Customer not found');
+    return;
+  }
+  viewId = id;
+
+  document.getElementById('custModalTitle').textContent = c.name;
+  switchModalTab('profile', document.querySelector('[data-tab="profile"]'));
+
+  /* ── Gate: Orders tab */
+  const ordTab = document.getElementById('tabOrdersBtn');
+  if (!CAN_VIEW_ORDERS) {
+    ordTab.classList.add('perm-hidden');
+  } else {
+    ordTab.classList.remove('perm-hidden');
+  }
+
+  /* ── Gate: Toggle status button */
+  const blockBtn = document.getElementById('blockCustomerBtn');
+  if (!CAN_BLOCK) {
+    blockBtn.style.display = 'none';
+  } else {
+    blockBtn.style.display = '';
+    blockBtn.textContent = c.is_active ? '🚫 Deactivate Customer' : '✅ Activate Customer';
+    blockBtn.className = `btn btn-sm ${c.is_active ? 'btn-danger' : 'btn-success'}`;
+    blockBtn.onclick = () => toggleCustomerStatus(id);
+  }
+
+  /* ── Gate: Admin notes textarea */
+  PermGuard.disableIfNo('#adminNotesInput', 'customers', 'edit_customer_notes');
+  document.getElementById('saveNoteBtn').style.display = CAN_EDIT_NOTES ? '' : 'none';
+  document.getElementById('notesReadonlyHint').style.display = CAN_EDIT_NOTES ? 'none' : 'block';
+
+  /* ── Build Profile tab */
+  const ordersStats = CAN_VIEW_ORDERS
+    ? `<div style="margin-left:auto;display:flex;gap:12px" id="customerOrdersSection">
+         <div style="text-align:center">
+           <div style="font-size:22px;font-weight:800;color:var(--primary)">${c.stats?.total_orders || 0}</div>
+           <div style="font-size:12px;color:var(--text-muted)">Orders</div>
+         </div>
+         <div style="text-align:center">
+           <div style="font-size:22px;font-weight:800;color:var(--success)">₹${((c.stats?.total_spent || 0)/100000).toFixed(1)}L</div>
+           <div style="font-size:12px;color:var(--text-muted)">Total Spent</div>
+         </div>
+       </div>` : '';
+
+  const joinedDate = c.created_at ? new Date(c.created_at).toLocaleDateString() : '—';
+  const lastOrderDate = c.stats?.last_order_date ? new Date(c.stats.last_order_date).toLocaleDateString() : '—';
+
+  document.getElementById('custProfileBody').innerHTML = `
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;background:linear-gradient(135deg,var(--primary-light),#EFF6FF);padding:20px;border-radius:12px;margin-bottom:20px">
+      ${av(c.name, 60)}
+      <div>
+        <div style="font-size:20px;font-weight:800">${c.name}</div>
+        <div style="font-size:13px;color:var(--text-muted);margin-top:2px">${c.email} · ${c.phone}</div>
+        <div style="margin-top:8px">
+          <span class="badge ${c.is_active ? 'badge-success' : 'badge-gray'}">
+            ${c.is_active ? '● Active' : '○ Inactive'}
+          </span>
+        </div>
+      </div>
+      ${ordersStats}
+    </div>
+    <div class="form-row cols-2">
+      <div><div class="form-label">Email</div><div style="font-size:13.5px">${c.email}</div></div>
+      <div><div class="form-label">Phone</div><div style="font-size:13.5px">${c.phone}</div></div>
+      <div><div class="form-label">City</div><div style="font-size:13.5px">${c.city || '—'}</div></div>
+      <div><div class="form-label">Member Since</div><div style="font-size:13.5px">${joinedDate}</div></div>
+      ${CAN_VIEW_ORDERS ? `<div><div class="form-label">Last Order</div><div style="font-size:13.5px">${lastOrderDate}</div></div>` : ''}
+      <div><div class="form-label">Cashback Balance</div><div style="font-size:13.5px;font-weight:700;color:var(--success)">₹ 0.00</div></div>
+    </div>`;
+
+  /* ── Build Orders tab */
+  document.getElementById('custOrdersBody').innerHTML = CAN_VIEW_ORDERS
+    ? `<div style="font-size:13px;color:var(--text-muted);margin-bottom:14px">Recent orders by <strong>${c.name}</strong></div>
+       <div id="customerOrdersList" style="padding:10px 0">Loading orders...</div>`
+    : `<div style="text-align:center;padding:48px 24px">
+         <div style="font-size:42px;margin-bottom:14px">🔒</div>
+         <div style="font-weight:700;font-size:15px;margin-bottom:6px">Order History Restricted</div>
+         <div style="font-size:13px;color:var(--text-muted)">You don't have permission to view customer order history.</div>
+       </div>`;
+
+  /* Load customer's orders if CAN_VIEW_ORDERS */
+  if (CAN_VIEW_ORDERS) {
+    loadCustomerOrders(id);
+  }
+
+  /* ── Addresses tab (placeholder) */
+  document.getElementById('custAddressBody').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+      <div style="border:1.5px solid var(--primary);border-radius:12px;padding:16px;background:var(--primary-light)">
+        <div style="font-weight:700;font-size:13px;margin-bottom:8px;color:var(--primary)">🏠 Primary Address</div>
+        <div style="font-size:13.5px;line-height:1.7">${c.name}<br>${c.city || 'Address pending'}...
+      </div>
+      <div style="border:1.5px solid var(--border);border-radius:12px;padding:16px;background:var(--body-bg);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-direction:column;gap:6px"
+        onclick="showToast('info','Addresses','Address management coming soon')">
+        <div style="font-size:28px">➕</div>
+        <div style="font-size:13px;color:var(--text-muted)">Add Address</div>
+      </div>
+    </div>`;
+
+  openModal('custModal');
+}
+
+/* ── Modal tab switcher ── */
+function switchModalTab(name, btn) {
+  document.querySelectorAll('#modalTabNav .tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  document.getElementById('panel-'+name)?.classList.add('active');
+}
+
+/* ════════════════════════════════════════════════════════
+   BLOCK / UNBLOCK — defence in depth: recheck perm
+════════════════════════════════════════════════════════ */
+function toggleBlock() {
+  if (!CAN_BLOCK) { showToast('error','Access Denied','No permission to block/unblock customers.'); return; }
+  const c = CUSTS.find(x=>x.id===viewId); if(!c) return;
+  c.status = c.status==='blocked' ? 'active' : 'blocked';
+  /* Real API:
+  await fetch(`/api/v1/customers/${c.id}/toggle-block/`, {
+    method: 'PATCH',
+    headers: { 'Authorization': `Token ${localStorage.getItem('adminToken')}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ blocked: c.status==='blocked' })
+  }); */
+  closeModal('custModal');
+  renderTable();
+  showToast(c.status==='active'?'success':'warning', c.status==='active'?'Unblocked':'Blocked', `${c.name} is now ${c.status}`);
+}
+
+function quickBlock(id) {
+  if (!CAN_BLOCK) { showToast('error','Access Denied','No permission to block/unblock customers.'); return; }
+  const c = CUSTS.find(x=>x.id===id); if(!c) return;
+  c.status = c.status==='blocked' ? 'active' : 'blocked';
+  /* Real API — same as toggleBlock() */
+  renderTable();
+  showToast(c.status==='active'?'success':'warning', c.status==='active'?'Customer Unblocked':'Customer Blocked', `${c.name} is now ${c.status}`);
+}
+
+/* ════════════════════════════════════════════════════════
+   SAVE NOTE — defence in depth: recheck perm
+════════════════════════════════════════════════════════ */
+function saveNote() {
+  if (!CAN_EDIT_NOTES) { showToast('error','Access Denied','No permission to edit customer notes.'); return; }
+  const note = document.getElementById('adminNotesInput').value.trim();
+  if (!note) { showToast('warning','Empty Note','Please write something before saving.'); return; }
+  /* Real API:
+  await fetch(`/api/v1/customers/${viewId}/notes/`, {
+    method: 'POST',
+    headers: { 'Authorization': `Token ${localStorage.getItem('adminToken')}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ note })
+  }); */
+  showToast('success','Note Saved','Admin note saved for this customer.');
+}
+
+/* ════════════════════════════════════════════════════════
+   EXPORT CSV — defence in depth: recheck perm
+════════════════════════════════════════════════════════ */
+function exportCSV() {
+  if (!CAN_EXPORT) { showToast('error','Access Denied','No permission to export customer data.'); return; }
+  /* Real API:
+  const res = await fetch('/api/v1/customers/export/', {
+    headers: { 'Authorization': `Token ${localStorage.getItem('adminToken')}` }
+  });
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download='customers.csv'; a.click(); */
+  const header = ['Name','Email','Phone','City','Joined','Status'];
+  const rows   = CUSTS.map(c=>[c.name,c.email,c.phone,c.city,c.joined,c.status]);
+  const csv    = [header,...rows].map(r=>r.join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download = 'customers.csv'; a.click();
+  showToast('success','Exported','customers.csv downloaded.');
+}
+
+/* ── Utilities ── */
+function statusBadge(s) {
+  const m = { delivered:['badge-success','✓ Delivered'], shipped:['badge-purple','🚚 Shipped'], pending:['badge-warning','⏳ Pending'], cancelled:['badge-danger','✕ Cancelled'] };
+  const [cls,lbl] = m[s]||['badge-gray',s];
+  return `<span class="badge ${cls}">${lbl}</span>`;
+}
+
+/* ════════════════════════════════════════════════════════
+   NEW API FUNCTIONS FOR CUSTOMER MANAGEMENT
+════════════════════════════════════════════════════════ */
+
+async function loadCustomerOrders(customerId) {
+  try {
+    const result = await API.get(`/customers/${customerId}/orders/?page=1&per_page=5`);
+    const orders = result.items || [];
+    let html = `<div style="font-size:13px;color:var(--text-muted);margin-bottom:14px">Recent orders</div>`;
+    
+    if (orders.length === 0) {
+      html += '<div style="padding:20px;text-align:center;color:var(--text-muted)">No orders yet</div>';
+    } else {
+      html += orders.map(o => `
+        <div class="order-mini-row">
+          <div style="width:36px;height:36px;border-radius:9px;background:var(--primary-light);display:flex;align-items:center;justify-content:center;font-size:14px">🧾</div>
+          <div style="flex:1">
+            <div style="font-weight:600;font-size:13.5px">${o.order_number}</div>
+            <div style="font-size:12px;color:var(--text-muted)">${new Date(o.created_at).toLocaleDateString()} · ${o.item_count} items</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-weight:700">₹${(o.total_amount).toLocaleString('en-IN')}</div>
+            ${statusBadge(o.status)}
+          </div>
+        </div>`).join('');
+    }
+    
+    document.getElementById('customerOrdersList').innerHTML = html;
+  } catch (e) {
+    console.error('loadCustomerOrders error:', e);
+    document.getElementById('customerOrdersList').innerHTML = '<div style="color:red">Failed to load orders</div>';
+  }
+}
+
+async function toggleCustomerStatus(customerId) {
+  try {
+    const customer = CUSTOMERS.find(c => c.id === customerId);
+    if (!customer) return;
+    
+    const newStatus = !customer.is_active;
+    await API.put(`/customers/${customerId}/status/`, { is_active: newStatus });
+    
+    // Update local data
+    customer.is_active = newStatus;
+    renderTable();
+    openProfile(customerId); // Refresh modal
+    showToast('success', 'Updated', `Customer ${newStatus ? 'activated' : 'deactivated'}`);
+  } catch (e) {
+    showToast('error', 'Error', `Failed to update status: ${e.message}`);
+    console.error('toggleCustomerStatus error:', e);
+  }
+}
+
+async function quickToggleStatus(customerId) {
+  if (!CAN_BLOCK) {
+    showToast('error', 'Access Denied', 'No permission');
+    return;
+  }
+  await toggleCustomerStatus(customerId);
+}
+
+async function deleteCustomer(customerId) {
+  if (!CAN_BLOCK) {
+    showToast('error', 'Access Denied', 'No permission to delete');
+    return;
+  }
+  
+  if (!confirm('Are you sure you want to delete this customer?')) {
+    return;
+  }
+  
+  try {
+    await API.delete(`/customers/${customerId}/`);
+    CUSTOMERS = CUSTOMERS.filter(c => c.id !== customerId);
+    filtered = filtered.filter(c => c.id !== customerId);
+    closeModal('custModal');
+    renderTable();
+    renderStats();
+    showToast('success', 'Deleted', 'Customer has been deleted');
+  } catch (e) {
+    showToast('error', 'Error', `Failed to delete: ${e.message}`);
+    console.error('deleteCustomer error:', e);
+  }
+}
+
+function openModal(id)  { document.getElementById(id)?.classList.add('open');    document.body.style.overflow='hidden'; }
+function closeModal(id) { document.getElementById(id)?.classList.remove('open'); document.body.style.overflow=''; }
+document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)closeModal(o.id);}));
+function showToast(type,title,msg) {
+  const icons={success:'✅',error:'❌',info:'ℹ️',warning:'⚠️'};
+  const tc=document.getElementById('toast-container');
+  const t=document.createElement('div'); t.className=`toast ${type}`;
+  t.innerHTML=`<span style="font-size:18px;">${icons[type]||'ℹ️'}</span><div><div style="font-size:13px;font-weight:600;">${title}</div><div style="font-size:12px;color:#6b7c75;margin-top:2px;">${msg}</div></div>`;
+  tc.appendChild(t); setTimeout(()=>t.remove(),4200);
+}
+document.getElementById('sidebarToggle').addEventListener('click',()=>{
+  document.getElementById('sidebar').classList.toggle('collapsed');
+  document.getElementById('mainContent').classList.toggle('expanded');
+});
+
+/* ════════════════════════════════════════════════════════
+   STEP 4 — Run initPage() FIRST, then render data
+════════════════════════════════════════════════════════ */
+initPage();
+</script>
+</body>
+</html>

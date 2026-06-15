@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Orders – LoomIndica Admin</title>
+  <link rel="stylesheet" href="admin.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    .page-content  { min-width: 0; overflow-x: hidden; }
+    .main-content  { min-width: 0; overflow-x: hidden; }
+    .card          { min-width: 0; }
+    .table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%; }
+    .data-table    { min-width: 860px; width: 100%; border-collapse: collapse; }
+    .order-status-tabs { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:20px; }
+    .status-tab { padding:8px 18px; border-radius:20px; font-size:13px; font-weight:600; cursor:pointer; transition:var(--transition); border:1.5px solid var(--border); background:#fff; color:var(--text-muted); white-space:nowrap; }
+    .status-tab.active { background:var(--primary); color:#fff; border-color:var(--primary); }
+    .status-tab .count { font-size:11px; background:rgba(255,255,255,.3); padding:1px 6px; border-radius:10px; margin-left:4px; }
+    .status-tab:not(.active) .count { background:var(--border); color:var(--text-muted); }
+    .order-detail-row { background:var(--body-bg); }
+    .order-items-mini { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+    .order-item-chip  { background:#fff; border:1px solid var(--border); border-radius:8px; padding:4px 10px; font-size:12px; }
+    .return-section   { background:#FEF3C7; border:1px solid #F59E0B; border-radius:10px; padding:14px 16px; margin-top:14px; }
+    .readonly-notice  { display:inline-flex; align-items:center; gap:6px; background:#FEF9C3; border:1px solid #FDE047; color:#854D0E; font-size:12px; font-weight:600; padding:4px 12px; border-radius:20px; }
+    .page-header { display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:20px; }
+    .page-header .d-flex { flex-wrap:wrap; }
+    .sidebar.collapsed { width:64px; }
+    .sidebar.collapsed .brand-text,
+    .sidebar.collapsed .nav-label,
+    .sidebar.collapsed .nav-section-title { opacity:0; pointer-events:none; width:0; }
+  </style>
+</head>
+<body>
+<div class="mobile-overlay"></div>
+<div id="toast-container"></div>
+<div class="admin-shell">
+
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand"><div class="brand-icon">LI</div><div class="brand-text"><h3>LoomIndica</h3><span>Admin Panel</span></div></div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Main</div>
+      <div class="nav-item"><a href="dashboard.html"    class="nav-link" data-label="Dashboard"><span class="nav-icon">📊</span><span class="nav-label">Dashboard</span></a></div>
+      <div class="nav-section-label">Catalogue</div>
+      <div class="nav-item"><a href="products.html"     class="nav-link" data-label="Products"><span class="nav-icon">🛍️</span><span class="nav-label">Products</span></a></div>
+      <div class="nav-item"><a href="categories.html"   class="nav-link" data-label="Categories"><span class="nav-icon">🗂️</span><span class="nav-label">Categories</span></a></div>
+      <div class="nav-item"><a href="inventory.html"    class="nav-link" data-label="Inventory"><span class="nav-icon">📦</span><span class="nav-label">Inventory</span>
+        <!-- <span class="nav-badge">8</span> -->
+      </a></div>
+      <div class="nav-section-label">Sales</div>
+      <div class="nav-item"><a href="orders.html"       class="nav-link active" data-label="Orders"><span class="nav-icon">🧾</span><span class="nav-label">Orders</span>
+        <!-- <span class="nav-badge">24</span> -->
+      </a></div>
+      <div class="nav-item"><a href="customers.html"    class="nav-link" data-label="Customers"><span class="nav-icon">👥</span><span class="nav-label">Customers</span></a></div>
+      <div class="nav-item"><a href="transactions.html" class="nav-link" data-label="Transactions"><span class="nav-icon">💳</span><span class="nav-label">Transactions</span></a></div>
+      <div class="nav-section-label">Marketing</div>
+      <div class="nav-item"><a href="coupons.html"      class="nav-link" data-label="Coupons"><span class="nav-icon">🎟️</span><span class="nav-label">Coupons</span></a></div>
+      <div class="nav-item"><a href="banners.html"      class="nav-link" data-label="Banners"><span class="nav-icon">🖼️</span><span class="nav-label">Banners &amp; Offers</span></a></div>
+      <div class="nav-item"><a href="blogs.html"   class="nav-link" data-label="Blog"><span class="nav-icon">✍️</span><span class="nav-label">Blog</span></a></div>
+      <div class="nav-section-label">Analytics</div>
+      <div class="nav-item"><a href="reports.html"      class="nav-link" data-label="Reports"><span class="nav-icon">📈</span><span class="nav-label">Reports</span></a></div>
+      <div class="nav-section-label">System</div>
+      <div class="nav-item"><a href="settings.html"     class="nav-link" data-label="Settings"><span class="nav-icon">⚙️</span><span class="nav-label">Settings</span></a></div>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="sidebar-user">
+        <div class="user-avatar" id="sidebarAvatarLetter">A</div>
+        <div class="user-info"><strong id="sidebarName">Admin</strong><span id="sidebarRole">—</span></div>
+      </div>
+    </div>
+  </aside>
+
+  
+  <div class="main-content" id="mainContent">
+    <header class="topbar">
+      <button class="topbar-toggle" id="sidebarToggle">☰</button>
+      <div class="topbar-search"><i>🔍</i><input type="text" placeholder="Search by Order ID, customer…" oninput="filterOrders(this.value)"></div>
+      <div class="topbar-actions">
+        <div class="dropdown">
+          <div class="topbar-user" data-dropdown>
+            <div class="avatar" id="topbarAvatar">A</div>
+            <div class="topbar-user-info"><strong id="topbarName">Admin</strong><span id="topbarRole">—</span></div>
+          </div>
+          <div class="dropdown-menu">
+            <div class="dropdown-item danger" data-logout>🚪 Logout</div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="page-content" id="pageContent">
+      <div class="page-header">
+        <div class="page-header-left">
+          <h1>Orders</h1>
+          <div class="breadcrumb"><span>Home</span><i>›</i><span>Sales</span><i>›</i><span>Orders</span></div>
+        </div>
+        <div class="d-flex gap-8 align-center">
+          <div id="readonlyNotice" class="readonly-notice" style="display:none;">👁️ View Only</div>
+          <button class="btn btn-secondary btn-sm" id="exportBtn" onclick="exportOrders()">📥 Export</button>
+          <button class="btn btn-primary btn-sm" id="createOrderBtn" onclick="showToast('info','Manual Order','Manual order creation coming soon')">+ Create Order</button>
+        </div>
+      </div>
+
+      <div class="grid-4 stagger mb-24" id="orderSummary"></div>
+
+      <div class="order-status-tabs" id="statusTabs">
+        <div class="status-tab active" data-status="all"        onclick="switchTab('all', this)">All Orders      <span class="count" id="cnt-all">—</span></div>
+        <div class="status-tab"        data-status="pending"    onclick="switchTab('pending', this)">⏳ Pending   <span class="count" id="cnt-pending">—</span></div>
+        <div class="status-tab"        data-status="processing" onclick="switchTab('processing', this)">🔄 Processing <span class="count" id="cnt-processing">—</span></div>
+        <div class="status-tab"        data-status="shipped"    onclick="switchTab('shipped', this)">🚚 Shipped    <span class="count" id="cnt-shipped">—</span></div>
+        <div class="status-tab"        data-status="delivered"  onclick="switchTab('delivered', this)">✓ Delivered  <span class="count" id="cnt-delivered">—</span></div>
+        <div class="status-tab"        data-status="cancelled"  onclick="switchTab('cancelled', this)">✕ Cancelled  <span class="count" id="cnt-cancelled">—</span></div>
+        <div class="status-tab"        data-status="returned"   onclick="switchTab('returned', this)">↩ Returned   <span class="count" id="cnt-returned">—</span></div>
+      </div>
+
+      <div class="card">
+        <div class="table-wrapper">
+          <table class="data-table" id="ordersTable">
+            <thead>
+              <tr>
+                <th>Order ID</th><th>Customer</th><th>Phone</th><th>Items</th>
+                <th>Amount</th><th>Payment</th><th>Status</th><th>Date</th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="ordersBody">
+              <tr><td colspan="9" style="text-align:center;padding:40px;color:var(--text-muted)">Loading orders…</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="card-footer" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+          <div style="font-size:13px;color:var(--text-muted)">Showing <strong id="ordersShownCount">—</strong> orders</div>
+          <div class="pagination">
+            <button class="page-btn">‹</button>
+            <button class="page-btn active">1</button>
+            <button class="page-btn">2</button>
+            <button class="page-btn">›</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ORDER DETAIL MODAL -->
+<div class="modal-overlay" id="orderDetailModal">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <h3 id="orderDetailTitle">Order Details</h3>
+      <button class="modal-close" onclick="closeModal('orderDetailModal')">✕</button>
+    </div>
+    <div class="modal-body" id="orderDetailBody"></div>
+    <div class="modal-footer" id="orderModalFooter">
+      <button class="btn btn-secondary" onclick="closeModal('orderDetailModal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<script src="permissions.js"></script>
+<script src="admin.js"></script>
+<script>
+
+let allOrders      = [];
+let currentStatus  = 'all';
+let currentOrderId = null;
+
+/* ── STEP 2: initPage — always runs first ──────────────────── */
+function initPage() {
+  PermGuard.init({ module: 'orders', loginUrl: 'admin-login.html' });
+
+  /* Populate topbar + sidebar with real admin name from session */
+  const admin  = PermGuard.getAdmin?.() || {};
+  const name   = (admin.firstName || admin.name || 'Admin').trim();
+  const role   = admin.role || '—';
+  const letter = name[0]?.toUpperCase() || 'A';
+  document.getElementById('topbarName').textContent          = name;
+  document.getElementById('topbarRole').textContent          = role;
+  document.getElementById('topbarAvatar').textContent        = letter;
+  document.getElementById('sidebarName').textContent         = name;
+  document.getElementById('sidebarRole').textContent         = role;
+  document.getElementById('sidebarAvatarLetter').textContent = letter;
+
+  /* Gate header buttons */
+  PermGuard.guard('#exportBtn',      'orders', 'export_orders');
+  PermGuard.guard('#createOrderBtn', 'orders', 'create_order');
+
+  /* Show View Only badge if no write permissions at all */
+  const hasAnyWrite =
+    perm('orders','update_order_status') || perm('orders','cancel_order') ||
+    perm('orders','update_tracking')     || perm('orders','manage_returns') ||
+    perm('orders','create_order');
+  if (!hasAnyWrite) document.getElementById('readonlyNotice').style.display = 'inline-flex';
+}
+
+/* ── Load orders ──────────────────────────────────────────── */
+async function loadOrders() {
+  const datas = await API.get('/orders');
+  const data = datas.data;
+  console.log('Orders API response:', data);
+  allOrders  = data.orders || [];
+  document.getElementById('orderSummary').innerHTML = `
+    <div class="stat-card purple"><div class="stat-top"><div class="stat-icon purple">🧾</div></div><div class="stat-value">${data.total}</div><div class="stat-label">Total Orders</div></div>
+    <div class="stat-card amber"><div class="stat-top"><div class="stat-icon amber">⏳</div></div><div class="stat-value">${data.pending}</div><div class="stat-label">Pending</div></div>
+    <div class="stat-card blue"><div class="stat-top"><div class="stat-icon blue">🚚</div></div><div class="stat-value">${data.shipped}</div><div class="stat-label">Shipped</div></div>
+    <div class="stat-card green"><div class="stat-top"><div class="stat-icon green">✓</div></div><div class="stat-value">${data.delivered}</div><div class="stat-label">Delivered</div></div>
+  `;
+  document.getElementById('cnt-all').textContent        = data.total;
+  document.getElementById('cnt-pending').textContent    = data.pending;
+  document.getElementById('cnt-processing').textContent = data.processing || 0;
+  document.getElementById('cnt-shipped').textContent    = data.shipped;
+  document.getElementById('cnt-delivered').textContent  = data.delivered;
+  document.getElementById('cnt-cancelled').textContent  = data.cancelled;
+  document.getElementById('cnt-returned').textContent   = data.returned;
+  renderOrders(allOrders);
+}
+
+/* ── Render table rows ────────────────────────────────────── */
+function renderOrders(orders) {
+  const tbody = document.getElementById('ordersBody');
+  document.getElementById('ordersShownCount').textContent = orders.length;
+  if (!orders.length) {
+    tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><i>📋</i><h3>No orders found</h3><p>No orders in this category yet</p></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = orders.map(o => `
+    <tr>
+      <td><a style="color:var(--primary);font-weight:700;cursor:pointer" onclick="viewOrder('${o.id}')">${o.id}</a></td>
+      <td><strong>${o.customer}</strong></td>
+      <td style="font-size:12.5px;color:var(--text-muted)">${o.phone}</td>
+      <td><span class="badge badge-gray">${o.items} item${o.items>1?'s':''}</span></td>
+      <td><strong>${o.amount}</strong></td>
+      <td><span class="badge ${o.payment==='COD'?'badge-warning':'badge-info'}">${o.payment}</span></td>
+      <td>${statusBadge(o.status)}</td>
+      <td style="font-size:12.5px;color:var(--text-muted)">${o.date}</td>
+      <td>
+        <div class="action-btns">
+          <button class="btn btn-secondary btn-sm btn-icon" onclick="viewOrder('${o.id}')" title="View Details">👁️</button>
+          <button class="btn btn-secondary btn-sm btn-icon" title="Print Invoice" onclick="showToast('info','Invoice','Generating invoice for ${o.id}')">🖨️</button>
+        </div>
+      </td>
+    </tr>`).join('');
+}
+
+/* ── View order modal ─────────────────────────────────────── */
+function viewOrder(orderId) {
+  console.log('Viewing order:', orderId); 
+  currentOrderId = Number(orderId);
+  
+  const order = allOrders.find(o => o.id == orderId);
+  
+  
+
+  console.log('all orders:', allOrders);
+  console.log('Order details:', order);
+  if (!order) return;
+  document.getElementById('orderDetailTitle').textContent = `Order – ${orderId}`;
+
+  document.getElementById('orderDetailBody').innerHTML = `
+    <div class="form-row cols-2 mb-16">
+      <div>
+        <div class="form-label">Customer</div>
+        <div style="font-weight:600;font-size:15px">${order.customer}</div>
+        <div style="font-size:13px;color:var(--text-muted)">${order.phone}</div>
+      </div>
+      <div><div class="form-label">Order Status</div><div>${statusBadge(order.status)}</div></div>
+    </div>
+    <div class="form-row cols-3 mb-16">
+      <div><div class="form-label">Order Date</div><div style="font-weight:600">${order.date}</div></div>
+      <div><div class="form-label">Items</div><div style="font-weight:600">${order.items} items</div></div>
+      <div><div class="form-label">Total Amount</div><div style="font-weight:700;font-size:18px;color:var(--primary)">${order.amount}</div></div>
+    </div>
+    <div class="form-row cols-2 mb-20">
+      <div><div class="form-label">Payment Mode</div><div class="badge ${order.payment==='COD'?'badge-warning':'badge-info'}" style="margin-top:4px">${order.payment}</div></div>
+      <div><div class="form-label">Payment Status</div><div class="badge badge-success" style="margin-top:4px">✓ Paid</div></div>
+    </div>
+    <div class="form-group">
+      <div class="form-label">Order Timeline</div>
+      <div class="order-timeline mt-8">
+        <div class="timeline-item done"><h4>Order Placed</h4><p>${order.date} · Payment received</p></div>
+        <div class="timeline-item ${['processing','shipped','delivered'].includes(order.status)?'done':''}"><h4>Processing</h4><p>Being prepared for dispatch</p></div>
+        <div class="timeline-item ${['shipped','delivered'].includes(order.status)?'done':order.status==='shipped'?'active':''}"><h4>Shipped</h4><p>Out for delivery</p></div>
+        <div class="timeline-item ${order.status==='delivered'?'done':''}"><h4>Delivered</h4><p>Successfully delivered</p></div>
+      </div>
+    </div>
+
+    <!-- PERM: update_tracking — gated below after DOM build -->
+    <div class="form-group mt-16" id="trackingSection">
+      <div class="form-label">Tracking ID</div>
+      <div class="d-flex gap-8">
+        <input class="form-control" id="trackingInput" placeholder="Enter shipment tracking number" style="max-width:280px">
+        <button class="btn btn-primary btn-sm" onclick="saveTracking()">Save</button>
+      </div>
+    </div>
+
+    <!-- PERM: manage_returns — shown only for returned/cancelled + perm check below -->
+    <div id="returnSection" style="display:none;" class="return-section">
+      <div class="form-label" style="color:#92400E;margin-bottom:10px;">↩ Return / Refund Management</div>
+      <div class="d-flex gap-8" style="flex-wrap:wrap">
+        <select class="form-control" id="returnActionSelect" style="width:auto">
+          <option value="">Select action…</option>
+          <option value="approve_return">Approve Return</option>
+          <option value="reject_return">Reject Return</option>
+          <option value="process_refund">Process Refund (₹50 deducted)</option>
+        </select>
+        <button class="btn btn-warning btn-sm" onclick="processReturn()">Apply</button>
+      </div>
+    </div>
+
+    <!-- Admin note — visible to all, disabled without update_order_status -->
+    <div class="form-group mt-12">
+      <div class="form-label">Admin Note</div>
+      <textarea class="form-control" rows="2" id="adminNoteInput"
+        placeholder="Internal note about this order…"
+        ${perm('orders','update_order_status') ? '' : 'disabled title="No permission to add notes"'}>
+      </textarea>
+    </div>
+  `;
+
+  /* Gate modal-internal elements AFTER body is built */
+  PermGuard.guard('#trackingSection', 'orders', 'update_tracking');
+  if (['returned','cancelled'].includes(order.status) && perm('orders','manage_returns')) {
+    document.getElementById('returnSection').style.display = 'block';
+  }
+
+  /* Build modal footer based on permissions */
+  buildModalFooter();
+  openModal('orderDetailModal');
+}
+
+/* ── Modal footer — injected dynamically based on perms ───── */
+function buildModalFooter() {
+  const footer = document.getElementById('orderModalFooter');
+  footer.innerHTML = `<button class="btn btn-secondary" onclick="closeModal('orderDetailModal')">Close</button>`;
+
+  if (!perm('orders', 'update_order_status')) return;
+
+  const cancelOption = perm('orders','cancel_order')
+    ? `<option value="cancelled">✕ Cancel Order</option>` : '';
+
+  footer.innerHTML += `
+    <select class="form-control" style="width:auto" id="statusUpdateSelect">
+      <option value="">Update Status…</option>
+      <option value="processing">🔄 Mark Processing</option>
+      <option value="shipped">🚚 Mark Shipped</option>
+      <option value="delivered">✓ Mark Delivered</option>
+      ${cancelOption}
+    </select>
+    <button class="btn btn-primary" onclick="updateOrderStatus()">Update</button>
+  `;
+}
+
+/* ── Update order status ──────────────────────────────────── */
+async function updateOrderStatus() {
+  if (!perm('orders','update_order_status')) {
+    showToast('error','Access Denied','No permission to update order status.'); return;
+  }
+  const newStatus = document.getElementById('statusUpdateSelect')?.value;
+  if (!newStatus || !currentOrderId) {
+    showToast('warning','Select Status','Please select a status to update'); return;
+  }
+  if (newStatus === 'cancelled' && !perm('orders','cancel_order')) {
+    showToast('error','Access Denied','No permission to cancel orders.'); return;
+  }
+  try {
+    /* REPLACE: PUT /api/orders/<currentOrderId>/ · Body: { status: newStatus } */
+    await API.put(`/orders/${currentOrderId}`, { status: newStatus });
+    const order = allOrders.find(o => o.id === currentOrderId);
+    if (order) order.status = newStatus;
+    closeModal('orderDetailModal');
+    showToast('success','Order Updated',`Order ${currentOrderId} marked as ${newStatus}`);
+    const filtered = currentStatus==='all' ? allOrders : allOrders.filter(o=>o.status===currentStatus);
+    renderOrders(filtered);
+  } catch { showToast('error','Error','Failed to update order status'); }
+}
+
+/* ── Save tracking ID ─────────────────────────────────────── */
+async function saveTracking() {
+  if (!perm('orders','update_tracking')) {
+    showToast('error','Access Denied','No permission to update tracking.'); return;
+  }
+  const trackingId = document.getElementById('trackingInput')?.value?.trim();
+  if (!trackingId) { showToast('warning','Empty','Please enter a tracking ID.'); return; }
+  try {
+    /* REPLACE: PATCH /api/orders/<currentOrderId>/tracking/ · Body: { tracking_id } */
+    await API.put(`/orders/${currentOrderId}/tracking`, { tracking_id: trackingId });
+    showToast('success','Saved','Tracking ID updated successfully');
+  } catch { showToast('error','Error','Failed to save tracking ID'); }
+}
+
+/* ── Process return / refund ──────────────────────────────── */
+async function processReturn() {
+  if (!perm('orders','manage_returns')) {
+    showToast('error','Access Denied','No permission to manage returns.'); return;
+  }
+  const action = document.getElementById('returnActionSelect')?.value;
+  if (!action) { showToast('warning','Select','Please select a return action.'); return; }
+  try {
+    await API.post(`/orders/${currentOrderId}/returns/`, { action });
+    showToast('success','Done','Return action applied successfully');
+    closeModal('orderDetailModal');
+  } catch { showToast('error','Error','Failed to process return'); }
+}
+
+/* ── Export orders ────────────────────────────────────────── */
+async function exportOrders() {
+  if (!perm('orders','export_orders')) {
+    showToast('error','Access Denied','No permission to export orders.'); return;
+  }
+  /* REPLACE: GET /api/orders/export/?status=<currentStatus>&format=csv */
+  showToast('info','Export','Preparing order export…');
+}
+
+/* ── Tab switch & search filter ───────────────────────────── */
+function switchTab(status, el) {
+  document.querySelectorAll('.status-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  currentStatus = status;
+  renderOrders(status==='all' ? allOrders : allOrders.filter(o=>o.status===status));
+}
+
+function filterOrders(q) {
+  const base = currentStatus==='all' ? allOrders : allOrders.filter(o => o.status === currentStatus);
+  renderOrders(base.filter(o => o.id.toLowerCase().includes(q.toLowerCase()) || o.customer.toLowerCase().includes(q.toLowerCase())));
+}
+document.getElementById('sidebarToggle').addEventListener('click', () => {
+  const s=document.getElementById('sidebar'), m=document.getElementById('mainContent');
+  m.classList.toggle('expanded', s.classList.toggle('collapsed'));
+});
+
+/* ── BOOT ─────────────────────────────────────────────────── */
+initPage();
+loadOrders();
+</script>
+</body>
+</html>

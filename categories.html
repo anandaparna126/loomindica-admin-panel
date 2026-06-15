@@ -1,0 +1,1288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Categories – LoomIndica Admin</title>
+  <link rel="stylesheet" href="admin.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+
+    /* ── TWO-COLUMN LAYOUT ── */
+    .cat-layout {
+      display: grid;
+      grid-template-columns: 360px minmax(0, 1fr);
+      gap: 20px;
+      align-items: start;
+    }
+    @media (max-width: 1024px) {
+      .cat-layout { grid-template-columns: 1fr; }
+      .tree-sticky { position: static !important; }
+    }
+
+    /* ── TREE PANEL — sticky ── */
+    .tree-sticky {
+      position: sticky;
+      top: 84px;
+      max-height: calc(100vh - 100px);
+      display: flex;
+      flex-direction: column;
+    }
+    .tree-sticky .card {
+      display: flex;
+      flex-direction: column;
+      max-height: calc(100vh - 100px);
+      overflow: hidden;
+    }
+
+    /* ── TREE SCROLL — BOTH axes ── */
+    /* Changed: overflow-x from hidden → auto so wide trees scroll horizontally */
+    .tree-scroll {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: auto;          /* ← CHANGED: enables horizontal scroll */
+      padding: 10px;
+      scroll-behavior: smooth;
+      min-width: 0;
+    }
+    /* Make the tree content not wrap/clip so it can be scrolled horizontally */
+    #catTree {
+      /*min-width: max-content;    /* ← NEW: tree grows as wide as it needs */
+      display: inline-block;
+      min-width: 100%;
+      padding-bottom: 8px;
+    }
+
+    /* ── RIGHT PANEL ── */
+    .cat-right-panel {
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    /* ── TABLE ── */
+    .table-wrapper {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      width: 100%;
+    }
+    .data-table {
+      min-width: 700px;
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    /* ── DB TABLE ── */
+    .db-scroll { overflow-x: auto; width: 100%; }
+    .db-tbl {
+      min-width: 560px; width: 100%;
+      border-collapse: collapse;
+      font-family: monospace; font-size: 12.5px;
+    }
+    .db-tbl th { background: #1E1B4B; color: #C4B5FD; padding: 8px 12px; text-align: left; font-size: 10.5px; letter-spacing: .8px; text-transform: uppercase; }
+    .db-tbl td { padding: 8px 12px; border-bottom: 1px solid var(--border); }
+    .db-tbl tr:hover td { background: #FAFAFA; }
+
+    /* ── TREE STYLES ── */
+    .tree-node { border-radius: 8px; overflow: visible; }
+    .tree-header {
+      display: flex; 
+      align-items: center; gap: 10px;
+      padding: 9px 12px; cursor: pointer; border-radius: 8px;
+      transition: var(--transition); position: relative;
+       min-width: max-content;
+      white-space: nowrap;   /* ← NEW: prevents wrapping so horizontal scroll works */
+    }
+    .tree-header:hover { background: rgba(124,58,237,.06); }
+    .tree-header.selected { background: var(--primary-light); }
+    .tree-toggle {
+      width: 18px; height: 18px; display: flex;
+      align-items: center; justify-content: center;
+      font-size: 10px; color: var(--text-muted);
+      transition: transform .2s; flex-shrink: 0;
+    }
+    .tree-toggle.open  { transform: rotate(90deg); }
+    .tree-toggle.leaf  { visibility: hidden; }
+
+    /* ── CAT DOT / IMAGE in tree ── */
+    /* CHANGED: was just an emoji container, now handles images too */
+    .cat-dot {
+      width: 28px; height: 28px; border-radius: 7px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; flex-shrink: 0;
+      overflow: hidden;
+      cursor: pointer;           /* ← NEW: clickable to enlarge */
+      position: relative;
+    }
+    .cat-dot img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      border-radius: 6px;
+      display: block;
+    }
+    .cat-dot:hover img { opacity: .85; }
+
+    .tree-lbl {
+      flex: 1; font-weight: 600; font-size: 13.5px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      min-width: 0;
+    }
+    .tree-meta { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+    .tree-acts { display: flex; gap: 3px; opacity: 0; transition: opacity .15s; flex-shrink: 0; }
+    .tree-header:hover .tree-acts { opacity: 1; }
+    .ta {
+      width: 24px; height: 24px; border: none; border-radius: 5px;
+      cursor: pointer; display: flex; align-items: center;
+      justify-content: center; font-size: 12px; transition: var(--transition);
+    }
+    .ta.add { background: var(--success-light); color: var(--success); }
+    .ta.edt { background: var(--info-light);    color: var(--info); }
+    .ta.del { background: var(--danger-light);  color: var(--danger); }
+    .tree-kids { padding-left: 26px; border-left: 2px dashed var(--border); margin-left: 21px; }
+    .tree-kids.hidden { display: none; }
+    .depth-chip { font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 8px; }
+    .null-val { color: var(--text-muted); font-style: italic; }
+
+    /* ── CAT IMAGE THUMB in flat table ── */
+    .cat-img-thumb {
+      width: 28px; height: 28px; border-radius: 6px;
+      object-fit: cover; flex-shrink: 0;
+      cursor: pointer;           /* clickable to enlarge */
+      transition: opacity .15s;
+    }
+    .cat-img-thumb:hover { opacity: .8; }
+    .cat-emoji-box {
+      width: 28px; height: 28px; border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; flex-shrink: 0;
+    }
+
+    /* ── IMAGE ENLARGE LIGHTBOX ── */
+    .img-lightbox {
+      position: fixed; inset: 0; z-index: 9000;
+      background: rgba(0,0,0,.75);
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none;
+      transition: opacity .2s;
+    }
+    .img-lightbox.open { opacity: 1; pointer-events: all; }
+    .img-lightbox img {
+      max-width: min(90vw, 520px);
+      max-height: 80vh;
+      border-radius: 12px;
+      box-shadow: 0 24px 60px rgba(0,0,0,.6);
+      object-fit: contain;
+      cursor: zoom-out;
+      transform: scale(.92);
+      transition: transform .2s;
+    }
+    .img-lightbox.open img { transform: scale(1); }
+    .lightbox-close {
+      position: absolute; top: 18px; right: 22px;
+      background: rgba(255,255,255,.15); border: none;
+      color: #fff; font-size: 24px; width: 38px; height: 38px;
+      border-radius: 50%; cursor: pointer; display: flex;
+      align-items: center; justify-content: center;
+      backdrop-filter: blur(4px); transition: background .15s;
+    }
+    .lightbox-close:hover { background: rgba(255,255,255,.3); }
+    .lightbox-name {
+      position: absolute; bottom: 24px; left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,.55); color: #fff;
+      font-size: 13px; font-weight: 600;
+      padding: 6px 18px; border-radius: 20px;
+      white-space: nowrap; backdrop-filter: blur(4px);
+    }
+
+    /* ── IMAGE UPLOAD SECTION IN MODAL ── */
+    /* Replaces the old "Icon / Emoji" input */
+    .img-input-wrap {
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    /* Tab selector: URL vs Upload */
+    .img-tab-bar {
+      display: flex;
+      border-bottom: 1.5px solid var(--border);
+      background: var(--body-bg);
+    }
+    .img-tab {
+      flex: 1; padding: 8px 0; font-size: 13px; font-weight: 600;
+      text-align: center; cursor: pointer; color: var(--text-muted);
+      border: none; background: none; transition: var(--transition);
+      font-family: inherit;
+    }
+    .img-tab.active { color: var(--primary); background: var(--card-bg); border-bottom: 2px solid var(--primary); }
+    .img-tab-body { padding: 14px; }
+
+    /* Upload zone */
+    .upload-zone {
+      border: 2px dashed var(--border); border-radius: 8px;
+      padding: 20px; text-align: center; cursor: pointer;
+      transition: var(--transition); background: var(--body-bg);
+    }
+    .upload-zone:hover, .upload-zone.drag-over {
+      border-color: var(--primary); background: var(--primary-light);
+    }
+    .upload-zone input { display: none; }
+
+    /* Preview strip shown after picking an image */
+    .img-preview-strip {
+      display: none;
+      align-items: center; gap: 10px;
+      margin-top: 10px;
+      padding: 8px 10px;
+      background: var(--body-bg); border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    .img-preview-strip.show { display: flex; }
+    .img-preview-strip img {
+      width: 44px; height: 44px; border-radius: 7px;
+      object-fit: cover; border: 1px solid var(--border);
+    }
+    .img-preview-strip .rm-btn {
+      margin-left: auto; background: var(--danger-light);
+      color: var(--danger); border: none; border-radius: 6px;
+      padding: 4px 10px; font-size: 12px; cursor: pointer;
+    }
+
+    /* ── PAGINATION ── */
+    .pagination-wrap {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 20px; border-top: 1px solid var(--border);
+      flex-wrap: wrap; gap: 10px;
+    }
+    .page-info { font-size: 13px; color: var(--text-muted); }
+    .page-btns { display: flex; gap: 4px; }
+    .page-btn {
+      min-width: 32px; height: 32px; border: 1px solid var(--border);
+      background: var(--card-bg); border-radius: 6px; cursor: pointer;
+      font-size: 13px; color: var(--text-primary);
+      display: flex; align-items: center; justify-content: center;
+      transition: var(--transition); font-family: inherit;
+    }
+    .page-btn:hover  { border-color: var(--primary); color: var(--primary); }
+    .page-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .page-btn:disabled { opacity: .4; cursor: not-allowed; pointer-events: none; }
+
+    /* Sidebar collapse */
+    .sidebar.collapsed { width: 64px; }
+    .sidebar.collapsed .brand-text,
+    .sidebar.collapsed .nav-label,
+    .sidebar.collapsed .nav-section-title { opacity: 0; pointer-events: none; width: 0; }
+
+    .readonly-notice {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: #FEF9C3; border: 1px solid #FDE047;
+      color: #854D0E; font-size: 12px; font-weight: 600;
+      padding: 4px 12px; border-radius: 20px;
+    }
+  </style>
+</head>
+<body>
+<div class="mobile-overlay"></div>
+<div id="toast-container"></div>
+
+<!-- ── IMAGE LIGHTBOX (global overlay) ── -->
+<div class="img-lightbox" id="imgLightbox" onclick="closeLightbox(event)">
+  <button class="lightbox-close" onclick="closeLightbox()">✕</button>
+  <img id="lightboxImg" src="" alt="">
+  <div class="lightbox-name" id="lightboxName"></div>
+</div>
+
+<div class="admin-shell">
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon">LI</div>
+      <div class="brand-text"><h3>LoomIndica</h3><span>Admin Panel</span></div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Main</div>
+      <div class="nav-item"><a href="dashboard.html"    class="nav-link"><span class="nav-icon">📊</span><span class="nav-label">Dashboard</span></a></div>
+      <div class="nav-section-label">Catalogue</div>
+      <div class="nav-item"><a href="products.html"     class="nav-link"><span class="nav-icon">🛍️</span><span class="nav-label">Products</span></a></div>
+      <div class="nav-item"><a href="categories.html"   class="nav-link active"><span class="nav-icon">🗂️</span><span class="nav-label">Categories</span></a></div>
+      <div class="nav-item"><a href="inventory.html"    class="nav-link"><span class="nav-icon">📦</span><span class="nav-label">Inventory</span></a></div>
+      <div class="nav-section-label">Sales</div>
+      <div class="nav-item"><a href="orders.html"       class="nav-link"><span class="nav-icon">🧾</span><span class="nav-label">Orders</span></a></div>
+      <div class="nav-item"><a href="customers.html"    class="nav-link"><span class="nav-icon">👥</span><span class="nav-label">Customers</span></a></div>
+      <div class="nav-item"><a href="transactions.html" class="nav-link"><span class="nav-icon">💳</span><span class="nav-label">Transactions</span></a></div>
+      <div class="nav-section-label">Marketing</div>
+      <div class="nav-item"><a href="coupons.html"      class="nav-link"><span class="nav-icon">🎟️</span><span class="nav-label">Coupons</span></a></div>
+      <div class="nav-item"><a href="banners.html"      class="nav-link"><span class="nav-icon">🖼️</span><span class="nav-label">Banners & Offers</span></a></div>
+      <div class="nav-item"><a href="featured-collections.html"   class="nav-link" data-label="Featured"><span class="nav-icon">✨</span><span class="nav-label">Featured Collections</span></a></div>
+      <div class="nav-item"><a href="blogs.html"   class="nav-link" data-label="Blog"><span class="nav-icon">✍️</span><span class="nav-label">Blog</span></a></div>
+      <div class="nav-section-label">Analytics</div>
+      <div class="nav-item"><a href="reports.html"      class="nav-link"><span class="nav-icon">📈</span><span class="nav-label">Reports</span></a></div>
+      <div class="nav-section-label">System</div>
+      <div class="nav-item"><a href="settings.html"     class="nav-link"><span class="nav-icon">⚙️</span><span class="nav-label">Settings</span></a></div>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="sidebar-user">
+        <div class="user-avatar">A</div>
+        <div class="user-info"><strong>Admin</strong><span>Admin</span></div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <div class="main-content" id="mainContent">
+    <header class="topbar">
+      <button class="topbar-toggle" id="sidebarToggle">☰</button>
+      <div class="topbar-search">
+        <i>🔍</i>
+        <input placeholder="Search categories…" oninput="filterCats(this.value)">
+      </div>
+      <div class="topbar-actions">
+        <div class="dropdown">
+          <div class="topbar-user" data-dropdown>
+            <div class="avatar">A</div>
+            <div class="topbar-user-info"><strong>Admin</strong><span>Admin</span></div>
+            <span style="margin-left:4px;color:var(--text-muted);font-size:11px">▾</span>
+          </div>
+          <div class="dropdown-menu">
+            <div class="dropdown-item danger" data-logout>🚪 Logout</div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="page-content" id="pageContent">
+      <div class="page-header">
+        <div class="page-header-left">
+          <h1>Category Management</h1>
+          <div class="breadcrumb">
+            <span onclick="location.href='dashboard.html'">Home</span><i>›</i>
+            <span>Catalogue</span><i>›</i><span>Categories</span>
+          </div>
+        </div>
+        <div class="d-flex gap-8 align-center">
+          <div id="readonlyNotice" class="readonly-notice" style="display:none;">👁️ View Only</div>
+          <button class="btn btn-primary" id="addHeadCatBtn" onclick="openAdd(null)">+ Add Head Category</button>
+        </div>
+      </div>
+
+      <!-- Info banner -->
+      <div style="background:linear-gradient(135deg,var(--primary-light),#EFF6FF);border:1px solid var(--primary);border-radius:12px;padding:14px 20px;margin-bottom:20px;display:flex;gap:14px">
+        <span style="font-size:22px">💡</span>
+        <div style="font-size:13px">
+          <strong style="color:var(--primary)">How categories work:</strong>
+          Categories with no parent are <strong>Head Categories</strong> (e.g. Saree, Kurtas).
+          Click <strong>＋</strong> on any row to add a sub-category inside it.
+          Sub-categories can have their own sub-categories — there's no depth limit.
+          <strong style="color:var(--danger)">Removing a category removes all its descendants too.</strong>
+          Click any category image in the tree or table to <strong>enlarge it</strong>.
+        </div>
+      </div>
+
+      <!-- TWO-COLUMN LAYOUT -->
+      <div class="cat-layout">
+
+        <!-- LEFT: Category Tree -->
+        <div class="tree-sticky">
+          <div class="card">
+            <div class="card-header">
+              <h3>Category Tree</h3>
+              <div class="d-flex gap-8">
+                <button class="btn btn-secondary btn-sm" onclick="toggleAllNodes(true)">Expand</button>
+                <button class="btn btn-secondary btn-sm" onclick="toggleAllNodes(false)">Collapse</button>
+              </div>
+            </div>
+            <!-- overflow-x: auto applied in CSS → enables horizontal scroll -->
+            <div class="tree-scroll" id="catTree">
+              <!-- rendered by renderTree() -->
+            </div>
+            <div class="card-footer" style="font-size:12.5px;color:var(--text-muted);flex-shrink:0;">
+              Total: <strong id="totalCats">—</strong> categories ·
+              <strong id="totalHead">—</strong> head categories
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT: Flat Table + DB View -->
+        <div class="cat-right-panel">
+
+          <!-- All Categories Table -->
+          <div class="card mb-20">
+            <div class="card-header">
+              <h3>All Categories</h3>
+              <button class="btn btn-outline-primary btn-sm" onclick="showDB()">🗄️ View DB Table</button>
+            </div>
+            <div class="table-wrapper">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Image</th>
+                    <th>Category Name</th>
+                    <th>Parent ID</th>
+                    <th>Parent Name</th>
+                    <th>Level</th>
+                    <th>Products</th>
+                    <th>Status</th>
+                    <th id="actionsColHeader">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="catFlatBody"></tbody>
+              </table>
+            </div>
+            <!-- PAGINATION added here -->
+            <div class="pagination-wrap" id="flatPaginationWrap">
+              <span class="page-info" id="flatPageInfo">—</span>
+              <div class="page-btns" id="flatPageBtns"></div>
+            </div>
+          </div>
+
+          <!-- DB view card (hidden by default) -->
+          <div class="card" id="dbCard" style="display:none;">
+            <div class="card-header">
+              <h3>🗄️ Database View — categories table</h3>
+              <button class="btn btn-secondary btn-sm" onclick="document.getElementById('dbCard').style.display='none'">Close</button>
+            </div>
+            <div class="db-scroll">
+              <table class="db-tbl">
+                <thead>
+                  <tr>
+                    <th>id</th><th>category_name</th><th>head_category_id</th>
+                    <th>slug</th><th>other_remarks</th>
+                  </tr>
+                </thead>
+                <tbody id="dbBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+        </div><!-- /cat-right-panel -->
+      </div><!-- /cat-layout -->
+    </div><!-- /page-content -->
+  </div><!-- /main-content -->
+</div><!-- /admin-shell -->
+
+
+<!-- ═══════════════════════════════════════════════
+     ADD / EDIT MODAL
+═══════════════════════════════════════════════ -->
+<div class="modal-overlay" id="catModal">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header">
+      <h3 id="catMTitle">Add Category</h3>
+      <button class="modal-close" onclick="closeModal('catModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="parentBanner" style="background:var(--primary-light);border-radius:9px;padding:11px 14px;margin-bottom:16px;font-size:13px;display:none">
+        📁 Adding sub-category under: <strong id="parentBannerName" style="color:var(--primary)"></strong>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Category Name <span class="required">*</span></label>
+        <input class="form-control" id="catName" placeholder="e.g. Printed Saree" oninput="autoSlug()">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Parent Category</label>
+        <select class="form-control" id="catParent">
+          <option value="">— None (this will be a Head Category) —</option>
+        </select>
+        <div class="form-hint">Leave empty for top-level head category</div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">URL Slug</label>
+        <input class="form-control" id="catSlug" placeholder="auto-generated">
+        <div class="form-hint">URL: /category/<span id="slugPrev" style="color:var(--primary);font-weight:600">-</span></div>
+      </div>
+
+      <!-- ─────────────────────────────────────────────────────
+           CHANGED: Replaced "Icon / Emoji" input with Image upload section.
+           Supports two modes:
+             • URL — paste a direct image URL
+             • Upload — pick / drag-drop a local file (base64 preview, sent to API or uploaded separately)
+           The resolved image URL is stored in a hidden field #catImageUrl
+           which is what saveCat() reads (same as old catIcon field).
+      ───────────────────────────────────────────────────────── -->
+      <div class="form-row cols-2" style="align-items:end;">
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Category Image</label>
+
+          <div class="img-input-wrap">
+            <!-- Tab bar: URL / Upload -->
+            <div class="img-tab-bar">
+              <button class="img-tab active" id="imgTabUrl"    onclick="switchImgTab('url')">🔗 Image URL</button>
+              <button class="img-tab"        id="imgTabUpload" onclick="switchImgTab('upload')">📤 Upload File</button>
+            </div>
+
+            <!-- URL panel -->
+            <div class="img-tab-body" id="imgPanelUrl">
+              <input class="form-control" id="catImgUrlInput"
+                     placeholder="https://…/saree-thumbnail.jpg"
+                     oninput="onImgUrlChange()">
+              <div class="form-hint">Paste a direct image URL for this category</div>
+              <!-- URL preview -->
+              <div class="img-preview-strip" id="urlPreviewStrip">
+                <img id="urlPreviewImg" src="" alt="Preview">
+                <div style="font-size:12px;color:var(--text-muted);flex:1">URL preview</div>
+                <button class="rm-btn" onclick="clearImage()">✕ Remove</button>
+              </div>
+            </div>
+
+            <!-- Upload panel (hidden by default) -->
+            <div class="img-tab-body" id="imgPanelUpload" style="display:none;">
+              <div class="upload-zone" id="uploadZone"
+                   onclick="document.getElementById('catImgFile').click()"
+                   ondragover="event.preventDefault();this.classList.add('drag-over')"
+                   ondragleave="this.classList.remove('drag-over')"
+                   ondrop="handleImgDrop(event)">
+                <input type="file" id="catImgFile" accept="image/*" onchange="handleImgFile(event)">
+                <div style="font-size:28px;opacity:.4;margin-bottom:8px;">🖼️</div>
+                <p style="font-size:13px;color:var(--text-secondary)"><strong>Click to upload</strong> or drag & drop</p>
+                <p style="font-size:11px;color:var(--text-muted)">JPG, PNG, WebP · Max 2 MB · Recommended 200×200 px</p>
+              </div>
+              <!-- Upload preview -->
+              <div class="img-preview-strip" id="uploadPreviewStrip">
+                <img id="uploadPreviewImg" src="" alt="Preview">
+                <div style="font-size:12px;color:var(--text-muted);flex:1" id="uploadFileName">—</div>
+                <button class="rm-btn" onclick="clearImage()">✕ Remove</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Hidden field that always holds the resolved image URL (URL or base64) -->
+          <!-- saveCat() reads this instead of the old #catIcon field -->
+          <input type="hidden" id="catImageUrl">
+        </div>
+
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Display Order</label>
+          <input class="form-control" type="number" id="catOrder" placeholder="1" min="1">
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-top:14px;">
+        <label class="form-label">Description / Remarks</label>
+        <textarea class="form-control" rows="2" id="catRemarks" placeholder="Optional notes about this category…"></textarea>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:12px;background:var(--body-bg);padding:12px 14px;border-radius:9px">
+        <label class="toggle">
+          <input type="checkbox" id="catActive" checked>
+          <span class="toggle-slider"></span>
+        </label>
+        <div>
+          <div style="font-weight:600;font-size:13.5px">Active & Visible</div>
+          <div style="font-size:12px;color:var(--text-muted)">Uncheck to hide this category from the website</div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('catModal')">Cancel</button>
+      <button class="btn btn-primary" id="catSaveBtn" onclick="saveCat()">Save Category</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- DELETE MODAL -->
+<div class="modal-overlay" id="delModal">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-header">
+      <h3>Remove Category</h3>
+      <button class="modal-close" onclick="closeModal('delModal')">✕</button>
+    </div>
+    <div class="modal-body" style="text-align:center;padding:32px 24px">
+      <div style="font-size:52px;margin-bottom:16px">🗑️</div>
+      <h3>Remove "<span id="delCatName" style="color:var(--danger)"></span>"?</h3>
+      <p style="color:var(--text-muted);margin-top:10px;font-size:13.5px" id="delWarn"></p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('delModal')">Cancel</button>
+      <button class="btn btn-danger" onclick="doDelete()">Yes, Remove</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- SCRIPTS -->
+<script src="permissions.js"></script>
+<script src="admin.js"></script>
+
+<script>
+/* ════════════════════════════════════════════════════════════════
+   STATE
+════════════════════════════════════════════════════════════════ */
+let CATS     = [];
+let editId   = null;
+let deleteId = null;
+const OPEN   = new Set();
+const DCOLS  = ['#7C3AED','#F59E0B','#10B981','#3B82F6','#EF4444'];
+const DBGS   = ['var(--primary-light)','var(--accent-light)','var(--success-light)','var(--info-light)','var(--danger-light)'];
+
+/* Pagination state for flat table */
+let flatPage      = 1;
+const FLAT_LIMIT  = 15;   // rows per page
+
+/* Helpers */
+const kids    = (pid) => CATS.filter(c => c.parentId === pid);
+const depth   = (c)   => { let d = 0, cur = c; while (cur.parentId !== null) { cur = CATS.find(x => x.id === cur.parentId); if (!cur) break; d++; } return d; };
+const desc    = (id)  => { const k = kids(id); return k.flatMap(c => [c, ...desc(c.id)]); };
+const slugify = (s)   => s.toLowerCase().trim().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
+
+/* ════════════════════════════════════════════════════════════════
+   mapApiCat — unchanged except we keep image_url as-is
+   (no more emoji fallback — just store the URL or null)
+════════════════════════════════════════════════════════════════ */
+function mapApiCat(apiCat) {
+  return {
+    id:       apiCat.id,
+    name:     apiCat.name,
+    parentId: apiCat.parent_id ?? null,
+    slug:     apiCat.slug,
+    imageUrl: apiCat.image_url || '',   // ← CHANGED: store real URL, empty string if none
+    products: 0,
+    active:   apiCat.is_active,
+    remarks:  apiCat.description || '',
+  };
+}
+
+/* ════════════════════════════════════════════════════════════════
+   IMAGE DISPLAY HELPER
+   Returns an <img> tag if we have a URL, or a fallback emoji box.
+   size: pixel width/height of the box (e.g. 28 for tree, 32 for table)
+   name: category name shown in lightbox title
+════════════════════════════════════════════════════════════════ */
+function catImgHTML(cat, size = 28, bgStyle = '') {
+  if (cat.imageUrl) {
+    return `<img
+      class="cat-img-thumb"
+      src="${cat.imageUrl}"
+      alt="${cat.name}"
+      style="width:${size}px;height:${size}px;border-radius:6px;object-fit:cover;cursor:pointer;"
+      onclick="event.stopPropagation();openLightbox('${cat.imageUrl.replace(/'/g,"\\'")}','${cat.name.replace(/'/g,"\\'")}')">`;
+  }
+  // Fallback: coloured emoji box (same as before)
+  return `<div class="cat-emoji-box" style="width:${size}px;height:${size}px;${bgStyle}">🗂️</div>`;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   LIGHTBOX
+════════════════════════════════════════════════════════════════ */
+function openLightbox(url, name) {
+  document.getElementById('lightboxImg').src   = url;
+  document.getElementById('lightboxName').textContent = name || '';
+  document.getElementById('imgLightbox').classList.add('open');
+}
+
+function closeLightbox(e) {
+  /* If event came from clicking the overlay background (not the image itself) — close */
+  if (e && e.target === document.getElementById('lightboxImg')) return;
+  document.getElementById('imgLightbox').classList.remove('open');
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') document.getElementById('imgLightbox').classList.remove('open');
+});
+
+
+/* ════════════════════════════════════════════════════════════════
+   IMAGE INPUT HELPERS (modal)
+════════════════════════════════════════════════════════════════ */
+function switchImgTab(tab) {
+  document.getElementById('imgTabUrl').classList.toggle('active', tab === 'url');
+  document.getElementById('imgTabUpload').classList.toggle('active', tab === 'upload');
+  document.getElementById('imgPanelUrl').style.display    = tab === 'url'    ? '' : 'none';
+  document.getElementById('imgPanelUpload').style.display = tab === 'upload' ? '' : 'none';
+}
+
+function onImgUrlChange() {
+  const url = document.getElementById('catImgUrlInput').value.trim();
+  document.getElementById('catImageUrl').value = url;
+  const strip = document.getElementById('urlPreviewStrip');
+  if (url) {
+    document.getElementById('urlPreviewImg').src = url;
+    strip.classList.add('show');
+  } else {
+    strip.classList.remove('show');
+  }
+}
+
+function handleImgFile(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  processImageFile(file);
+}
+
+function handleImgDrop(e) {
+  e.preventDefault();
+  document.getElementById('uploadZone').classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file && file.type.startsWith('image/')) processImageFile(file);
+}
+
+function processImageFile(file) {
+  // if (file.size > 2 * 1024 * 1024) {
+  //   showToast('warning', 'File too large', 'Image must be under 2 MB');
+  //   return;
+  // }
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const b64 = ev.target.result;
+    document.getElementById('catImageUrl').value = b64;      // store base64 for preview
+    document.getElementById('uploadPreviewImg').src = b64;
+    document.getElementById('uploadFileName').textContent = file.name;
+    document.getElementById('uploadPreviewStrip').classList.add('show');
+    /* 
+      NOTE for backend integration:
+      When saveCat() sends the payload, if catImageUrl starts with "data:image/"
+      you should either:
+        a) Upload the file to your media server first → get back a URL → store that URL
+        b) Send the base64 to a Django endpoint that saves it and returns image_url
+      For now, base64 is stored in catImageUrl and sent as image_url. 
+      Replace with a real upload call in production.
+    */
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearImage() {
+  document.getElementById('catImageUrl').value        = '';
+  document.getElementById('catImgUrlInput').value     = '';
+  document.getElementById('urlPreviewStrip').classList.remove('show');
+  document.getElementById('uploadPreviewStrip').classList.remove('show');
+  document.getElementById('catImgFile').value         = '';
+}
+
+/* Pre-fill image fields when editing */
+function prefillImage(url) {
+  clearImage();
+  if (!url) return;
+  if (url.startsWith('data:')) {
+    // base64 — show in upload tab
+    switchImgTab('upload');
+    document.getElementById('catImageUrl').value        = url;
+    document.getElementById('uploadPreviewImg').src     = url;
+    document.getElementById('uploadFileName').textContent = 'Existing image';
+    document.getElementById('uploadPreviewStrip').classList.add('show');
+  } else {
+    // URL — show in url tab
+    switchImgTab('url');
+    document.getElementById('catImgUrlInput').value     = url;
+    document.getElementById('catImageUrl').value        = url;
+    document.getElementById('urlPreviewImg').src        = url;
+    document.getElementById('urlPreviewStrip').classList.add('show');
+  }
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   LOADING STATE
+════════════════════════════════════════════════════════════════ */
+function setLoading(on) {
+  const tree  = document.getElementById('catTree');
+  const tbody = document.getElementById('catFlatBody');
+  if (on) {
+    tree.innerHTML  = '<div style="text-align:center;padding:32px;color:var(--text-muted);font-size:13px">⏳ Loading categories…</div>';
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:32px;color:var(--text-muted)">⏳ Loading…</td></tr>';
+  }
+}
+
+const BASE_URL = 'http://34.231.15.242:8001/api';
+
+function getToken()    { return localStorage.getItem('adminToken') || sessionStorage.getItem('adminData') || ''; }
+function authHeaders() { return { 'Content-Type': 'application/json', 'Authorization': 'Token ' + getToken() }; }
+
+
+/* ════════════════════════════════════════════════════════════════
+   initPage — PermGuard + static element gates (unchanged)
+════════════════════════════════════════════════════════════════ */
+function initPage() {
+  PermGuard.init({ module: 'categories', loginUrl: 'admin-login.html' });
+  PermGuard.guard('#addHeadCatBtn', 'categories', 'add_category');
+
+  const hasAnyWrite = perm('categories','add_category') || perm('categories','edit_category') || perm('categories','delete_category');
+  if (!hasAnyWrite) {
+    document.getElementById('readonlyNotice').style.display = 'inline-flex';
+    document.getElementById('actionsColHeader').style.display = 'none';
+  }
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   LOAD FROM API
+════════════════════════════════════════════════════════════════ */
+async function loadCategories() {
+  setLoading(true);
+  try {
+    const res  = await API.get('/categories/?per_page=500');
+    const data = res.data || res;
+    const list = data.categories || data.data?.categories || [];
+    CATS = list.map(mapApiCat);
+    CATS.filter(c => c.parentId === null).forEach(c => OPEN.add(c.id));
+    renderTree();
+    renderFlat();
+  } catch (err) {
+    console.error('Failed to load categories:', err);
+    document.getElementById('catTree').innerHTML =
+      '<div style="text-align:center;padding:32px;color:var(--danger);font-size:13px">❌ Failed to load categories. Please refresh.</div>';
+    document.getElementById('catFlatBody').innerHTML =
+      '<tr><td colspan="9" style="text-align:center;padding:32px;color:var(--danger)">❌ Failed to load categories.</td></tr>';
+    showToast('error', 'Load Error', 'Could not fetch categories from server.');
+  }
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   TREE RENDERING
+   CHANGED: .cat-dot now renders catImgHTML() instead of raw emoji
+════════════════════════════════════════════════════════════════ */
+function buildNode(cat, dep = 0) {
+  const ch      = kids(cat.id);
+  const hasKids = ch.length > 0;
+  const isOpen  = OPEN.has(cat.id);
+
+  const addBtn    = perm('categories','add_category')
+    ? `<button class="ta add" onclick="event.stopPropagation();openAdd(${cat.id})" title="Add sub-category">＋</button>` : '';
+  const editBtn   = perm('categories','edit_category')
+    ? `<button class="ta edt" onclick="event.stopPropagation();openEdit(${cat.id})" title="Edit">✏️</button>` : '';
+  const deleteBtn = perm('categories','delete_category')
+    ? `<button class="ta del" onclick="event.stopPropagation();askDel(${cat.id})" title="Remove">🗑️</button>` : '';
+
+  const treeActsHTML = (addBtn || editBtn || deleteBtn)
+    ? `<div class="tree-acts">${addBtn}${editBtn}${deleteBtn}</div>` : '';
+
+  /* ── CHANGED: cat-dot now shows image or emoji fallback ── */
+  const dotHTML = `
+    <div class="cat-dot"
+         style="background:${DBGS[Math.min(dep,4)]};color:${DCOLS[Math.min(dep,4)]}"
+         ${cat.imageUrl ? `onclick="event.stopPropagation();openLightbox('${cat.imageUrl.replace(/'/g,"\\'")}','${cat.name.replace(/'/g,"\\'")}');"` : ''}>
+      ${cat.imageUrl
+        ? `<img src="${cat.imageUrl}" alt="${cat.name}" style="width:100%;height:100%;object-fit:cover;border-radius:6px;">`
+        : '🗂️'}
+    </div>`;
+
+  return `
+    <div style="margin-bottom:2px">
+      <div class="tree-header" id="th-${cat.id}" onclick="nodeClick(event,${cat.id},${hasKids})">
+        <div class="tree-toggle ${hasKids ? (isOpen ? 'open' : '') : 'leaf'}" id="tgl-${cat.id}">▶</div>
+        ${dotHTML}
+        <div class="tree-lbl">${cat.name}</div>
+        ${hasKids ? `<span class="tree-meta">${ch.length} sub</span>` : ''}
+        <span class="tree-meta">${cat.products}p</span>
+        <span class="badge ${cat.active ? 'badge-success' : 'badge-gray'}" style="font-size:9px;padding:2px 6px">${cat.active ? '●' : '○'}</span>
+        ${treeActsHTML}
+      </div>
+      <div id="tc-${cat.id}" class="tree-kids ${isOpen && hasKids ? '' : 'hidden'}">
+        ${ch.map(k => buildNode(k, dep + 1)).join('')}
+      </div>
+    </div>`;
+}
+
+function renderTree() {
+  const roots = CATS.filter(c => c.parentId === null);
+  document.getElementById('catTree').innerHTML = roots.map(c => buildNode(c, 0)).join('');
+  document.getElementById('totalCats').textContent = CATS.length;
+  document.getElementById('totalHead').textContent  = roots.length;
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   FLAT TABLE RENDERING — with PAGINATION
+   CHANGED:
+     • Added "Image" column
+     • Image cell uses catImgHTML() — shows <img> or emoji
+     • Pagination controls rendered below table
+════════════════════════════════════════════════════════════════ */
+function renderFlat(searchFilter = '') {
+  const LEVELS = ['Head','Level 2','Level 3','Level 4','Level 5'];
+  const canAdd    = perm('categories','add_category');
+  const canEdit   = perm('categories','edit_category');
+  const canDelete = perm('categories','delete_category');
+  const hasAnyWrite = canAdd || canEdit || canDelete;
+
+  /* Apply optional search filter */
+  let data = CATS;
+  if (searchFilter) {
+    const q = searchFilter.toLowerCase();
+    data = CATS.filter(c => c.name.toLowerCase().includes(q) || (c.slug||'').toLowerCase().includes(q));
+  }
+
+  const total      = data.length;
+  const totalPages = Math.max(1, Math.ceil(total / FLAT_LIMIT));
+  if (flatPage > totalPages) flatPage = totalPages;
+
+  const start   = (flatPage - 1) * FLAT_LIMIT;
+  const pageData = data.slice(start, start + FLAT_LIMIT);
+
+  /* Render table rows */
+  document.getElementById('catFlatBody').innerHTML = pageData.map(cat => {
+    const par = cat.parentId ? CATS.find(c => c.id === cat.parentId) : null;
+    const d   = depth(cat);
+
+    /* ── CHANGED: Image cell — shows clickable thumbnail or fallback ── */
+    const imageCell = `
+      <td style="text-align:center;">
+        ${cat.imageUrl
+          ? `<img
+               src="${cat.imageUrl}"
+               alt="${cat.name}"
+               class="cat-img-thumb"
+               style="width:32px;height:32px;"
+               onclick="openLightbox('${cat.imageUrl.replace(/'/g,"\\'")}','${cat.name.replace(/'/g,"\\'")}')">
+            `
+          : `<div class="cat-emoji-box" style="width:32px;height:32px;background:${DBGS[d]};border-radius:6px;margin:auto;">🗂️</div>`}
+      </td>`;
+
+    const actionsCell = hasAnyWrite ? `
+      <td>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          ${canAdd    ? `<button class="btn btn-secondary btn-sm btn-icon" title="Add sub-category" onclick="openAdd(${cat.id})">＋</button>` : ''}
+          ${canEdit   ? `<button class="btn btn-secondary btn-sm btn-icon" title="Edit" onclick="openEdit(${cat.id})">✏️</button>` : ''}
+          ${canDelete ? `<button class="btn btn-danger btn-sm btn-icon"    title="Remove" onclick="askDel(${cat.id})">🗑️</button>` : ''}
+        </div>
+      </td>` : '';
+
+    return `
+      <tr>
+        <td style="font-family:monospace;font-weight:700;color:var(--primary)">${cat.id}</td>
+        ${imageCell}
+        <td>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="width:${d * 14}px;flex-shrink:0;"></div>
+            <strong style="white-space:nowrap;">${cat.name}</strong>
+          </div>
+        </td>
+        <td style="font-family:monospace">${cat.parentId ?? `<span class="null-val">NULL</span>`}</td>
+        <td>${par ? `<span class="badge badge-gray">${par.name}</span>` : `<em style="color:var(--text-muted)">None</em>`}</td>
+        <td><span class="depth-chip" style="background:${DBGS[d]};color:${DCOLS[d]}">${LEVELS[d] || 'Deep'}</span></td>
+        <td><strong>${cat.products}</strong></td>
+        <td><span class="badge ${cat.active ? 'badge-success' : 'badge-gray'}">${cat.active ? '● Active' : '○ Inactive'}</span></td>
+        ${actionsCell}
+      </tr>`;
+  }).join('');
+
+  /* Sync Actions column header */
+  document.getElementById('actionsColHeader').style.display = hasAnyWrite ? '' : 'none';
+
+  /* ── Render pagination ── */
+  renderFlatPagination(total, totalPages, searchFilter);
+}
+
+function renderFlatPagination(total, totalPages, searchFilter) {
+  const start = (flatPage - 1) * FLAT_LIMIT + 1;
+  const end   = Math.min(flatPage * FLAT_LIMIT, total);
+
+  document.getElementById('flatPageInfo').textContent =
+    total === 0 ? 'No categories' : `Showing ${start}–${end} of ${total} categories`;
+
+  const container = document.getElementById('flatPageBtns');
+  if (totalPages <= 1) { container.innerHTML = ''; return; }
+
+  let html = `<button class="page-btn" ${flatPage === 1 ? 'disabled' : ''} onclick="goFlatPage(${flatPage - 1}, '${searchFilter}')">‹</button>`;
+
+  for (let i = 1; i <= totalPages; i++) {
+    if (totalPages > 7 && Math.abs(i - flatPage) > 2 && i !== 1 && i !== totalPages) {
+      if (i === 2 || i === totalPages - 1) html += `<button class="page-btn" disabled>…</button>`;
+      continue;
+    }
+    html += `<button class="page-btn ${i === flatPage ? 'active' : ''}" onclick="goFlatPage(${i}, '${searchFilter}')">${i}</button>`;
+  }
+
+  html += `<button class="page-btn" ${flatPage === totalPages ? 'disabled' : ''} onclick="goFlatPage(${flatPage + 1}, '${searchFilter}')">›</button>`;
+  container.innerHTML = html;
+}
+
+function goFlatPage(page, sf = '') {
+  flatPage = page;
+  renderFlat(sf);
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   TREE INTERACTION (unchanged)
+════════════════════════════════════════════════════════════════ */
+function nodeClick(e, id, hasKids) {
+  if (e.target.closest('.tree-acts') || e.target.closest('.cat-dot')) return;
+  if (!hasKids) return;
+  const tc  = document.getElementById('tc-' + id);
+  const tgl = document.getElementById('tgl-' + id);
+  const isOpen = OPEN.has(id);
+  if (isOpen) { OPEN.delete(id); tc.classList.add('hidden');    tgl.classList.remove('open'); }
+  else        { OPEN.add(id);    tc.classList.remove('hidden'); tgl.classList.add('open'); }
+}
+
+function toggleAllNodes(open) {
+  CATS.forEach(c => { if (kids(c.id).length) { if (open) OPEN.add(c.id); else OPEN.delete(c.id); } });
+  renderTree();
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   OPEN ADD MODAL
+   CHANGED: clears image fields too
+════════════════════════════════════════════════════════════════ */
+function openAdd(parentId) {
+  if (!perm('categories','add_category')) {
+    showToast('error','Access Denied','You do not have permission to add categories.');
+    return;
+  }
+  editId = null;
+  document.getElementById('catMTitle').textContent  = 'Add Category';
+  document.getElementById('catSaveBtn').textContent = 'Save Category';
+  ['catName','catSlug','catRemarks','catOrder'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('slugPrev').textContent  = '-';
+  document.getElementById('catActive').checked     = true;
+
+  /* ── CHANGED: clear image fields ── */
+  clearImage();
+  switchImgTab('url');
+
+  fillParent(null);
+  const pb = document.getElementById('parentBanner');
+  if (parentId) {
+    const par = CATS.find(c => c.id === parentId);
+    document.getElementById('catParent').value               = parentId;
+    document.getElementById('parentBannerName').textContent  = par?.name || '';
+    pb.style.display = 'block';
+  } else {
+    document.getElementById('catParent').value = '';
+    pb.style.display = 'none';
+  }
+  openModal('catModal');
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   OPEN EDIT MODAL
+   CHANGED: pre-fills image URL into the image input section
+════════════════════════════════════════════════════════════════ */
+function openEdit(id) {
+  if (!perm('categories','edit_category')) {
+    showToast('error','Access Denied','You do not have permission to edit categories.');
+    return;
+  }
+  const c = CATS.find(x => x.id === id);
+  if (!c) return;
+  editId = id;
+  document.getElementById('catMTitle').textContent  = 'Edit – ' + c.name;
+  document.getElementById('catSaveBtn').textContent = 'Update Category';
+  document.getElementById('catName').value          = c.name;
+  document.getElementById('catSlug').value          = c.slug;
+  document.getElementById('slugPrev').textContent   = c.slug;
+  document.getElementById('catRemarks').value       = c.remarks || '';
+  document.getElementById('catActive').checked      = c.active;
+  document.getElementById('parentBanner').style.display = 'none';
+  fillParent(id);
+  document.getElementById('catParent').value = c.parentId ?? '';
+
+  /* ── CHANGED: pre-fill image ── */
+  prefillImage(c.imageUrl || '');
+
+  openModal('catModal');
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   SAVE (Create or Update)
+   CHANGED: reads #catImageUrl instead of #catIcon
+════════════════════════════════════════════════════════════════ */
+async function saveCat() {
+  const isNew = !editId;
+  if (isNew  && !perm('categories','add_category'))  { showToast('error','Access Denied','No permission to add categories.');  return; }
+  if (!isNew && !perm('categories','edit_category')) { showToast('error','Access Denied','No permission to edit categories.'); return; }
+
+  const name = document.getElementById('catName').value.trim();
+  if (!name) { showToast('warning','Required','Category name is required'); return; }
+
+  const parentId = document.getElementById('catParent').value
+    ? Number(document.getElementById('catParent').value) : null;
+
+  const slug = document.getElementById('catSlug').value.trim() || slugify(name);
+
+  /* ── CHANGED: read from hidden #catImageUrl field ── */
+  const imageUrl = document.getElementById('catImageUrl').value.trim();
+
+  const apiPayload = {
+    name,
+    slug,
+    parent_id:   parentId,
+    image_url:   imageUrl,           // ← CHANGED: was icon (emoji), now real URL or base64
+    description: document.getElementById('catRemarks').value.trim(),
+    is_active:   document.getElementById('catActive').checked,
+  };
+
+  const saveBtn = document.getElementById('catSaveBtn');
+  saveBtn.disabled    = true;
+  saveBtn.textContent = 'Saving…';
+  console.log(isNew ? 'Creating category with payload:' : 'Updating category with payload:', apiPayload);
+
+  try {
+    if (editId) {
+      const res     = await API.put('/categories/' + editId + '/', apiPayload);
+      console.log('Update response:', res);
+      const updated = res.data?.category || res.category || res.data || res;
+      const idx     = CATS.findIndex(c => c.id === editId);
+      if (idx !== -1) CATS[idx] = mapApiCat(updated);
+      showToast('success','Updated',`"${name}" updated successfully`);
+    } else {
+      const res = await fetch(`${BASE_URL}/categories/`, {
+        method:  'POST',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body:    JSON.stringify(apiPayload),
+      });
+      const data    = await res.json();
+      console.log('Create response:', data);
+      const created = data.data?.category || data.category || data.data || data;
+      CATS.push(mapApiCat(created));
+      if (parentId) OPEN.add(parentId);
+      showToast('success','Created',`"${name}" created successfully`);
+    }
+    closeModal('catModal');
+    renderTree();
+    flatPage = 1;
+    renderFlat();
+  } catch (err) {
+    console.error('Save category error:', err);
+    const msg = err?.response?.data?.error || err?.message || 'Failed to save category. Please try again.';
+    showToast('error','Error',msg);
+  } finally {
+    saveBtn.disabled    = false;
+    saveBtn.textContent = isNew ? 'Save Category' : 'Update Category';
+  }
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   DELETE (unchanged logic, only colspan updated to 9)
+════════════════════════════════════════════════════════════════ */
+function askDel(id) {
+  if (!perm('categories','delete_category')) {
+    showToast('error','Access Denied','You do not have permission to delete categories.');
+    return;
+  }
+  const c = CATS.find(x => x.id === id);
+  if (!c) return;
+  deleteId = id;
+  const d  = desc(id);
+  document.getElementById('delCatName').textContent = c.name;
+  document.getElementById('delWarn').innerHTML = d.length
+    ? `⚠️ This will also permanently remove <strong>${d.length} sub-categor${d.length===1?'y':'ies'}</strong> inside it.`
+    : 'This category has no sub-categories.';
+  openModal('delModal');
+}
+
+async function doDelete() {
+  if (!perm('categories','delete_category')) {
+    showToast('error','Access Denied','No permission to delete categories.');
+    closeModal('delModal');
+    return;
+  }
+
+  const delBtn = document.querySelector('#delModal .btn-danger');
+  if (delBtn) { delBtn.disabled = true; delBtn.textContent = 'Deleting…'; }
+
+  try {
+    await API.delete('/categories/' + deleteId + '/');
+    const ids = new Set([deleteId, ...desc(deleteId).map(c => c.id)]);
+    CATS = CATS.filter(c => !ids.has(c.id));
+    ids.forEach(id => OPEN.delete(id));
+    closeModal('delModal');
+    renderTree();
+    flatPage = 1;
+    renderFlat();
+    showToast('success','Removed','Category removed successfully');
+  } catch (err) {
+    console.error('Delete category error:', err);
+    const msg = err?.response?.data?.error || 'Failed to delete. The category may have sub-categories or products.';
+    showToast('error','Cannot Delete',msg);
+    closeModal('delModal');
+  } finally {
+    if (delBtn) { delBtn.disabled = false; delBtn.textContent = 'Yes, Remove'; }
+  }
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   DB TABLE VIEW (updated colspan to 9)
+════════════════════════════════════════════════════════════════ */
+function showDB() {
+  const card = document.getElementById('dbCard');
+  card.style.display = 'block';
+  card.scrollIntoView({ behavior: 'smooth' });
+  document.getElementById('dbBody').innerHTML = CATS.map(c => `
+    <tr>
+      <td>${c.id}</td>
+      <td>${c.name}</td>
+      <td>${c.parentId ?? `<span class="null-val">NULL</span>`}</td>
+      <td>${c.slug}</td>
+      <td>${c.remarks || `<span class="null-val">NULL</span>`}</td>
+    </tr>`).join('');
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   SEARCH FILTER — now goes through renderFlat with filter string
+   CHANGED: filterCats passes query to renderFlat so pagination works
+════════════════════════════════════════════════════════════════ */
+function filterCats(q) {
+  flatPage = 1;
+  renderFlat(q);
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   FORM HELPERS (unchanged)
+════════════════════════════════════════════════════════════════ */
+function fillParent(excl = null) {
+  const s = document.getElementById('catParent');
+  s.innerHTML = '<option value="">— None (Head Category) —</option>';
+  CATS.filter(c => c.id !== excl).forEach(c => {
+    const d = depth(c);
+    s.innerHTML += `<option value="${c.id}">${'—'.repeat(d) + ' '}${c.name}</option>`;
+  });
+}
+
+function autoSlug() {
+  const v = slugify(document.getElementById('catName').value);
+  document.getElementById('catSlug').value       = v;
+  document.getElementById('slugPrev').textContent = v || '-';
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   MODAL / TOAST / SIDEBAR (unchanged)
+════════════════════════════════════════════════════════════════ */
+function openModal(id)  { document.getElementById(id)?.classList.add('open'); }
+function closeModal(id) { document.getElementById(id)?.classList.remove('open'); }
+
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) overlay.classList.remove('open');
+  });
+});
+
+function showToast(type, title, msg) {
+  const icons = { success:'✅', error:'❌', info:'ℹ️', warning:'⚠️' };
+  const tc    = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.innerHTML = `<span style="font-size:18px;">${icons[type]||'ℹ️'}</span><div><div style="font-size:13px;font-weight:600;">${title}</div><div style="font-size:12px;color:#6b7c75;margin-top:2px;">${msg}</div></div>`;
+  tc.appendChild(toast);
+  setTimeout(() => toast.remove(), 4000);
+}
+
+document.getElementById('sidebarToggle').addEventListener('click', () => {
+  const sidebar  = document.getElementById('sidebar');
+  const main     = document.getElementById('mainContent');
+  const collapsed = sidebar.classList.toggle('collapsed');
+  main.classList.toggle('expanded', collapsed);
+});
+
+
+/* ════════════════════════════════════════════════════════════════
+   BOOT
+════════════════════════════════════════════════════════════════ */
+initPage();
+loadCategories();
+</script>
+</body>
+</html>

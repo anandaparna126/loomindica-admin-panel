@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard – LoomIndica Admin</title>
+  <link rel="stylesheet" href="admin.css">
+  <style>
+    /* ── Chart areas ─────────────────────────────────── */
+    .revenue-chart-wrap { position: relative; height: 260px; }
+    .revenue-chart-wrap canvas { width: 100% !important; height: 100% !important; }
+
+    /* ── Recent orders mini list ─────────────────────── */
+    .order-mini { display: flex; align-items: center; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--border); }
+    .order-mini:last-child { border-bottom: none; }
+    .order-mini-avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--primary-light); color: var(--primary); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; flex-shrink: 0; }
+
+    /* ── Category donut legend ───────────────────────── */
+    .donut-legend { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+    .legend-item  { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+    .legend-dot   { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+    /* ── Top products list ───────────────────────────── */
+    .quick-stat { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .quick-stat:last-child { border-bottom: none; }
+
+    /* ── Sidebar collapse ────────────────────────────── */
+    .sidebar.collapsed { width: 64px; }
+    .sidebar.collapsed .brand-text,
+    .sidebar.collapsed .nav-label,
+    .sidebar.collapsed .nav-section-label { opacity: 0; pointer-events: none; width: 0; }
+
+    /* ── Permission-locked overlay (blurs a card when
+         the user has NO permission for that module) ──── */
+    .perm-locked {
+      position: relative;
+      pointer-events: none;
+      user-select: none;
+      opacity: 0.32;
+      filter: blur(2px);
+    }
+    .perm-locked::after {
+      content: '🔒';
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 28px;
+      pointer-events: none;
+    }
+
+    /* ── No-access page state ────────────────────────── */
+    .no-access-page {
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      min-height: 60vh; padding: 48px 24px; text-align: center;
+    }
+    .no-access-page .icon { font-size: 64px; margin-bottom: 20px; }
+    .no-access-page h2 { font-size: 22px; font-weight: 700; margin-bottom: 10px; }
+    .no-access-page p  { font-size: 14px; color: var(--text-muted); max-width: 360px; line-height: 1.7; }
+    .no-access-page .role-tag {
+      margin-top: 20px; background: var(--body-bg);
+      border: 1px solid var(--border); border-radius: 20px;
+      padding: 6px 18px; font-size: 12.5px; color: var(--text-muted);
+    }
+
+    /* ── Responsive ──────────────────────────────────── */
+    @media (max-width: 768px) {
+      .page-header       { flex-direction: column; align-items: flex-start; gap: 10px; }
+      .page-header .d-flex { flex-wrap: wrap; }
+      #chartsGrid        { grid-template-columns: 1fr !important; }
+      #bottomRow         { grid-template-columns: 1fr !important; }
+      #statsGrid         { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 480px) {
+      #statsGrid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="mobile-overlay" id="mobileOverlay"></div>
+<div id="toast-container"></div>
+
+<div class="admin-shell">
+
+  <!-- ══════════════════════════════════════════════════════
+       SIDEBAR — nav items are hidden by PermGuard._updateSidebar()
+       for any module where the admin has 0 permissions.
+  ══════════════════════════════════════════════════════ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon">LI</div>
+      <div class="brand-text"><h3>LoomIndica</h3><span>Admin Panel</span></div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Main</div>
+      <div class="nav-item"><a href="dashboard.html" class="nav-link active" data-label="Dashboard"><span class="nav-icon">📊</span><span class="nav-label">Dashboard</span></a></div>
+
+      <div class="nav-section-label">Catalogue</div>
+      <div class="nav-item"><a href="products.html"   class="nav-link" data-label="Products"><span class="nav-icon">🛍️</span><span class="nav-label">Products</span></a></div>
+      <div class="nav-item"><a href="categories.html" class="nav-link" data-label="Categories"><span class="nav-icon">🗂️</span><span class="nav-label">Categories</span></a></div>
+      <div class="nav-item"><a href="inventory.html"  class="nav-link" data-label="Inventory"><span class="nav-icon">📦</span><span class="nav-label">Inventory</span>
+        <!-- <span class="nav-badge" id="navInvBadge">8</span> -->
+      </a></div>
+
+      <div class="nav-section-label">Sales</div>
+      <div class="nav-item"><a href="orders.html"      class="nav-link" data-label="Orders"><span class="nav-icon">🧾</span><span class="nav-label">Orders</span>
+        <!-- <span class="nav-badge" id="navOrdBadge">24</span> -->
+      </a></div>
+      <div class="nav-item"><a href="customers.html"   class="nav-link" data-label="Customers"><span class="nav-icon">👥</span><span class="nav-label">Customers</span></a></div>
+      <div class="nav-item"><a href="transactions.html" class="nav-link" data-label="Transactions"><span class="nav-icon">💳</span><span class="nav-label">Transactions</span></a></div>
+
+      <div class="nav-section-label">Marketing</div>
+      <div class="nav-item"><a href="coupons.html" class="nav-link" data-label="Coupons"><span class="nav-icon">🎟️</span><span class="nav-label">Coupons</span></a></div>
+      <div class="nav-item"><a href="banners.html" class="nav-link" data-label="Banners"><span class="nav-icon">🖼️</span><span class="nav-label">Banners & Offers</span></a></div>
+      <div class="nav-item"><a href="featured-collections.html"   class="nav-link" data-label="Featured">   <span class="nav-icon">✨</span><span class="nav-label">Featured Collections</span></a></div>
+      <div class="nav-item"><a href="blogs.html"   class="nav-link" data-label="Blog"><span class="nav-icon">✍️</span><span class="nav-label">Blog</span></a></div>
+      <div class="nav-section-label">Analytics</div>
+      <div class="nav-item"><a href="reports.html"  class="nav-link" data-label="Reports"><span class="nav-icon">📈</span><span class="nav-label">Reports</span></a></div>
+
+      <div class="nav-section-label">System</div>
+      <div class="nav-item"><a href="settings.html" class="nav-link" data-label="Settings"><span class="nav-icon">⚙️</span><span class="nav-label">Settings</span></a></div>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="sidebar-user">
+        <!-- PermGuard._updateTopbar() fills these -->
+        <div class="user-avatar">A</div>
+        <div class="user-info"><strong>Admin</strong><span>Role</span></div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <div class="main-content" id="mainContent">
+
+    <!-- ══════════════════════════════════════════════════
+         TOPBAR
+    ══════════════════════════════════════════════════ -->
+    <header class="topbar">
+      <button class="topbar-toggle" id="sidebarToggle" title="Toggle Sidebar">☰</button>
+
+      <div class="topbar-search">
+        <i>🔍</i>
+        <input type="text" placeholder="Search orders, products, customers…">
+      </div>
+
+      <div class="topbar-actions">
+
+        <!-- ── Notifications bell ─────────────────────────
+             id="notificationsPanel" → gated by view_notifications
+             The entire bell + dropdown is hidden if no permission.
+        ─────────────────────────────────────────────── -->
+        <div class="dropdown" id="notificationsPanel">
+          <button class="topbar-btn" data-dropdown title="Notifications">
+            🔔<span class="notif-dot"></span>
+          </button>
+          <div class="dropdown-menu" style="min-width:300px;padding:8px 0;">
+            <div style="padding:10px 16px;font-weight:700;font-size:13px;border-bottom:1px solid var(--border)">
+              Notifications
+            </div>
+            <!-- Individual notification items filled by loadDashboard() -->
+            <div id="notifItems">
+              <div class="dropdown-item" style="color:var(--text-muted);font-size:13px">Loading…</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="topbar-divider"></div>
+
+        <!-- ── User menu ──────────────────────────────── -->
+        <div class="dropdown">
+          <div class="topbar-user" data-dropdown>
+            <!-- PermGuard._updateTopbar() populates these -->
+            <div class="avatar">A</div>
+            <div class="topbar-user-info">
+              <strong>Admin</strong>
+              <span>Role</span>
+            </div>
+            <span style="font-size:11px;color:var(--text-muted);margin-left:4px">▾</span>
+          </div>
+          <div class="dropdown-menu">
+            <div class="dropdown-item">👤 My Profile</div>
+            <div class="dropdown-item">⚙️ Settings</div>
+            <div class="dropdown-divider"></div>
+            <!-- data-logout → PermGuard._updateTopbar() wires this -->
+            <div class="dropdown-item danger" data-logout>🚪 Logout</div>
+          </div>
+        </div>
+
+      </div>
+    </header>
+
+    <!-- ══════════════════════════════════════════════════
+         PAGE CONTENT
+    ══════════════════════════════════════════════════ -->
+    <div class="page-content" id="pageContent">
+
+      <!-- Page Header -->
+      <div class="page-header">
+        <div class="page-header-left">
+          <h1>Dashboard</h1>
+          <div class="breadcrumb">
+            <span id="greetingText">Welcome back</span>
+            <i>›</i>
+            <span id="roleBadge" style="background:var(--primary-light);color:var(--primary);padding:2px 10px;border-radius:20px;font-size:12px;font-weight:700;">—</span>
+          </div>
+        </div>
+        <div class="d-flex gap-8 align-center">
+          <button class="btn btn-secondary btn-sm" id="dateBtn">📅 <span id="currentMonthLabel">—</span></button>
+          <!-- id="exportReportBtn" → gated by export_report -->
+          <button class="btn btn-primary btn-sm" id="exportReportBtn" onclick="exportReport()">
+            📥 Export Report
+          </button>
+        </div>
+      </div>
+
+      <!-- Alert Banners — filled by loadDashboard() when user has view_notifications -->
+      <div id="alertBanners" style="margin-bottom:20px;display:flex;flex-direction:column;gap:8px;"></div>
+
+      <!-- ══════════════════════════════════════════════
+           STAT CARDS
+           • Revenue card  → needs view_revenue
+           • Orders card   → always visible (view_dashboard)
+           • Products card → always visible (view_dashboard)
+           • Customers card → always visible (view_dashboard)
+      ══════════════════════════════════════════════ -->
+      <div class="grid-4 stagger mb-24" id="statsGrid">
+
+        <!-- Revenue Card — id="revenueStatCard" gated by view_revenue -->
+        <div class="stat-card purple" id="revenueStatCard">
+          <div class="stat-top">
+            <div class="stat-icon purple">💰</div>
+            <span class="stat-change up" id="revenueChange">…</span>
+          </div>
+          <div>
+            <div class="stat-value" id="statRevenue">—</div>
+            <div class="stat-label">Total Revenue</div>
+          </div>
+        </div>
+
+        <div class="stat-card amber">
+          <div class="stat-top">
+            <div class="stat-icon amber">🧾</div>
+            <span class="stat-change up" id="ordersChange">…</span>
+          </div>
+          <div>
+            <div class="stat-value" id="statOrders">—</div>
+            <div class="stat-label">Total Orders</div>
+          </div>
+        </div>
+
+        <div class="stat-card green">
+          <div class="stat-top">
+            <div class="stat-icon green">🛍️</div>
+            <span class="stat-change up" id="productsChange">…</span>
+          </div>
+          <div>
+            <div class="stat-value" id="statProducts">—</div>
+            <div class="stat-label">Total Products</div>
+          </div>
+        </div>
+
+        <div class="stat-card blue">
+          <div class="stat-top">
+            <div class="stat-icon blue">👥</div>
+            <span class="stat-change up" id="customersChange">…</span>
+          </div>
+          <div>
+            <div class="stat-value" id="statCustomers">—</div>
+            <div class="stat-label">Total Customers</div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ══════════════════════════════════════════════
+           CHARTS ROW
+           id="revenueSection" → contains both the revenue
+           chart card AND the donut card.
+           The entire section is gated by view_revenue.
+
+           If view_revenue is denied:
+             • Both chart cards are hidden
+             • No chart JS runs (no wasted API calls)
+      ══════════════════════════════════════════════ -->
+      <div class="grid-2 mb-24" id="chartsGrid">
+
+        <!-- Revenue Bar Chart card — id="revenueSection" -->
+        <div class="card" id="revenueSection">
+          <div class="card-header">
+            <h3>Monthly Revenue</h3>
+            <div class="d-flex gap-8">
+              <button class="btn btn-secondary btn-sm" id="chartRevBtn" onclick="switchChart('revenue')">Revenue</button>
+              <button class="btn btn-secondary btn-sm" id="chartOrdBtn" onclick="switchChart('orders')">Orders</button>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="revenue-chart-wrap">
+              <canvas id="revenueChart" width="560" height="260"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Category Sales Donut — also part of revenue/analytics view -->
+        <div class="card" id="donutSection">
+          <div class="card-header">
+            <h3>Sales by Category</h3>
+            <span class="badge badge-success">This Month</span>
+          </div>
+          <div class="card-body" style="display:flex;align-items:center;gap:20px;">
+            <canvas id="donutChart" width="160" height="160" style="flex-shrink:0"></canvas>
+            <div class="donut-legend" id="donutLegend"></div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ══════════════════════════════════════════════
+           BOTTOM ROW
+           Left  → Recent Orders (cross-module: orders.view_orders)
+           Right → Top Products  (cross-module: products.view_products)
+                   + Quick counters (pending orders, low stock)
+      ══════════════════════════════════════════════ -->
+      <div style="display:grid;grid-template-columns:1.6fr 1fr;gap:20px;" id="bottomRow">
+
+        <!-- Recent Orders card — id="recentOrdersCard" -->
+        <div class="card" id="recentOrdersCard">
+          <div class="card-header">
+            <h3>Recent Orders</h3>
+            <a href="orders.html" class="btn btn-outline-primary btn-sm" id="viewAllOrdersBtn">View All</a>
+          </div>
+          <div class="card-body" style="padding:0">
+            <div class="table-wrapper">
+              <table class="data-table" id="dashRecentOrders">
+                <thead>
+                  <tr>
+                    <th>Order ID</th>
+                    <th>Customer</th>
+                    <!-- Amount column hidden if no view_revenue -->
+                    <th id="thAmount">Amount</th>
+                    <th>Status</th>
+                    <th>Date</th>
+                  </tr>
+                </thead>
+                <tbody id="recentOrdersBody">
+                  <tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-muted)">Loading…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right column: Top Products + Quick counters -->
+        <div style="display:flex;flex-direction:column;gap:16px;">
+
+          <!-- Top Products card — id="topProductsCard" -->
+          <div class="card" id="topProductsCard">
+            <div class="card-header"><h3>Top Products</h3></div>
+            <div class="card-body" style="padding:12px 20px">
+              <div id="topProductsList">
+                <div style="text-align:center;padding:20px;color:var(--text-muted);font-size:13px">Loading…</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick Counters card — id="quickCountersCard" -->
+          <div class="card" id="quickCountersCard">
+            <div class="card-footer" style="border-top:none">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                <!-- Pending orders counter — shown only if orders.view_orders -->
+                <div id="pendingOrdersBlock" style="text-align:center;padding:10px;background:var(--primary-light);border-radius:8px">
+                  <div style="font-weight:700;font-size:18px;color:var(--primary)" id="pendingCount">—</div>
+                  <div style="font-size:12px;color:var(--text-muted)">Pending Orders</div>
+                </div>
+                <!-- Low stock counter — shown only if inventory.view_inventory -->
+                <div id="lowStockBlock" style="text-align:center;padding:10px;background:var(--danger-light);border-radius:8px">
+                  <div style="font-weight:700;font-size:18px;color:var(--danger)" id="lowStockCount">—</div>
+                  <div style="font-size:12px;color:var(--text-muted)">Low Stock Items</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div><!-- /page-content -->
+  </div><!-- /main-content -->
+</div><!-- /admin-shell -->
+
+<!-- ══════════════════════════════════════════════════════
+     SCRIPTS
+     ORDER: permissions.js → admin.js → page script
+══════════════════════════════════════════════════════ -->
+<script src="permissions.js"></script>
+<script src="admin.js"></script>
+<script>
+// Standardized helpers are now in admin.js
+const DONUT_COLORS = ['#7C3AED','#F59E0B','#10B981','#3B82F6','#EF4444'];
+
+/* ================================================================
+   STEP 2 — initPage()
+   • Calls PermGuard.init() — redirects to login if no token
+   • Applies ALL element-level permission gates
+   • Must run before loadDashboard()
+================================================================ */
+function initPage() {
+
+  /* Init — module:'dashboard' means the user must have at least
+     ONE dashboard permission or they see the No Access screen. */
+  PermGuard.init({ module: 'dashboard', loginUrl: 'admin-login.html' });
+
+  /* ── Guide-specified gates ────────────────────────────────────
+     From PERMGUARD_INTEGRATION_GUIDE.md §1 dashboard
+  ─────────────────────────────────────────────────────────────── */
+  PermGuard.guard('#revenueSection',     'dashboard', 'view_revenue');
+  PermGuard.guard('#exportReportBtn',    'dashboard', 'export_report');
+  PermGuard.guard('#notificationsPanel', 'dashboard', 'view_notifications');
+
+  /* ── Additional elements present in dashboard.html but NOT
+     in the guide — gated logically by their data source ─────── */
+
+  /* Revenue stat card — only meaningful with view_revenue */
+  PermGuard.guard('#revenueStatCard', 'dashboard', 'view_revenue');
+
+  /* Donut / category chart — also revenue-data-dependent */
+  PermGuard.guard('#donutSection', 'dashboard', 'view_revenue');
+
+  /* Amount column in orders table — revenue data */
+  if (!perm('dashboard', 'view_revenue')) {
+    const th = document.getElementById('thAmount');
+    if (th) th.style.display = 'none';
+  }
+
+  /* Recent Orders card — cross-module: needs orders.view_orders */
+  if (!permAny('orders')) {
+    PermGuard.hide('#recentOrdersCard');
+    /* Collapse bottom row to single column */
+    document.getElementById('bottomRow').style.gridTemplateColumns = '1fr';
+  }
+
+  /* "View All" orders link — also needs orders.view_orders */
+  if (!perm('orders', 'view_orders')) {
+    PermGuard.hide('#viewAllOrdersBtn');
+  }
+
+  /* Top Products card — cross-module: needs products.view_products */
+  if (!permAny('products')) {
+    PermGuard.hide('#topProductsCard');
+  }
+
+  /* Pending Orders counter block — needs orders.view_orders */
+  if (!perm('orders', 'view_orders')) {
+    PermGuard.hide('#pendingOrdersBlock');
+  }
+
+  /* Low Stock counter block — needs inventory.view_inventory */
+  if (!perm('inventory', 'view_inventory')) {
+    PermGuard.hide('#lowStockBlock');
+  }
+
+  /* If BOTH counter blocks are hidden, hide the whole card */
+  const noOrders = !perm('orders', 'view_orders');
+  const noInv    = !perm('inventory', 'view_inventory');
+  if (noOrders && noInv) {
+    PermGuard.hide('#quickCountersCard');
+  }
+
+  /* Nav badges — only meaningful when user can visit those pages */
+  if (!permAny('inventory')) document.getElementById('navInvBadge').style.display = 'none';
+  if (!permAny('orders'))    document.getElementById('navOrdBadge').style.display = 'none';
+
+  /* ── Alert banners container — hide entirely if no notifications perm ── */
+  if (!perm('dashboard', 'view_notifications')) {
+    PermGuard.hide('#alertBanners');
+  }
+
+  /* ── Personalise header ────────────────────────────── */
+  const adminData = PermGuard.getAdmin();
+  const role      = PermGuard.getRole();
+  const hr        = new Date().getHours();
+  const greeting  = hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening';
+
+  document.getElementById('greetingText').textContent =
+    `${greeting}${adminData?.name ? ', ' + adminData.name.split(' ')[0] : ''}`;
+
+  document.getElementById('roleBadge').textContent =
+    role.charAt(0).toUpperCase() + role.slice(1);
+
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  document.getElementById('currentMonthLabel').textContent =
+    months[new Date().getMonth()] + ' ' + new Date().getFullYear();
+}
+
+/* ================================================================
+   STEP 3 — loadDashboard()
+   Only runs AFTER initPage() has gated the UI.
+   Each data block is guarded again with perm() checks
+   (defence-in-depth — protects against console manipulation).
+================================================================ */
+async function loadDashboard() {
+  try {
+    const json = await API.get('/dashboard/stats/');
+    const data = json.data;
+    window._dashData = data;  // cache for switchChart
+    const s    = data.stats;
+
+    console.log("data coming from backend on admin dashboard : ", data)
+
+    /* ── Stats — always show counts (view_dashboard baseline) ── */
+    document.getElementById('statOrders').textContent    = s.orders;
+    document.getElementById('statProducts').textContent  = s.products;
+    document.getElementById('statCustomers').textContent = s.customers;
+    document.getElementById('ordersChange').textContent  = s.orders_change;
+    document.getElementById('productsChange').textContent = s.products_change;
+    document.getElementById('customersChange').textContent = s.customers_change;
+
+    /* ── Revenue stat — only if permitted ─────────────────────── */
+    if (perm('dashboard', 'view_revenue')) {
+      document.getElementById('statRevenue').textContent  = s.revenue;
+      document.getElementById('revenueChange').textContent = s.revenue_change;
+    }
+
+    /* ── Pending orders counter ───────────────────────────────── */
+    if (perm('orders', 'view_orders')) {
+      document.getElementById('pendingCount').textContent = s.pending_orders;
+    }
+
+    /* ── Low stock counter ────────────────────────────────────── */
+    if (perm('inventory', 'view_inventory')) {
+      document.getElementById('lowStockCount').textContent = s.low_stock;
+    }
+
+    /* ── Alert banners (view_notifications) ───────────────────── */
+    if (perm('dashboard', 'view_notifications')) {
+      const alertBanners = document.getElementById('alertBanners');
+
+      /* Pending orders alert — only if can see orders */
+      if (s.pending_orders > 0 && perm('orders', 'view_orders')) {
+        alertBanners.innerHTML += `
+          <div style="background:#FEF3C7;border:1px solid #F59E0B;border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:10px;font-size:13.5px">
+            <span>⚠️</span>
+            <strong>${s.pending_orders} pending orders</strong> need your attention.
+            <a href="orders.html" style="color:var(--primary);font-weight:600;margin-left:auto">Review Now →</a>
+          </div>`;
+      }
+
+      /* Low stock alert — only if can see inventory */
+      if (s.low_stock > 0 && perm('inventory', 'view_inventory')) {
+        alertBanners.innerHTML += `
+          <div style="background:#FEE2E2;border:1px solid #EF4444;border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:10px;font-size:13.5px">
+            <span>📦</span>
+            <strong>${s.low_stock} products</strong> are running low on stock.
+            <a href="inventory.html" style="color:var(--primary);font-weight:600;margin-left:auto">Manage Inventory →</a>
+          </div>`;
+      }
+
+      /* Populate notification dropdown items */
+      const notifItems = document.getElementById('notifItems');
+      const items = [];
+      if (s.low_stock > 0      && perm('inventory', 'view_inventory')) items.push(`<div class="dropdown-item">📦 ${s.low_stock} products are low on stock</div>`);
+      if (s.pending_orders > 0 && perm('orders',    'view_orders'))    items.push(`<div class="dropdown-item">🧾 ${s.pending_orders} new orders pending review</div>`);
+      if (perm('transactions', 'process_refund'))                       items.push(`<div class="dropdown-item">💳 2 refund requests pending</div>`);
+      notifItems.innerHTML = items.length
+        ? items.join('')
+        : `<div class="dropdown-item" style="color:var(--text-muted);font-size:13px">No new notifications</div>`;
+    }
+
+    /* ── Recent Orders table ─────────────────────────────────── */
+    if (perm('orders', 'view_orders')) {
+      const showAmt = perm('dashboard', 'view_revenue');
+      const tbody   = document.getElementById('recentOrdersBody');
+
+      tbody.innerHTML = data.recent_orders.map(o => `
+        <tr>
+          <td><a href="orders.html" style="color:var(--primary);font-weight:600">${o.id}</a></td>
+          <td>${o.customer}</td>
+          ${showAmt ? `<td><strong>${o.amount}</strong></td>` : ''}
+          <td>${statusBadge(o.status)}</td>
+          <td style="color:var(--text-muted);font-size:12.5px">${o.date}</td>
+        </tr>`).join('');
+
+      /* Adjust colspan in loading state to match actual columns */
+      const colCount = showAmt ? 5 : 4;
+      tbody.querySelectorAll('td[colspan]').forEach(td => td.setAttribute('colspan', colCount));
+    }
+
+    /* ── Top Products ─────────────────────────────────────────── */
+    if (perm('products', 'view_products')) {
+      const showRev = perm('dashboard', 'view_revenue');
+      const bgColors  = ['var(--primary-light)','var(--accent-light)','var(--success-light)','var(--info-light)'];
+      const txtColors = ['var(--primary)',       'var(--accent)',       'var(--success)',       'var(--info)'];
+
+      document.getElementById('topProductsList').innerHTML = data.top_products.map((p, i) => `
+        <div class="quick-stat">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="width:28px;height:28px;border-radius:8px;background:${bgColors[i]};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:${txtColors[i]}">${i + 1}</div>
+            <div>
+              <div style="font-weight:600;font-size:13.5px">${p.name}</div>
+              <div style="font-size:12px;color:var(--text-muted)">${p.sales} sales · Stock: ${p.stock}</div>
+            </div>
+          </div>
+          ${showRev ? `<div style="font-weight:700;font-size:13.5px">${p.revenue}</div>` : ''}
+        </div>`).join('');
+    }
+
+    /* ── Charts (revenue data — gated by view_revenue) ────────── */
+    if (perm('dashboard', 'view_revenue')) {
+      /* Chart data comes from the same dashboard/stats/ response */
+      const rep = data;
+
+      /* Bar chart */
+      drawBarChart('revenueChart', rep.months, rep.monthly_revenue, '#7C3AED');
+
+      /* Donut */
+      drawDonutChart('donutChart', rep.category_sales, DONUT_COLORS);
+      const total  = rep.category_sales.reduce((a, b) => a + b.value, 0);
+      document.getElementById('donutLegend').innerHTML = rep.category_sales.map((c, i) => `
+        <div class="legend-item">
+          <div class="legend-dot" style="background:${DONUT_COLORS[i]}"></div>
+          <span style="flex:1">${c.name}</span>
+          <strong>${Math.round(c.value / total * 100)}%</strong>
+        </div>`).join('');
+    }
+
+  } catch (err) {
+    console.error('Dashboard load error:', err);
+    showToast('error', 'Load Error', 'Failed to load dashboard data. Please refresh.');
+  }
+}
+
+/* ================================================================
+   CHART SWITCH — defence in depth: recheck perm on click
+================================================================ */
+function switchChart(type) {
+  /* Always allow switching to 'orders' (non-revenue data).
+     Only block 'revenue' if permission is absent. */
+  if (type === 'revenue' && !perm('dashboard', 'view_revenue')) {
+    showToast('error', 'Access Denied', 'No permission to view revenue data.');
+    return;
+  }
+  /* switchChart uses cached data from last loadDashboard call */
+  if (window._dashData) {
+    if (type === 'revenue') drawBarChart('revenueChart', window._dashData.months, window._dashData.monthly_revenue, '#7C3AED');
+    else                    drawBarChart('revenueChart', window._dashData.months, window._dashData.monthly_orders,  '#10B981');
+  }
+}
+
+/* ================================================================
+   EXPORT REPORT — defence in depth
+================================================================ */
+async function exportReport() {
+  if (!perm('dashboard', 'export_report')) {
+    showToast('error', 'Access Denied', 'No permission to export reports.');
+    return;
+  }
+  try {
+    // Standardized API call
+    const res = await API.get('/reports/export/?format=pdf');
+    // Assuming backend returns a URL or we need to handle blob
+    // For now, if API.get returns JSON with a URL:
+    if (res.url) {
+      const a = document.createElement('a'); a.href = res.url; a.download = 'report.pdf'; a.click();
+    } else {
+      showToast('info', 'Export', 'Report generated. Download link sent to email.');
+    }
+  } catch (e) {
+    showToast('error', 'Export Failed', e.message);
+  }
+}
+
+/* ================================================================
+   SIDEBAR TOGGLE
+================================================================ */
+document.getElementById('sidebarToggle').addEventListener('click', () => {
+  document.getElementById('sidebar').classList.toggle('collapsed');
+  document.getElementById('mainContent').classList.toggle('expanded');
+});
+
+/* ================================================================
+   STEP 4 — Run initPage() FIRST, then loadDashboard()
+   This guarantees all permission gates are applied before
+   any data arrives and touches the DOM.
+================================================================ */
+initPage();
+loadDashboard();
+</script>
+</body>
+</html>

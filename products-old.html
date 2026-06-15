@@ -1,0 +1,1731 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>Products – LoomIndica Admin</title>
+  <link rel="stylesheet" href="admin.css">
+  <style>
+    .filter-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:20px}
+    .filter-bar input,.filter-bar select{height:38px;padding:0 12px;border:1.5px solid var(--border);border-radius:9px;font-size:13.5px;outline:none;background:#fff;color:var(--text-dark);transition:var(--transition)}
+    .filter-bar input:focus,.filter-bar select:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(124,58,237,.08)}
+    .filter-bar input{width:240px}
+    .tag-chip{background:var(--primary-light);color:var(--primary);padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:4px}
+    .tag-chip button{background:none;border:none;cursor:pointer;color:var(--primary);font-size:14px;padding:0;line-height:1}
+    .tag-input-wrap{display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-height:42px;padding:6px 10px;border:1.5px solid var(--border);border-radius:9px;cursor:text;transition:var(--transition)}
+    .tag-input-wrap:focus-within{border-color:var(--primary);box-shadow:0 0 0 3px rgba(124,58,237,.1)}
+    .tag-input-wrap input{border:none;outline:none;font-size:13.5px;min-width:120px;flex:1;background:transparent}
+    .highlight-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+    .highlight-row input{flex:1}
+    .step-indicator{display:flex;align-items:center;margin-bottom:28px;overflow-x:auto;padding-bottom:4px}
+    .step-item{display:flex;align-items:center;gap:8px;flex-shrink:0}
+    .step-num{width:30px;height:30px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--text-muted);flex-shrink:0;transition:var(--transition)}
+    .step-item.active .step-num{background:var(--primary);border-color:var(--primary);color:#fff}
+    .step-item.done  .step-num{background:var(--success);border-color:var(--success);color:#fff}
+    .step-label{font-size:12.5px;font-weight:600;color:var(--text-muted);white-space:nowrap}
+    .step-item.active .step-label{color:var(--primary)}
+    .step-item.done  .step-label{color:var(--success)}
+    .step-line{flex:1;min-width:20px;height:2px;background:var(--border);margin:0 8px}
+    .modal-step{display:none}.modal-step.active{display:block;animation:fadeIn .2s ease}
+    .img-main-preview{width:100%;height:200px;border-radius:12px;object-fit:cover;border:2px solid var(--border);display:none;margin-top:12px}
+    .action-btns{display:flex;gap:6px;flex-wrap:nowrap}
+    .sidebar.collapsed{width:64px}
+    .bulk-bar {
+      display: none; align-items: center; gap: 10px; flex-wrap: wrap;
+      background: var(--primary-light);
+      border: 1.5px solid var(--primary);
+      padding: 10px 16px; border-radius: 10px; margin-bottom: 16px;
+    }
+    .bulk-bar.show { display: flex; }
+    .sidebar.collapsed .brand-text,.sidebar.collapsed .nav-label,.sidebar.collapsed .nav-section-label{opacity:0;pointer-events:none;width:0}
+    @media(max-width:900px){.filter-bar input{width:180px}}
+    @media(max-width:768px){
+      .filter-bar{flex-direction:column;align-items:stretch}
+      .filter-bar input,.filter-bar select{width:100%}
+      .page-header{flex-direction:column;align-items:flex-start;gap:10px}
+      #headerActions{flex-wrap:wrap}
+    }
+  </style>
+</head>
+<body>
+<div class="mobile-overlay"></div>
+<div id="toast-container"></div>
+<div class="admin-shell">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand"><div class="brand-icon">LI</div><div class="brand-text"><h3>LoomIndica</h3><span>Admin Panel</span></div></div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Main</div>
+      <div class="nav-item"><a href="dashboard.html" class="nav-link"><span class="nav-icon">📊</span><span class="nav-label">Dashboard</span></a></div>
+      <div class="nav-section-label">Catalogue</div>
+      <div class="nav-item"><a href="products.html" class="nav-link active"><span class="nav-icon">🛍️</span><span class="nav-label">Products</span></a></div>
+      <div class="nav-item"><a href="categories.html" class="nav-link"><span class="nav-icon">🗂️</span><span class="nav-label">Categories</span></a></div>
+      <div class="nav-item"><a href="inventory.html" class="nav-link"><span class="nav-icon">📦</span><span class="nav-label">Inventory</span></a></div>
+      <div class="nav-section-label">Sales</div>
+      <div class="nav-item"><a href="orders.html" class="nav-link"><span class="nav-icon">🧾</span><span class="nav-label">Orders</span></a></div>
+      <div class="nav-item"><a href="customers.html" class="nav-link"><span class="nav-icon">👥</span><span class="nav-label">Customers</span></a></div>
+      <div class="nav-item"><a href="transactions.html" class="nav-link"><span class="nav-icon">💳</span><span class="nav-label">Transactions</span></a></div>
+      <div class="nav-section-label">Marketing</div>
+      <div class="nav-item"><a href="coupons.html" class="nav-link"><span class="nav-icon">🎟️</span><span class="nav-label">Coupons</span></a></div>
+      <div class="nav-section-label">System</div>
+      <div class="nav-item"><a href="settings.html" class="nav-link"><span class="nav-icon">⚙️</span><span class="nav-label">Settings</span></a></div>
+    </nav>
+    <div class="sidebar-footer"><div class="sidebar-user"><div class="user-avatar" id="sidebarAvatar">A</div><div class="user-info"><strong id="sidebarName">Admin</strong><span id="sidebarRole">Role</span></div></div></div>
+  </aside>
+
+  <div class="main-content" id="mainContent">
+    <header class="topbar">
+      <button class="topbar-toggle" id="sidebarToggle">☰</button>
+      <div class="topbar-search"><i>🔍</i><input placeholder="Search products…" id="topSearch" oninput="applyFilters()"></div>
+      <div class="topbar-actions">
+        <div class="dropdown">
+          <div class="topbar-user" data-dropdown>
+            <div class="avatar" id="topAvatar">A</div>
+            <div class="topbar-user-info"><strong id="topName">Admin</strong><span id="topRole">Role</span></div>
+            <span style="margin-left:4px;color:var(--text-muted);font-size:11px">▾</span>
+          </div>
+          <div class="dropdown-menu">
+            <div class="dropdown-item danger" data-logout>🚪 Logout</div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="page-content">
+      <div class="page-header">
+        <div class="page-header-left">
+          <h1>Products</h1>
+          <div class="breadcrumb"><span onclick="location.href='dashboard.html'">Home</span><i>›</i><span>Catalogue</span><i>›</i><span>Products</span></div>
+        </div>
+        <div class="d-flex gap-8 align-center" id="headerActions" style="flex-wrap:wrap">
+          <div id="invHint" style="background:var(--primary-light);color:var(--primary);padding:7px 14px;border-radius:9px;font-size:12.5px;font-weight:600">
+            💡 Pricing &amp; stock → <a href="inventory.html" style="text-decoration:underline">Inventory</a>
+          </div>
+          <button class="btn btn-primary" id="addProductBtn" onclick="openAddModal()">+ Add Product</button>
+          <button class="btn btn-secondary btn-sm" id="exportProductsBtn" onclick="exportProducts()">📥 Export</button>
+        </div>
+      </div>
+
+      <div class="filter-bar">
+        <input type="text" id="productSearch" placeholder="🔍  Search name, SKU, brand…" oninput="applyFilters()">
+        <!-- <select id="catFilter" onchange="onCategoryChange()">
+          <option value="">All Categories</option>
+        </select> -->
+        <div id="dynamicCategoryFilters"
+            class="dynamic-category-filters">
+        </div>
+        <!-- <select id="typeFilter" onchange="applyFilters()">
+          <option value="">All Types</option>
+          <option value="saree">Saree</option>
+          <option value="fabric">Fabric</option>
+          <option value="clothing">Clothing</option>
+        </select> -->
+        <!-- <select id="typeFilter" onchange="applyFilters()">
+          <option value="">Loading...</option>
+        </select> -->
+        <select id="statusFilter" onchange="applyFilters()">
+          <option value="">All Status</option>
+          <option value="true">Active</option>
+          <option value="false">Inactive</option>
+        </select>
+        <button class="btn btn-secondary btn-sm" onclick="clearFilters()">✕ Clear</button>
+        <div style="margin-left:auto;font-size:13px;color:var(--text-muted)"><strong id="productCount">—</strong> products</div>
+      </div>
+
+      <div class="bulk-bar" id="bulkBar">
+        <span style="font-weight:700;color:var(--primary)" id="bulkCount">0 selected</span>
+        <!--
+          PERM: publish_product — Publish / Hide bulk actions
+          Rendered conditionally inside updateBulkBar()
+        -->
+        <span id="bulkPublishBtns">
+          <button class="btn btn-success btn-sm" onclick="bulkAction('publish')">✅ Publish Selected</button>
+          <button class="btn btn-secondary btn-sm" onclick="bulkAction('hide')">🙈 Hide Selected</button>
+        </span>
+        <!--
+          PERM: edit_stock — Remove from inventory is a destructive stock action
+        -->
+        <button class="btn btn-danger btn-sm" id="bulkRemoveBtn" onclick="bulkAction('remove')">🗑️ Remove Selected</button>
+        <button class="btn btn-secondary btn-sm" style="margin-left:auto" onclick="clearSelection()">✕ Clear</button>
+      </div>
+
+      <div class="card">
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <!-- <th><input type="checkbox" onchange="document.querySelectorAll('.row-chk').forEach(c=>c.checked=this.checked)"></th> -->
+                <!-- <th id="chkCol"><input type="checkbox" id="selectAll" onchange="toggleAll(this)"></th> -->
+                <th>Product</th>
+                <th>Category</th>
+                <th>Type</th>
+                <th>Brand</th>
+                <th>Price Range</th>
+                <th>Status</th>
+                <th id="thActions">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="productsBody">
+              <tr><td colspan="8" style="text-align:center;padding:48px;color:var(--text-muted)">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="card-footer" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+          <span style="font-size:13px;color:var(--text-muted)">Showing <strong id="productCount2">—</strong> of <strong id="totalCount">—</strong> products</span>
+          <div class="pagination" id="paginationWrap"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ADD/EDIT MODAL -->
+<div class="modal-overlay" id="addProductModal">
+  <div class="modal modal-xl">
+    <div class="modal-header"><h3 id="modalTitle">Add New Product</h3><button class="modal-close" onclick="closeModal('addProductModal')">✕</button></div>
+    <div class="modal-body">
+      <div class="step-indicator" id="stepIndicator">
+        <div class="step-item active" id="si1"><div class="step-num">1</div><div class="step-label">Basic Info</div></div>
+        <div class="step-line" id="sl1"></div>
+        <div class="step-item" id="si2"><div class="step-num">2</div><div class="step-label">Details</div></div>
+        <div class="step-line" id="sl2"></div>
+        <div class="step-item" id="si3"><div class="step-num">3</div><div class="step-label">Variant</div></div>
+        <div class="step-line" id="sl3"></div>
+        <div class="step-item" id="si4"><div class="step-num">4</div><div class="step-label">Image</div></div>
+      </div>
+
+      <!-- Step 1: Basic Info -->
+
+      
+        
+        <div class="modal-step active" id="step-1">
+          <div class="form-group">
+            <label class="form-label">Product Category<span class="required">*</span></label>
+            <div id="productCategorySelectors" class="dynamic-category-selectors"></div>
+          </div>
+          <div class="form-row cols-2">
+            <div class="form-group">
+              <label class="form-label">Product Name <span class="required">*</span></label>
+              <input class="form-control" id="pName" placeholder="e.g. Madhubani Hand-Painted Saree" oninput="autoSlug()">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Slug (URL)</label>
+              <input class="form-control" id="pSlug" placeholder="auto-generated from name">
+              <div class="form-hint">URL: /products/<span id="slugPrev" style="color:var(--primary);font-weight:600">-</span></div>
+            </div>
+          </div>
+        <!-- <div class="form-row cols-2">
+          <div class="form-group">
+            <label class="form-label">Category <span class="required">*</span></label>
+            <select class="form-control" id="pCategory" onchange="onCategoryChange()">
+              <option value="">— Select Category —</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Product Type <span class="required">*</span></label>
+            <select class="form-control" id="pType">
+              <option value="">— Select Type —</option>
+           
+            </select>
+          </div>
+        </div> -->
+        <!-- <div class="form-group">
+
+          <label class="form-label">
+            Product Category
+            <span class="required">*</span>
+          </label>
+
+          <div
+            id="productCategorySelectors"
+            class="dynamic-category-selectors">
+
+          </div>
+
+        </div> -->
+        <div class="form-group"><label class="form-label">Short Description <span class="required">*</span></label><textarea class="form-control" id="pShortDesc" rows="3" placeholder="Brief summary shown on listing pages (max 200 chars)"></textarea></div>
+        <div class="form-group"><label class="form-label">Full Description</label><textarea class="form-control" id="pLongDesc" rows="4" placeholder="Full product storytelling…"></textarea></div>
+        <div class="form-row cols-2">
+          <div class="form-group"><label class="form-label">Brand</label><input class="form-control" id="pBrand" placeholder="e.g. MP Weavers Cooperative"></div>
+          <div class="form-group"><label class="form-label">HSN Code</label><input class="form-control" id="pHSN" placeholder="e.g. 5208"></div>
+        </div>
+        <div class="form-row cols-2">
+          <div class="form-group"><label class="form-label">Tax Rate (%)</label><input type="number" class="form-control" id="pTax" placeholder="e.g. 5" step="0.5" min="0"></div>
+          <div class="form-group" style="display:flex;align-items:center;gap:14px;padding-top:28px">
+            <label class="toggle"><input type="checkbox" id="pIsActive" checked><span class="toggle-slider"></span></label>
+            <div style="font-weight:600;font-size:13.5px">Active (visible on site)</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2: Details / Attributes -->
+      <div class="modal-step" id="step-2">
+        <div style="margin-bottom:16px;font-size:13px;color:var(--text-muted);background:var(--accent-light);padding:12px 16px;border-radius:9px">
+          ℹ️ Add product attributes like Fabric, Color, Pattern, Occasion etc. as key-value pairs.
+        </div>
+        <div id="attrList">
+          <div class="highlight-row" data-idx="0"><input class="form-control" placeholder="Attribute name (e.g. Fabric)" id="attr_name_0"><input class="form-control" placeholder="Value (e.g. Chanderi Silk)" id="attr_val_0"><button class="btn btn-secondary btn-sm btn-icon" onclick="this.closest('.highlight-row').remove()">✕</button></div>
+          <div class="highlight-row" data-idx="1"><input class="form-control" placeholder="Attribute name (e.g. Pattern)" id="attr_name_1"><input class="form-control" placeholder="Value (e.g. Floral)" id="attr_val_1"><button class="btn btn-secondary btn-sm btn-icon" onclick="this.closest('.highlight-row').remove()">✕</button></div>
+        </div>
+        <button class="btn btn-outline-primary btn-sm mt-8" onclick="addAttr()">+ Add Attribute</button>
+      </div>
+
+      <!-- Step 3: Variant -->
+      <div class="modal-step" id="step-3">
+        <div style="background:var(--primary-light);padding:12px 16px;border-radius:9px;margin-bottom:18px;font-size:13px;color:var(--primary);font-weight:600">
+          💡 Add at least one variant with SKU and price. You can add more variants from the product detail page later.
+        </div>
+        <div class="form-row cols-2">
+          <div class="form-group"><label class="form-label">SKU <span class="required">*</span></label><input class="form-control" id="vSKU" placeholder="e.g. SAR-001"></div>
+          <div class="form-group"><label class="form-label">Variant Name</label><input class="form-control" id="vName" placeholder="e.g. Red - Size M"></div>
+        </div>
+        <div class="form-row cols-3">
+          <div class="form-group"><label class="form-label">Color</label><input class="form-control" id="vColor" placeholder="e.g. Deep Red"></div>
+          <div class="form-group"><label class="form-label">Size</label><input class="form-control" id="vSize" placeholder="e.g. Free Size, M, L"></div>
+          <div class="form-group">
+            <label class="form-label">Unit Type <span class="required">*</span></label>
+            <select class="form-control" id="vUnit">
+              <option value="piece">Piece</option>
+              <option value="meter">Meter</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row cols-3">
+          <div class="form-group"><label class="form-label">MRP / Price (₹) <span class="required">*</span></label><input type="number" class="form-control" id="vPrice" placeholder="e.g. 1500" min="0" step="0.01"></div>
+          <div class="form-group"><label class="form-label">Sale Price (₹)</label><input type="number" class="form-control" id="vSalePrice" placeholder="Leave blank if no offer" min="0" step="0.01"></div>
+          <div class="form-group"><label class="form-label">Stock Qty</label><input type="number" class="form-control" id="vStock" placeholder="e.g. 10" min="0" step="1"></div>
+        </div>
+        <div class="form-row cols-2">
+          <div class="form-group"><label class="form-label">Min Order Qty</label><input type="number" class="form-control" id="vMinQty" value="1" min="1"></div>
+          <div class="form-group"><label class="form-label">Max Order Qty</label><input type="number" class="form-control" id="vMaxQty" placeholder="Leave blank for no limit" min="1"></div>
+        </div>
+        <div class="form-row cols-2">
+          <div class="form-group"><label class="form-label">Weight (g)</label><input type="number" class="form-control" id="vWeight" placeholder="e.g. 450" min="0"></div>
+          <div class="form-group"><label class="form-label">Length per piece (m)</label><input type="number" class="form-control" id="vLength" placeholder="e.g. 5.5" step="0.5" min="0"></div>
+        </div>
+      </div>
+
+      <!-- Step 4: Image URL -->
+      <div class="modal-step" id="step-4">
+        <!-- <div class="form-group">
+          <label class="form-label">Main Product Image <span class="required">*</span></label>
+          <div class="upload-zone" id="mainImgZone">
+            <div style="font-size:36px">📸</div>
+            <p>Click or drag to upload main image</p>
+            <p style="font-size:12px;margin-top:4px">PNG, JPG up to 5MB · Recommended: 800×800px</p>
+          </div>
+          <div class="image-preview-grid" id="mainImgPreview"></div>
+        </div>
+        <div class="form-group mt-20">
+          <label class="form-label">Gallery Images</label>
+          <div class="upload-zone" id="galleryZone">
+            <div style="font-size:36px">🖼️</div>
+            <p>Click or drag to upload gallery images <strong>(multiple)</strong></p>
+            <p style="font-size:12px;margin-top:4px">Up to 8 images · 800×800px each</p>
+          </div>
+          <div class="image-preview-grid" id="galleryPreview"></div>
+        </div> -->
+
+        <div class="form-group">
+          <label class="form-label">
+            Main Product Image <span class="required">*</span>
+          </label>
+
+          <div class="upload-zone" id="mainImgZone">
+            <input
+              type="file"
+              id="mainImgInput"
+              accept="image/*"
+              hidden
+            >
+
+            <div style="font-size:36px">📸</div>
+
+            <p>Click or drag to upload main image</p>
+
+            <p style="font-size:12px;margin-top:4px">
+              PNG, JPG up to 5MB · Recommended: 800×800px
+            </p>
+          </div>
+
+          <div class="image-preview-grid" id="mainImgPreview"></div>
+        </div>
+
+
+        <div class="form-group mt-20">
+          <label class="form-label">Gallery Images</label>
+
+          <div class="upload-zone" id="galleryZone">
+
+            <input
+              type="file"
+              id="galleryInput"
+              accept="image/*"
+              multiple
+              hidden
+            >
+
+            <div style="font-size:36px">🖼️</div>
+
+            <p>
+              Click or drag to upload gallery images
+              <strong>(multiple)</strong>
+            </p>
+
+            <p style="font-size:12px;margin-top:4px">
+              Up to 8 images · 800×800px each
+            </p>
+
+          </div>
+
+          <div class="image-preview-grid" id="galleryPreview"></div>
+        </div>
+
+        <div style="background:var(--accent-light);padding:12px 16px;border-radius:9px;margin-bottom:18px;font-size:13px;color:var(--text-muted)">
+          ℹ️ Provide public image URLs (hosted on Cloudinary, S3, etc.). You can add/manage more images after product creation.
+        </div>
+        <div class="form-group">
+          <label class="form-label">Primary Image URL</label>
+          <input class="form-control" id="imgURL" placeholder="https://…" oninput="previewImgURL()">
+          <img id="imgPreview" class="img-main-preview" onerror="this.style.display='none'">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Alt Text</label>
+          <input class="form-control" id="imgAlt" placeholder="Describe the image">
+        </div>
+        <div style="background:var(--primary-light);border:1.5px solid var(--primary);border-radius:12px;padding:16px 20px;margin-top:8px;display:flex;align-items:center;gap:14px">
+          <span style="font-size:28px">📦</span>
+          <div><div style="font-weight:700;color:var(--primary);font-size:14px">Next: Inventory</div><div style="font-size:12.5px;color:var(--text-mid);margin-top:3px">After saving, go to <strong>Inventory</strong> to manage stock &amp; pricing further.</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer" style="justify-content:space-between">
+      <button class="btn btn-secondary" id="btnPrev" onclick="prevStep()" style="display:none">← Back</button>
+      <div style="display:flex;gap:10px;margin-left:auto">
+        <button class="btn btn-secondary" onclick="closeModal('addProductModal')">Cancel</button>
+        <button class="btn btn-primary" id="btnNext" onclick="nextStep()">Next →</button>
+        <button class="btn btn-success" id="btnSave" onclick="saveProduct()" style="display:none">💾 Save Product</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- VIEW PRODUCT MODAL -->
+<div class="modal-overlay" id="viewModal">
+  <div class="modal modal-xl">
+    <div class="modal-header"><h3 id="viewTitle">Product Details</h3><button class="modal-close" onclick="closeModal('viewModal')">✕</button></div>
+    <div class="modal-body" id="viewBody" style="min-height:200px">
+      <div style="text-align:center;padding:40px;color:var(--text-muted)">Loading…</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('viewModal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- DELETE MODAL -->
+<div class="modal-overlay" id="delModal">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header"><h3>Deactivate Product</h3><button class="modal-close" onclick="closeModal('delModal')">✕</button></div>
+    <div class="modal-body" style="text-align:center;padding:32px 24px">
+      <div style="font-size:52px;margin-bottom:16px">🗑️</div>
+      <h3 style="margin-bottom:8px">Deactivate this product?</h3>
+      <p style="color:var(--text-muted);font-size:13.5px">Product <strong id="delName"></strong> will be hidden from the store. You can reactivate it later from edit.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('delModal')">Cancel</button>
+      <button class="btn btn-danger" onclick="doDelete()">Yes, Deactivate</button>
+    </div>
+  </div>
+</div>
+
+<script src="permissions.js"></script>
+<script src="admin.js"></script>
+<script>
+/* ── Permissions ── */
+const admin = PermGuard.init({ module: 'products' });
+if (!admin) throw new Error('Not authenticated');
+const CAN_VIEW   = perm('products','view_products');
+const CAN_ADD    = perm('products','add_product');
+const CAN_EDIT   = perm('products','edit_product');
+const CAN_DELETE = perm('products','delete_product');
+const CAN_EXPORT = perm('products','export_products');
+
+const hasAnyWrite    = CAN_EDIT || CAN_DELETE;
+
+let MAIN_IMAGE = null;
+let GALLERY_IMAGES = [];
+
+const slugify = (s)  => s.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+
+/* ── State ── */
+let PRODUCTS = [], CATEGORIES = [], deleteId = null, editingId = null, currentStep = 1, attrCount = 2;
+let currentPage = 1, totalPages = 1, totalProducts = 0;
+const STEPS = 4;
+
+let CATEGORY_TREE = [];
+let SELECTED_CATEGORY_PATH = [];
+let filtered = [];
+
+/* ── Init ── */
+(async function init() {
+  setUserInfo();
+  if (!CAN_VIEW) { PermGuard.renderNoAccess(document.querySelector('.page-content')); return; }
+  applyProductPermissions();
+  await Promise.all([ loadProducts(),loadCategoriesTypes(),initializeImageUploads()]);
+})();
+
+let selectedIds = new Set();
+
+function setUserInfo() {
+  const u = admin;
+  if (!u) return;
+  const name = u.name || u.email || 'Admin';
+  const role = u.system_role || 'Admin';
+  document.getElementById('topName').textContent = name;
+  document.getElementById('topRole').textContent = role;
+  document.getElementById('topAvatar').textContent = name[0].toUpperCase();
+  document.getElementById('sidebarName').textContent = name;
+  document.getElementById('sidebarRole').textContent = role;
+  document.getElementById('sidebarAvatar').textContent = name[0].toUpperCase();
+}
+
+function applyProductPermissions() {
+  if (!CAN_ADD) { document.getElementById('addProductBtn').style.display = 'none'; document.getElementById('invHint').style.display = 'none'; }
+  if (!CAN_EXPORT) document.getElementById('exportProductsBtn').style.display = 'none';
+  if (!(CAN_EDIT || CAN_DELETE)) document.getElementById('thActions').style.display = 'none';
+}
+
+// Use the centralized API object from admin.js
+// function autoSlug() {
+//   const productName =
+//     document.getElementById(
+//       'pName'
+//     ).value;
+//     const productSlug =
+//     slugify(productName);
+//   const v = slugify(document.getElementById('pName').value);
+
+//   document.getElementById('pSlug').value      = v;
+//   document.getElementById('slugPrev').textContent = v || '-';
+// }
+function autoSlug() {
+
+  const productName =
+    document.getElementById(
+      'pName'
+    ).value;
+
+  const productSlug =
+    slugify(productName);
+
+  // save product slug
+  document.getElementById(
+    'pSlug'
+  ).value = productSlug;
+
+  // category path
+  const categoryData =
+    getCategoryPathData();
+
+  // full SEO URL
+  const fullUrl = categoryData
+    ?.category_full_slug
+
+    ? `${categoryData.category_full_slug}/${productSlug}`
+
+    : productSlug;
+
+  // preview
+  document.getElementById(
+    'slugPrev'
+  ).textContent =
+    fullUrl || '-';
+}
+
+
+/* ── Load Categories (for filter & form) ── */
+// async function loadCategories() {
+//   try {
+//     const res = await API.get('/categories/?per_page=500');
+
+//     const cats = res?.categories || res?.items || [];
+
+//     CATEGORIES = cats;
+
+//     const catFilter = document.getElementById('catFilter');
+//     catFilter.innerHTML = '<option value="">All Categories</option>';
+//     const pCat = document.getElementById('pCategory');
+//     pCat.innerHTML = '<option value="">— Select Category —</option>';
+
+//     cats.forEach(c => {
+//       catFilter.innerHTML += `<option value="${c.id}">${c.name}</option>`;
+//       pCat.innerHTML += `<option value="${c.id}">${c.name}</option>`;
+//     });
+
+//   } catch (e) {
+//   }
+// }
+
+function initializeImageUploads() {
+
+  const mainZone = document.getElementById('mainImgZone');
+  const mainInput = document.getElementById('mainImgInput');
+
+  const galleryZone = document.getElementById('galleryZone');
+  const galleryInput = document.getElementById('galleryInput');
+
+  // MAIN IMAGE CLICK
+  mainZone.addEventListener('click', () => {
+    mainInput.click();
+  });
+
+  // GALLERY CLICK
+  galleryZone.addEventListener('click', () => {
+    galleryInput.click();
+  });
+
+  // MAIN IMAGE CHANGE
+  mainInput.addEventListener('change', (e) => {
+
+    const file = e.target.files[0];
+
+    if (!file) return;
+
+    MAIN_IMAGE = file;
+
+    renderMainPreview(file);
+  });
+
+  // GALLERY CHANGE
+  galleryInput.addEventListener('change', (e) => {
+
+    const files = Array.from(e.target.files);
+
+    GALLERY_IMAGES = files;
+
+    renderGalleryPreview(files);
+  });
+}
+
+function renderMainPreview(file) {
+
+  const preview =
+    document.getElementById('mainImgPreview');
+
+  preview.innerHTML = '';
+
+  const img = document.createElement('img');
+
+  img.src = URL.createObjectURL(file);
+
+  img.style.width = '100px';
+  img.style.height = '100px';
+  img.style.objectFit = 'cover';
+  img.style.borderRadius = '10px';
+
+  preview.appendChild(img);
+}
+
+function renderGalleryPreview(files) {
+
+  const preview =
+    document.getElementById('galleryPreview');
+
+  preview.innerHTML = '';
+
+  files.forEach(file => {
+
+    const img = document.createElement('img');
+
+    img.src = URL.createObjectURL(file);
+
+    img.style.width = '100px';
+    img.style.height = '100px';
+    img.style.objectFit = 'cover';
+    img.style.borderRadius = '10px';
+    img.style.marginRight = '10px';
+
+    preview.appendChild(img);
+  });
+}
+
+// async function loadCategoriesTypes() {
+//   console.log('Loading categories...');
+
+//   try {
+//     const datas = await API.get('/categories/tree/');
+
+//     console.log('Raw categories response:', datas);
+
+//     CATEGORY_TREE = datas.data?.tree || [];
+//     console.log('Processed category tree:', CATEGORY_TREE);
+
+//     const sel = document.getElementById('catFilter');
+//     const pCat = document.getElementById('pCategory');
+
+//     sel.innerHTML = `
+//       <option value="">All Categories</option>
+//     `;
+//     pCat.innerHTML = `
+//       <option value="">— Select Category —</option>
+//     `;
+
+//     CATEGORY_TREE.forEach(cat => {
+//       sel.innerHTML += `
+//         <option value="${cat.id}">
+//           ${cat.name}
+//         </option>
+//       `;
+//       pCat.innerHTML += `
+//         <option value="${cat.id}">
+//           ${cat.name}
+//         </option>
+//       `;
+//     });
+
+//   } catch (e) {
+//     console.error('Failed to load categories:', e);
+//   }
+// }
+
+  async function loadCategoriesTypes() {
+
+    console.log('Loading categories tree...');
+
+    try {
+
+      const datas =
+        await API.get('/categories/tree/');
+
+      console.log(
+        'Raw categories response:',
+        datas
+      );
+
+      CATEGORY_TREE =
+        datas.data?.tree || [];
+
+      console.log(
+        'Processed category tree:',
+        CATEGORY_TREE
+      );
+
+      // Render root categories
+      renderCategoryDropdown(
+        CATEGORY_TREE,
+        0
+      );
+
+      // Product modal categories
+      renderProductCategoryDropdowns(
+        CATEGORY_TREE,
+        0
+      );
+
+    } catch (e) {
+
+      console.error(
+        'Failed to load categories:',
+        e
+      );
+    }
+  }
+
+  function renderProductCategoryDropdowns(
+  categories,
+  level,
+  path = []
+) {
+
+  const container =
+    document.getElementById(
+      'productCategorySelectors'
+    );
+
+  // remove lower levels
+  Array.from(container.children)
+    .forEach((child, idx) => {
+
+      if (idx >= level)
+        child.remove();
+    });
+
+  const select =
+    document.createElement('select');
+
+  select.className =
+    `product-category-level-${level}`;
+
+  select.innerHTML = `
+    <option value="">
+      — Select Category —
+    </option>
+  `;
+
+  categories.forEach(cat => {
+
+    select.innerHTML += `
+      <option value="${cat.id}">
+        ${cat.name}
+      </option>
+    `;
+  });
+
+  select.addEventListener(
+    'change',
+    function () {
+
+      // remove deeper dropdowns
+      Array.from(container.children)
+        .forEach((child, idx) => {
+
+          if (idx > level)
+            child.remove();
+        });
+
+      const selectedId = this.value;
+
+      if (!selectedId) return;
+
+      const selectedCategory =
+        categories.find(
+          c =>
+            String(c.id) ===
+            String(selectedId)
+        );
+
+      if (!selectedCategory) return;
+
+      // SAVE FULL PATH
+      SELECTED_CATEGORY_PATH = [
+        ...path,
+        selectedCategory
+      ];
+
+      console.log(
+        'Selected Path:',
+        SELECTED_CATEGORY_PATH
+      );
+
+      // render next level
+      if (
+        selectedCategory.subcategories?.length
+      ) {
+
+        renderProductCategoryDropdowns(
+          selectedCategory.subcategories,
+          level + 1,
+          SELECTED_CATEGORY_PATH
+        );
+      }
+    }
+  );
+
+  container.appendChild(select);
+}
+
+function getCategoryPathData() {
+
+  const names =
+    SELECTED_CATEGORY_PATH.map(
+      c => c.name
+    );
+
+  const slugs =
+    SELECTED_CATEGORY_PATH.map(
+      c => c.slug
+    );
+
+  const ids =
+    SELECTED_CATEGORY_PATH.map(
+      c => c.id
+    );
+
+  return {
+
+    category_id:
+      ids[ids.length - 1] || null,
+
+    category_path: names,
+
+    category_slug_path: slugs,
+
+    category_ancestor_ids: ids,
+
+    category_depth: ids.length,
+
+    category_full_path:
+      names.join(' > '),
+
+    category_full_slug:
+      slugs.join('/')
+  };
+}
+
+  function renderCategoryDropdown(
+  categories,
+  level
+) {
+
+  const container =
+    document.getElementById(
+      'dynamicCategoryFilters'
+    );
+
+  // Remove lower levels
+  Array.from(container.children)
+    .forEach((child, idx) => {
+
+      if (idx >= level)
+        child.remove();
+    });
+
+  const select =
+    document.createElement('select');
+
+  select.className =
+    `category-level-${level}`;
+
+  select.innerHTML = `
+    <option value="">
+      All Categories
+    </option>
+  `;
+
+  categories.forEach(cat => {
+
+    select.innerHTML += `
+      <option value="${cat.id}">
+        ${cat.name}
+      </option>
+    `;
+  });
+
+  select.addEventListener(
+    'change',
+    function () {
+
+      // remove deeper dropdowns
+      Array.from(container.children)
+        .forEach((child, idx) => {
+
+          if (idx > level)
+            child.remove();
+        });
+
+      const selectedId = this.value;
+
+      applyFilters();
+
+      if (!selectedId) return;
+
+      const selectedCategory =
+        categories.find(
+          c =>
+            String(c.id) ===
+            String(selectedId)
+        );
+
+      if (
+        selectedCategory?.subcategories?.length
+      ) {
+
+        renderCategoryDropdown(
+          selectedCategory.subcategories,
+          level + 1
+        );
+      }
+    }
+  );
+
+  container.appendChild(select);
+}
+
+
+function getSelectedCategoryId() {
+
+  const selects =
+    document.querySelectorAll(
+      '#dynamicCategoryFilters select'
+    );
+
+  let selected = '';
+
+  selects.forEach(sel => {
+
+    if (sel.value)
+      selected = sel.value;
+  });
+
+  return selected;
+}
+
+function getSelectedProductCategoryId() {
+
+  const selects =
+    document.querySelectorAll(
+      '#productCategorySelectors select'
+    );
+
+  let selected = '';
+
+  selects.forEach(sel => {
+
+    if (sel.value)
+      selected = sel.value;
+  });
+
+  return selected;
+}
+
+function loadFilterTypes(categoryId = '') {
+
+  console.log('Loading types for category ID:', categoryId);  
+  const sel = document.getElementById('typeFilter');
+  const ptype = document.getElementById('pType');
+
+  sel.innerHTML = `
+    <option value="">All Types</option>
+  `;
+  ptype.innerHTML = `
+    <option value="">— Select Type —</option>
+  `;
+
+  if (!categoryId) return;
+
+  const category = CATEGORY_TREE.find(
+    c => String(c.id) === String(categoryId)
+  );
+
+  if (!category) return;
+
+  const children = category.children || [];
+
+  children.forEach(type => {
+    sel.innerHTML += `
+      <option value="${type.name}">
+        ${type.name}
+      </option>
+    `;
+    ptype.innerHTML += `
+      <option value="${type.name}">
+        ${type.name}
+      </option>
+    `;
+  });
+}
+
+function onCategoryChange() {
+
+  console.log('Category changed, updating types...');
+  const categoryId =
+    document.getElementById('catFilter').value;
+  const pCategoryId = document.getElementById('pCategory').value;
+
+  if(categoryId){
+    loadFilterTypes(categoryId);
+  }
+  if(pCategoryId){
+
+  loadFilterTypes(pCategoryId);
+  }
+  
+
+  applyFilters();
+}
+
+/* ════════════════════════════════════════════════════════════════
+   BULK ACTIONS
+   Guard: bulk_stock_update | publish_product | edit_stock
+════════════════════════════════════════════════════════════════ */
+function onRowCheck(cb) {
+  console.log('Row checkbox toggled:', cb.dataset.id, 'Checked:', cb.checked);
+  const id = Number(cb.dataset.id);
+  cb.checked ? selectedIds.add(id) : selectedIds.delete(id);
+  updateBulkBar();
+}
+
+function toggleAll(cb) {
+  console.log('Toggle all checkboxes:', cb.checked);
+  selectedIds = new Set();
+  filtered.forEach(p => { if (cb.checked) selectedIds.add(p.id); });
+  document.querySelectorAll('.row-chk').forEach(c => c.checked = cb.checked);
+  console.log('Selected IDs after toggle:', [...selectedIds]);
+  updateBulkBar();
+}
+
+function updateBulkBar() {
+  console.log('Updating bulk action bar. Selected IDs:', [...selectedIds]);
+  const bar = document.getElementById('bulkBar');
+  if (selectedIds.size > 0) {
+    bar.classList.add('show');
+    document.getElementById('bulkCount').textContent = selectedIds.size + ' selected';
+  } else {
+    bar.classList.remove('show');
+  }
+}
+
+function clearSelection() {
+  selectedIds = new Set();
+  document.querySelectorAll('.row-chk').forEach(c => c.checked = false);
+  document.getElementById('selectAll').checked = false;
+  updateBulkBar();
+}
+
+async function bulkAction(action) {
+  /* Gate each bulk action individually */
+  if ((action === 'publish' || action === 'hide') &&
+      !perm('products', 'publish_product') && !perm('inventory', 'edit_stock')) {
+    showToast('error', 'Access Denied', 'No permission to publish/hide products.');
+    return;
+  }
+  if (action === 'remove' && !perm('inventory', 'edit_stock')) {
+    showToast('error', 'Access Denied', 'No permission to remove products.');
+    return;
+  }
+
+  const ids = [...selectedIds];
+  if (!ids.length) return;
+
+  ids.forEach(id => {
+    const p = INVENTORY.find(x => x.id === id);
+    if (!p) return;
+    if (action === 'publish') p.published = true;
+    else if (action === 'hide')   p.published = false;
+    else if (action === 'remove') INVENTORY = INVENTORY.filter(x => x.id !== id);
+  });
+
+  if (action === 'remove') filtered = filtered.filter(p => !ids.includes(p.id));
+
+  try {
+    await API.put('/inventory/bulk/', { action, ids });
+    clearSelection();
+    renderStats();
+    renderTable();
+    showToast('success', 'Done', `${ids.length} products ${action === 'publish' ? 'published' : action === 'hide' ? 'hidden' : 'removed'}`);
+  } catch (e) {
+    showToast('error', 'Error', `Bulk action failed: ${e.message}`);
+    console.error('bulkAction error:', e);
+  }
+}
+
+
+/* ── Load Products ── */
+async function loadProducts(page = 1) {
+  document.getElementById('productsBody').innerHTML = '<tr><td colspan="8" style="text-align:center;padding:48px;color:var(--text-muted)">Loading…</td></tr>';
+  try {
+    const search = document.getElementById('productSearch').value.trim() || document.getElementById('topSearch').value.trim();
+    // const catId  = document.getElementById('catFilter').value;
+    const catId = getSelectedCategoryId();
+    const pType  = document.getElementById('typeFilter').value;
+    const status = document.getElementById('statusFilter').value;
+
+    let url = `/products/?page=${page}&per_page=20`;
+    if (search) url += `&search=${encodeURIComponent(search)}`;
+    if (catId)  url += `&category_id=${catId}`;
+    if (pType)  url += `&product_type=${pType}`;
+    if (status) url += `&is_active=${status}`;
+
+    const response = await API.get(url);
+    console.log('Products API response:', response);
+    const res = response.data || response; // Handle different response structures
+
+    PRODUCTS = res?.products || [];
+    console.log('PRODUCTS:', PRODUCTS); 
+
+    const pagination = res?.pagination || {};
+    currentPage  = pagination.page || 1;
+    totalPages   = pagination.total_pages || 1;
+    totalProducts = pagination.total || PRODUCTS.length;
+    console.log(`Loaded ${PRODUCTS.length} products. Page ${currentPage} of ${totalPages}. Total products: ${totalProducts}`);
+
+    renderProducts();
+    renderPagination();
+  } catch (e) {
+    document.getElementById('productsBody').innerHTML = `<tr><td colspan="8" style="text-align:center;padding:48px;color:var(--danger)">❌ Failed to load products. ${e.message}</td></tr>`;
+  }
+}
+
+/* ── Render Table ── */
+function renderProducts() {
+  document.getElementById('productCount').textContent  = totalProducts;
+  document.getElementById('productCount2').textContent = PRODUCTS.length;
+  document.getElementById('totalCount').textContent    = totalProducts;
+
+  const b = document.getElementById('productsBody');
+  if (!PRODUCTS.length) {
+    b.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div style="font-size:48px">🛍️</div><h3>No products found</h3><p>Adjust filters${CAN_ADD ? ' or add a new product' : ''}</p></div></td></tr>`;
+    return;
+  }
+
+  b.innerHTML = PRODUCTS.map(p => {
+    const img = p.primary_image
+      ? `<img src="${p.primary_image}" style="width:42px;height:42px;border-radius:8px;object-fit:cover;border:1px solid var(--border)">`
+      : `<div style="width:42px;height:42px;border-radius:8px;background:var(--primary-light);display:flex;align-items:center;justify-content:center;font-size:20px">🛍️</div>`;
+
+    const priceRange = p.price_min
+      ? (p.price_min === p.price_max ? `₹${p.price_min}` : `₹${p.price_min} – ₹${p.price_max}`)
+      : '<span style="color:var(--text-muted);font-size:12px">No variant</span>';
+
+    const statusBadge = p.is_active
+      ? `<span class="badge badge-green">Active</span>`
+      : `<span class="badge badge-gray">Inactive</span>`;
+
+    const viewBtn   = `<button class="btn btn-secondary btn-sm btn-icon" title="View" onclick="viewProduct(${p.id})">👁️</button>`;
+    const editBtn   = CAN_EDIT   ? `<button class="btn btn-secondary btn-sm btn-icon" title="Edit" onclick="editProduct(${p.id})">✏️</button>` : '';
+    const deleteBtn = CAN_DELETE ? `<button class="btn btn-danger btn-sm btn-icon" title="Deactivate" onclick="askDel(${p.id},'${p.name.replace(/'/g,"\\'")}')">🗑️</button>` : '';
+
+    /* Checkbox cell — hidden via CSS if no write perms */
+    const chkCell = `<td style="${!hasAnyWrite ? 'display:none' : ''}">
+      <input type="checkbox" class="row-chk" data-id="${p.id}"
+        onchange="onRowCheck(this)" ${selectedIds.has(p.id) ? 'checked' : ''}>
+    </td>`;
+
+
+    return `<tr>
+      
+      <td><div class="td-product">${img}<div class="td-product-info"><strong>${p.name}</strong><span style="font-size:11.5px;color:var(--text-muted)">${p.slug}</span></div></div></td>
+      <td><span class="badge badge-purple">${p.category_name || '—'}</span></td>
+      <td><span class="badge badge-gray">${p.product_type || '—'}</span></td>
+      <td>${p.brand || '<span style="color:var(--text-muted)">—</span>'}</td>
+      <td style="font-size:13px;font-weight:600">${priceRange}</td>
+      <td>${statusBadge}</td>
+      <td><div class="action-btns">${viewBtn}${editBtn}${deleteBtn}</div></td>
+    </tr>`;
+  }).join('');
+  // document.getElementById('chkCol').style.display = hasAnyWrite ? '' : 'none';
+}
+
+/* ── Pagination ── */
+function renderPagination() {
+  const w = document.getElementById('paginationWrap');
+  if (totalPages <= 1) { w.innerHTML = ''; return; }
+  let html = `<button class="page-btn" onclick="loadProducts(${currentPage-1})" ${currentPage===1?'disabled':''}>‹</button>`;
+  for (let i = 1; i <= totalPages; i++) {
+    if (i === 1 || i === totalPages || Math.abs(i - currentPage) <= 2) {
+      html += `<button class="page-btn ${i===currentPage?'active':''}" onclick="loadProducts(${i})">${i}</button>`;
+    } else if (Math.abs(i - currentPage) === 3) {
+      html += `<button class="page-btn" disabled>…</button>`;
+    }
+  }
+  html += `<button class="page-btn" onclick="loadProducts(${currentPage+1})" ${currentPage===totalPages?'disabled':''}>›</button>`;
+  w.innerHTML = html;
+}
+
+/* ── Filters ── */
+function applyFilters() { loadProducts(1); }
+function clearFilters() {
+  ['productSearch','catFilter','typeFilter','statusFilter'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('topSearch').value = '';
+   // reset category dropdowns
+  renderCategoryDropdown(
+    CATEGORY_TREE,
+    0
+  );
+
+  applyFilters();
+  loadProducts(1);
+}
+
+/* ── View Product ── */
+async function viewProduct(id) {
+  openModal('viewModal');
+  document.getElementById('viewBody').innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted)">Loading…</div>';
+  try {
+    const res = await API.get(`/products/${id}/`);
+    console.log("the product details response is ",res);
+    const p = res?.data.product;
+    document.getElementById('viewTitle').textContent = p.name;
+
+    const primaryImg = p.images?.find(i => i.is_primary) || p.images?.[0];
+    const imgHtml = primaryImg
+      ? `<img src="${primaryImg.image_url}" style="width:100%;max-height:220px;object-fit:cover;border-radius:10px;margin-bottom:16px;border:1px solid var(--border)">`
+      : '';
+
+    const variantsHtml = (p.variants || []).length
+      ? `<table class="data-table" style="margin-top:8px"><thead><tr><th>SKU</th><th>Name</th><th>Color</th><th>Size</th><th>Price</th><th>Stock</th><th>Unit</th></tr></thead><tbody>
+          ${p.variants.map(v => `<tr><td><code>${v.sku}</code></td><td>${v.variant_name||'—'}</td><td>${v.color||'—'}</td><td>${v.size||'—'}</td><td>₹${v.price}${v.sale_price?` <s style="color:var(--text-muted);font-size:11px">₹${v.price}</s> ₹${v.sale_price}`:''}</td><td>${v.stock_quantity} ${v.unit_type}</td><td>${v.unit_type}</td></tr>`).join('')}
+        </tbody></table>`
+      : '<p style="color:var(--text-muted);font-size:13px">No variants added yet.</p>';
+
+    const attrsHtml = (p.attributes || []).length
+      ? p.attributes.map(a => `<div style="display:flex;gap:8px;margin-bottom:6px"><span style="font-weight:600;min-width:120px;font-size:13px">${a.name}</span><span style="font-size:13px;color:var(--text-mid)">${a.value}</span></div>`).join('')
+      : '<p style="color:var(--text-muted);font-size:13px">No attributes.</p>';
+
+    document.getElementById('viewBody').innerHTML = `
+      ${imgHtml}
+      <div class="form-row cols-2" style="margin-bottom:16px">
+        <div><div class="form-label">Category</div><span class="badge badge-purple">${p.category_name||'—'}</span></div>
+        <div><div class="form-label">Type</div><span class="badge badge-gray">${p.product_type}</span></div>
+        <div><div class="form-label">Brand</div><span>${p.brand||'—'}</span></div>
+        <div><div class="form-label">Status</div>${p.is_active?'<span class="badge badge-green">Active</span>':'<span class="badge badge-gray">Inactive</span>'}</div>
+      </div>
+      <div class="form-group"><div class="form-label">Short Description</div><p style="font-size:13px;color:var(--text-mid)">${p.short_description||'—'}</p></div>
+      <hr style="border:none;border-top:1px solid var(--border);margin:16px 0">
+      <div class="form-label" style="margin-bottom:8px">Attributes</div>${attrsHtml}
+      <hr style="border:none;border-top:1px solid var(--border);margin:16px 0">
+      <div class="form-label" style="margin-bottom:8px">Variants</div>${variantsHtml}
+    `;
+  } catch (e) {
+    document.getElementById('viewBody').innerHTML = `<p style="color:var(--danger)">Failed to load product details.</p>`;
+  }
+}
+
+/* ── Add Modal ── */
+function openAddModal() {
+  if (!CAN_ADD) { showToast('error','No Permission','You do not have permission to add products'); return; }
+  editingId = null; currentStep = 1; updateStepUI();
+  document.getElementById('modalTitle').textContent = 'Add New Product';
+  ['pName','pSlug','pShortDesc','pLongDesc','pBrand','pHSN','pTax','vSKU','vName','vColor','vSize','vPrice','vSalePrice','vStock','vMinQty','vMaxQty','vWeight','vLength','imgURL','imgAlt'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  document.getElementById('vMinQty').value = '1';
+  document.getElementById('pIsActive').checked = true;
+  document.getElementById('vUnit').value = 'piece';
+  // document.getElementById('pType').value = '';
+  // document.getElementById('pCategory').value = '';
+  document.getElementById('imgPreview').style.display = 'none';
+  resetAttrs();
+  openModal('addProductModal');
+}
+
+/* ── Helper: find the path from root to a leaf category by ID ── */
+function findCategoryPath(tree, targetId, path = []) {
+  for (const node of tree) {
+    const currentPath = [...path, node];
+    if (String(node.id) === String(targetId)) {
+      return currentPath; // Found — return full path
+    }
+    if (node.subcategories?.length) {
+      const found = findCategoryPath(node.subcategories, targetId, currentPath);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+/* ── Helper: render category dropdowns pre-selected to a known path ── */
+function preselectCategoryPath(categoryId) {
+  const container = document.getElementById('productCategorySelectors');
+
+  // Find the full path from root → leaf
+  const path = findCategoryPath(CATEGORY_TREE, categoryId);
+  if (!path) {
+    console.warn('Category not found in tree for id:', categoryId);
+    // Fall back to rendering empty root dropdown
+    renderProductCategoryDropdowns(CATEGORY_TREE, 0);
+    return;
+  }
+
+  // Save the path globally (same as what the change-handler does)
+  SELECTED_CATEGORY_PATH = path;
+
+  // Clear container
+  container.innerHTML = '';
+
+  // For each level, render the dropdown and set its value
+  path.forEach((selectedCat, level) => {
+    // Determine which sibling list to show at this level
+    const siblings = level === 0
+      ? CATEGORY_TREE
+      : path[level - 1].subcategories || [];
+
+    const select = document.createElement('select');
+    select.className = `product-category-level-${level}`;
+    select.innerHTML = `<option value="">— Select Category —</option>`;
+
+    siblings.forEach(cat => {
+      select.innerHTML += `<option value="${cat.id}">${cat.name}</option>`;
+    });
+
+    // Pre-select this level's category
+    select.value = String(selectedCat.id);
+
+    // Attach the same change handler as renderProductCategoryDropdowns
+    select.addEventListener('change', function () {
+      Array.from(container.children).forEach((child, idx) => {
+        if (idx > level) child.remove();
+      });
+      const selId = this.value;
+      if (!selId) return;
+      const selCat = siblings.find(c => String(c.id) === String(selId));
+      if (!selCat) return;
+      SELECTED_CATEGORY_PATH = [
+        ...SELECTED_CATEGORY_PATH.slice(0, level),
+        selCat
+      ];
+      if (selCat.subcategories?.length) {
+        renderProductCategoryDropdowns(selCat.subcategories, level + 1, SELECTED_CATEGORY_PATH);
+      }
+    });
+
+    container.appendChild(select);
+
+    // If this isn't the leaf and the selected node has subcategories,
+    // the loop will continue and render the next level
+  });
+
+  // If the leaf node itself has children, render one more empty dropdown
+  const leaf = path[path.length - 1];
+  if (leaf.subcategories?.length) {
+    renderProductCategoryDropdowns(leaf.subcategories, path.length, SELECTED_CATEGORY_PATH);
+  }
+
+  console.log('Pre-selected category path:', SELECTED_CATEGORY_PATH.map(c => c.name).join(' > '));
+}
+
+/* ── Edit Product ── */
+async function editProduct(id) {
+  if (!CAN_EDIT) { showToast('error', 'No Permission', 'No edit permission'); return; }
+  try {
+    const res = await API.get(`/products/${id}/`);
+    const p = res?.data.product;
+    console.log('Product data for editing:', p);
+
+    editingId = id; currentStep = 1; updateStepUI();
+    document.getElementById('modalTitle').textContent = 'Edit: ' + p.name;
+    document.getElementById('pName').value        = p.name || '';
+    document.getElementById('pSlug').value        = p.slug || '';
+    document.getElementById('pShortDesc').value   = p.short_description || '';
+    document.getElementById('pLongDesc').value    = p.description || '';
+    document.getElementById('pBrand').value       = p.brand || '';
+    document.getElementById('pHSN').value         = p.hsn_code || '';
+    document.getElementById('pTax').value         = p.tax_rate || '';
+    document.getElementById('pIsActive').checked  = !!p.is_active;
+
+    // ── Category tree: walk down to pre-select all levels ──
+    if (p.category_id) {
+      preselectCategoryPath(p.category_id);
+    } else {
+      // No category set — render empty root dropdown
+      renderProductCategoryDropdowns(CATEGORY_TREE, 0);
+      SELECTED_CATEGORY_PATH = [];
+    }
+
+    // ── Attributes ──
+    resetAttrs();
+    if (p.attributes && p.attributes.length) {
+      document.getElementById('attrList').innerHTML = '';
+      attrCount = 0;
+      p.attributes.forEach(a => addAttr(a.name, a.value));
+    }
+
+    
+
+    openModal('addProductModal');
+  } catch (e) {
+    console.error('Failed to load product for editing:', e);
+    showToast('error', 'Error', 'Failed to load product for editing');
+  }
+}
+/* ── Edit Product ── */
+// async function editProduct(id) {
+//   if (!CAN_EDIT) { showToast('error','No Permission','No edit permission'); return; }
+//   try {
+//     const res = await API.get(`/products/${id}/`);
+//     const p = res?.data.product;
+//     console.log('Product data for editing:', res);
+//     console.log('Product details for editing:', p); 
+//     console.log('Product attributes for editing:', p.category_id);
+    // editingId = id; currentStep = 1; updateStepUI();
+    // document.getElementById('modalTitle').textContent = 'Edit: ' + p.name;
+    // document.getElementById('pName').value = p.name || '';
+    // document.getElementById('pSlug').value = p.slug || '';
+    // document.getElementById('pShortDesc').value = p.short_description || '';
+    // document.getElementById('pLongDesc').value = p.description || '';
+    // document.getElementById('pBrand').value = p.brand || '';
+    // document.getElementById('pHSN').value = p.hsn_code || '';
+    // document.getElementById('pTax').value = p.tax_rate || '';
+    // document.getElementById('pIsActive').checked = !!p.is_active;
+    // --**-- document.getElementById('pCategory').value = p.category_id || '';
+    // --** -- document.getElementById('pType').value = p.product_type || '';
+    // Load attributes
+//     resetAttrs();
+//     if (p.attributes && p.attributes.length) {
+//       document.getElementById('attrList').innerHTML = '';
+//       attrCount = 0;
+//       p.attributes.forEach(a => { addAttr(a.name, a.value); });
+//     }
+//     openModal('addProductModal');
+//   } catch (e) {
+//     console.error('Failed to load product for editing:', e);
+//     showToast('error','Error','Failed to load product for editing');
+//   }
+// }
+
+/* ── Save ── */
+async function saveProduct() {
+  const name = document.getElementById('pName').value.trim();
+  // const pType = document.getElementById('pType').value;
+  // const catId = document.getElementById('pCategory').value;
+  const catId =getSelectedProductCategoryId();
+  const categoryData =  getCategoryPathData();
+  console.log('CATEGORY DATA:',categoryData);
+
+  if (!name) { showToast('warning','Required','Product name is required'); return; }
+  // if (!pType) { showToast('warning','Required','Product type is required'); return; }
+
+  // Collect attributes
+  const attributes = [];
+  document.querySelectorAll('#attrList .highlight-row').forEach((row) => {
+    const nameInput = row.querySelector('input:first-child');
+    const valInput  = row.querySelector('input:nth-child(2)');
+    const n = nameInput?.value.trim();
+    const v = valInput?.value.trim();
+    if (n) attributes.push({ name: n, value: v || '' });
+  });
+  const categoryId =
+  getSelectedProductCategoryId();
+
+  if (!categoryId) {
+
+    showToast(
+      'warning',
+      'Required',
+      'Please select category'
+    );
+
+    return;
+  }
+
+  const payload = {
+    name,
+    slug: document.getElementById('pSlug').value.trim() || undefined,
+    // product_type: pType,
+    // category_id: catId ? parseInt(catId) : null,
+     category_id:categoryData.category_id,
+
+     category_path: categoryData.category_path,
+
+     category_slug_path:
+      categoryData.category_slug_path,
+
+    category_full_path:
+      categoryData.category_full_path,
+
+    category_full_slug:
+      categoryData.category_full_slug,
+
+    category_ancestor_ids:
+      categoryData.category_ancestor_ids,
+
+    category_depth:
+      categoryData.category_depth,
+
+    short_description: document.getElementById('pShortDesc').value.trim(),
+    description: document.getElementById('pLongDesc').value.trim(),
+    brand: document.getElementById('pBrand').value.trim(),
+    hsn_code: document.getElementById('pHSN').value.trim(),
+    tax_rate: document.getElementById('pTax').value || null,
+    is_active: document.getElementById('pIsActive').checked,
+    attributes,
+  };
+
+  // Variant payload (only for new product)
+  if (!editingId) {
+    const vSKU = document.getElementById('vSKU').value.trim();
+    const vPrice = parseFloat(document.getElementById('vPrice').value);
+    if (!vSKU) { showToast('warning','Required','Variant SKU is required'); return; }
+    if (!vPrice) { showToast('warning','Required','Variant price is required'); return; }
+
+    payload.variant = {
+      sku: vSKU,
+      variant_name: document.getElementById('vName').value.trim(),
+      color: document.getElementById('vColor').value.trim(),
+      size: document.getElementById('vSize').value.trim(),
+      unit_type: document.getElementById('vUnit').value,
+      price: vPrice,
+      sale_price: document.getElementById('vSalePrice').value || null,
+      stock_quantity: parseFloat(document.getElementById('vStock').value) || 0,
+      min_order_qty: parseFloat(document.getElementById('vMinQty').value) || 1,
+      max_order_qty: document.getElementById('vMaxQty').value || null,
+      weight: document.getElementById('vWeight').value || null,
+      length_per_piece: document.getElementById('vLength').value || null,
+    };
+  }
+
+  const btnSave = document.getElementById('btnSave');
+  btnSave.disabled = true; btnSave.textContent = 'Saving...';
+
+  try {
+    let productId;
+    if (editingId) {
+      await API.put(`/products/${editingId}/`, payload);
+      productId = editingId;
+    } else {
+      const res = await API.post('/products/', payload);
+      // Backend should return the created product object
+      console.log('Create product response:', res);
+      productId = res?.product?.id || res?.data?.id || res?.id || res?.data?.product?.id ;
+      if (!productId) throw new Error('Product created but ID not returned');
+    }
+
+    // --- SEQUENTIAL IMAGE UPLOAD ---
+    if (productId) {
+      // 1. MAIN IMAGE
+      if (MAIN_IMAGE) {
+        showToast('info', 'Uploading', 'Uploading main image...');
+        const formData = new FormData();
+        formData.append('image', MAIN_IMAGE);
+        formData.append('is_primary', true);
+        await API.post(`/products/${productId}/images/`, formData);
+      }
+
+      // 2. GALLERY IMAGES
+      if (GALLERY_IMAGES.length > 0) {
+        showToast('info', 'Uploading', `Uploading ${GALLERY_IMAGES.length} gallery images...`);
+        for (const img of GALLERY_IMAGES) {
+          const formData = new FormData();
+          formData.append('image', img);
+          formData.append('is_primary', false);
+          await API.post(`/products/${productId}/images/`, formData);
+        }
+      }
+
+      // 3. URL-based Image (Legacy fallback)
+      const imgUrl = document.getElementById('imgURL').value.trim();
+      if (imgUrl && !MAIN_IMAGE && !editingId) {
+        await API.post(`/products/${productId}/images/`, {
+          image_url: imgUrl,
+          alt_text: document.getElementById('imgAlt').value.trim(),
+          is_primary: true
+        });
+      }
+    }
+
+    showToast('success', editingId ? 'Updated' : 'Created', 
+              editingId ? 'Product updated successfully' : 'Product created with images');
+    
+    closeModal('addProductModal');
+    loadProducts(currentPage);
+
+  } catch (e) {
+    showToast('error', 'Error', e.message || 'Failed to save product');
+    console.error('saveProduct error:', e);
+  } finally {
+    btnSave.disabled = false; btnSave.textContent = '💾 Save Product';
+  }
+}
+
+/* ── Delete ── */
+function askDel(id, name) {
+  if (!CAN_DELETE) { showToast('error','No Permission','No delete permission'); return; }
+  deleteId = id;
+  document.getElementById('delName').textContent = name;
+  openModal('delModal');
+}
+async function doDelete() {
+  try {
+    await API.delete(`/products/${deleteId}/`);
+    console.log(`Product with ID ${deleteId} deactivated successfully.`);
+    closeModal('delModal');
+    showToast('success','Deactivated','Product deactivated successfully');
+    await loadProducts(currentPage);
+  } catch (e) {
+    showToast('error','Error','Failed to deactivate product');
+  }
+}
+
+async function loadProducts() {
+  try {
+    const json = await API.get('/products/?per_page=100');
+    PRODUCTS = json.data?.items || json.results || [];
+    renderProducts();
+  } catch (err) {
+    showToast('error', 'Load Error', 'Failed to fetch products');
+  }
+}
+
+/* ── Export ── */
+function exportProducts() {
+  if (!CAN_EXPORT) { showToast('error','No Permission','No export permission'); return; }
+  const header = ['ID','Name','Slug','Category','Type','Brand','Price Min','Price Max','Status'];
+  const rows = PRODUCTS.map(p => [p.id, p.name, p.slug, p.category_name||'', p.product_type, p.brand||'', p.price_min||'', p.price_max||'', p.is_active?'Active':'Inactive']);
+  const csv = [header, ...rows].map(r => r.map(v => `"${v}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'products.csv';
+  a.click();
+  showToast('success','Exported','products.csv downloaded');
+}
+
+/* ── Step Navigation ── */
+function updateStepUI() {
+  document.querySelectorAll('.modal-step').forEach((s, i) => s.classList.toggle('active', i + 1 === currentStep));
+  for (let i = 1; i <= STEPS; i++) {
+    const el = document.getElementById('si' + i);
+    el.classList.remove('active','done');
+    if (i < currentStep) el.classList.add('done');
+    else if (i === currentStep) el.classList.add('active');
+  }
+  for (let i = 1; i < STEPS; i++) {
+    const l = document.getElementById('sl' + i);
+    if (l) l.style.background = i < currentStep ? 'var(--success)' : 'var(--border)';
+  }
+  document.getElementById('btnPrev').style.display = currentStep > 1 ? 'inline-flex' : 'none';
+  document.getElementById('btnNext').style.display = currentStep < STEPS ? 'inline-flex' : 'none';
+  document.getElementById('btnSave').style.display = currentStep === STEPS ? 'inline-flex' : 'none';
+}
+
+function nextStep() {
+  if (currentStep === 1) {
+    if (!document.getElementById('pName').value.trim()) { showToast('warning','Required','Product name is required'); return; }
+    // if (!document.getElementById('pType').value)        { showToast('warning','Required','Product type is required'); return; }
+    if (!getSelectedProductCategoryId())        { showToast('warning','Required','Product category is required'); return; }
+    if(!document.getElementById('pShortDesc').value.trim()){
+      showToast('warning','Required','Short Description is required');return;
+    }
+  }
+  if (currentStep < STEPS) { currentStep++; updateStepUI(); }
+}
+function prevStep() { if (currentStep > 1) { currentStep--; updateStepUI(); } }
+
+/* ── Attributes ── */
+function resetAttrs() {
+  attrCount = 2;
+  document.getElementById('attrList').innerHTML = `
+    <div class="highlight-row" data-idx="0"><input class="form-control" placeholder="Attribute name (e.g. Fabric)" id="attr_name_0"><input class="form-control" placeholder="Value (e.g. Chanderi Silk)" id="attr_val_0"><button class="btn btn-secondary btn-sm btn-icon" onclick="this.closest('.highlight-row').remove()">✕</button></div>
+    <div class="highlight-row" data-idx="1"><input class="form-control" placeholder="Attribute name (e.g. Pattern)" id="attr_name_1"><input class="form-control" placeholder="Value (e.g. Floral)" id="attr_val_1"><button class="btn btn-secondary btn-sm btn-icon" onclick="this.closest('.highlight-row').remove()">✕</button></div>
+  `;
+}
+function addAttr(name = '', val = '') {
+  const idx = attrCount++;
+  const d = document.createElement('div');
+  d.className = 'highlight-row';
+  d.dataset.idx = idx;
+  d.innerHTML = `<input class="form-control" placeholder="Attribute name" id="attr_name_${idx}" value="${name}"><input class="form-control" placeholder="Value" id="attr_val_${idx}" value="${val}"><button class="btn btn-secondary btn-sm btn-icon" onclick="this.closest('.highlight-row').remove()">✕</button>`;
+  document.getElementById('attrList').appendChild(d);
+}
+function removeAttr(idx) { document.getElementById('attrList').querySelectorAll(`.highlight-row[data-idx="${idx}"]`).forEach(r => r.remove()); }
+
+/* ── Image Preview ── */
+function previewImgURL() {
+  const url = document.getElementById('imgURL').value.trim();
+  const prev = document.getElementById('imgPreview');
+  if (url) { prev.src = url; prev.style.display = 'block'; }
+  else prev.style.display = 'none';
+}
+
+/* ── Helpers ── */
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function showToast(type, title, msg) {
+  const icons = {success:'✅',error:'❌',info:'ℹ️',warning:'⚠️'};
+  const tc = document.getElementById('toast-container');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.innerHTML = `<span style="font-size:18px">${icons[type]||'ℹ️'}</span><div><div style="font-size:13px;font-weight:600">${title}</div><div style="font-size:12px;color:#6b7c75;margin-top:2px">${msg}</div></div>`;
+  tc.appendChild(t);
+  setTimeout(() => t.remove(), 4000);
+}
+
+document.getElementById('sidebarToggle').addEventListener('click', () => {
+ const sidebar = document.getElementById('sidebar');
+  const main    = document.getElementById('mainContent');
+  sidebar.classList.toggle('collapsed');
+  main.classList.toggle('expanded', sidebar.classList.contains('collapsed'));
+});
+document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); }));
+</script>
+</body>
+</html>

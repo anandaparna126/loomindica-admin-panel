@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Super Admin Login — Loom Indica</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <style>
+    :root {
+      --primary: #1b4332;
+      --primary-mid: #2d6a4f;
+      --primary-light: #52b788;
+      --primary-bg: #d8f3dc;
+      --accent: #b7791f;
+      --body-bg: #0f1f16;
+      --card-bg: #ffffff;
+      --text-primary: #1a2e1d;
+      --text-secondary: #6b7c75;
+      --text-muted: #9aad9f;
+      --border: #d4e8db;
+      --danger: #e53e3e;
+      --gold: #d4a017;
+      --gold-light: #fef9e7;
+      --shadow-lg: 0 25px 60px rgba(0,0,0,0.4);
+      --radius: 14px;
+      --radius-sm: 8px;
+      --transition: all 0.22s cubic-bezier(.4,0,.2,1);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--body-bg);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Dark forest background */
+    .bg-layer {
+      position: fixed; inset: 0;
+      background:
+        radial-gradient(ellipse at 20% 20%, rgba(45,106,79,0.3) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 80%, rgba(27,67,50,0.4) 0%, transparent 50%),
+        #0f1f16;
+      z-index: 0;
+    }
+
+    .bg-grid {
+      position: fixed; inset: 0;
+      background-image:
+        linear-gradient(rgba(82,183,136,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(82,183,136,0.04) 1px, transparent 1px);
+      background-size: 40px 40px;
+      z-index: 0;
+    }
+
+    .floating-shapes {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    }
+
+    .shape {
+      position: absolute;
+      border-radius: 50%;
+      animation: floatShape 8s ease-in-out infinite;
+    }
+
+    .shape-1 { width: 300px; height: 300px; background: radial-gradient(circle, rgba(82,183,136,0.08), transparent); top: -100px; right: 10%; animation-delay: 0s; }
+    .shape-2 { width: 200px; height: 200px; background: radial-gradient(circle, rgba(212,160,23,0.06), transparent); bottom: 10%; left: 5%; animation-delay: 3s; }
+    .shape-3 { width: 150px; height: 150px; background: radial-gradient(circle, rgba(82,183,136,0.05), transparent); top: 40%; left: -50px; animation-delay: 5s; }
+
+    @keyframes floatShape {
+      0%, 100% { transform: translateY(0) scale(1); }
+      50% { transform: translateY(-20px) scale(1.05); }
+    }
+
+    /* Card */
+    .login-wrap { position: relative; z-index: 1; width: 100%; max-width: 440px; padding: 20px; }
+
+    .login-card {
+      background: rgba(255,255,255,0.97);
+      backdrop-filter: blur(20px);
+      border-radius: 20px;
+      box-shadow: var(--shadow-lg), 0 0 0 1px rgba(82,183,136,0.2);
+      padding: 44px 40px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Gold top accent bar */
+    .login-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, var(--gold), #f6c90e, var(--gold));
+    }
+
+    .login-header { text-align: center; margin-bottom: 32px; }
+
+    .super-badge {
+      width: 64px; height: 64px;
+      background: linear-gradient(135deg, var(--primary), var(--primary-mid));
+      border-radius: 16px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 28px;
+      margin: 0 auto 16px;
+      box-shadow: 0 8px 20px rgba(45,106,79,0.3);
+      position: relative;
+    }
+
+    .super-badge::after {
+      content: '👑';
+      position: absolute;
+      top: -8px; right: -8px;
+      font-size: 18px;
+    }
+
+    .login-header h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+
+    .login-header p { font-size: 13px; color: var(--text-secondary); }
+
+    .role-pill {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: linear-gradient(135deg, #fffbeb, #fef3c7);
+      border: 1px solid #f6c90e;
+      color: #92400e;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 12px;
+      border-radius: 20px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    .security-notice {
+      background: #fff8f0;
+      border: 1px solid #fde8c8;
+      border-radius: 8px;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: #92400e;
+      margin-bottom: 24px;
+    }
+
+    .form-group { margin-bottom: 20px; }
+
+    .form-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 7px;
+    }
+
+    .input-wrap { position: relative; }
+
+    .input-icon {
+      position: absolute;
+      left: 14px; top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      font-size: 14px;
+      pointer-events: none;
+    }
+
+    .form-control {
+      width: 100%;
+      padding: 11px 14px 11px 40px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      color: var(--text-primary);
+      background: #fafcfa;
+      outline: none;
+      transition: var(--transition);
+    }
+
+    .form-control:focus {
+      border-color: var(--primary-light);
+      background: #fff;
+      box-shadow: 0 0 0 4px rgba(82,183,136,0.1);
+    }
+
+    .form-control.error { border-color: var(--danger); }
+    .form-control::placeholder { color: var(--text-muted); }
+
+    .eye-toggle {
+      position: absolute; right: 14px; top: 50%;
+      transform: translateY(-50%);
+      background: none; border: none;
+      color: var(--text-muted); cursor: pointer;
+      font-size: 14px; transition: var(--transition);
+    }
+
+    .eye-toggle:hover { color: var(--primary); }
+
+    .error-msg {
+      display: none;
+      background: #fff5f5;
+      border: 1px solid #fed7d7;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 13px;
+      color: var(--danger);
+      margin-bottom: 18px;
+      gap: 8px;
+      align-items: center;
+    }
+    .error-msg.show { display: flex; }
+
+    .btn-login {
+      width: 100%;
+      padding: 13px;
+      background: linear-gradient(135deg, var(--primary), var(--primary-mid));
+      color: #fff;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: var(--transition);
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn-login::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(135deg, transparent, rgba(255,255,255,0.1));
+    }
+
+    .btn-login:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(27,67,50,0.4); }
+    .btn-login:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
+
+    .back-link {
+      text-align: center;
+      margin-top: 22px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border);
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .back-link a { color: var(--primary-mid); text-decoration: none; font-weight: 500; }
+    .back-link a:hover { text-decoration: underline; }
+
+    .spinner {
+      width: 18px; height: 18px;
+      border: 2px solid rgba(255,255,255,0.4);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .toast-container {
+      position: fixed; top: 20px; right: 20px;
+      z-index: 9999; display: flex; flex-direction: column; gap: 10px;
+    }
+
+    .toast {
+      background: #fff; border-radius: 10px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+      padding: 14px 18px;
+      display: flex; align-items: flex-start; gap: 10px;
+      min-width: 260px;
+      border-left: 4px solid var(--primary);
+      animation: slideIn 0.3s ease;
+    }
+
+    .toast.success { border-left-color: #38a169; }
+    .toast.error { border-left-color: var(--danger); }
+
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20%, 60% { transform: translateX(-8px); }
+      40%, 80% { transform: translateX(8px); }
+    }
+  </style>
+</head>
+<body>
+
+<div class="bg-layer"></div>
+<div class="bg-grid"></div>
+<div class="floating-shapes">
+  <div class="shape shape-1"></div>
+  <div class="shape shape-2"></div>
+  <div class="shape shape-3"></div>
+</div>
+
+<div class="login-wrap">
+  <div class="login-card">
+
+    <div class="login-header">
+      <div class="role-pill">
+        <i class="fa-solid fa-crown"></i> Super Admin
+      </div>
+      <div class="super-badge">🧵</div>
+      <h1>Super Admin Portal</h1>
+      <p>Restricted access — Loom Indica</p>
+    </div>
+
+    <div class="security-notice">
+      <i class="fa-solid fa-shield-halved" style="font-size:14px;"></i>
+      This portal is for authorized super admins only
+    </div>
+
+    <!-- Error -->
+    <div class="error-msg" id="errorMsg">
+      <i class="fa-solid fa-circle-exclamation"></i>
+      <span id="errorText">Invalid credentials.</span>
+    </div>
+
+    <!-- Form -->
+    <div class="form-group">
+      <label class="form-label">Super Admin Email</label>
+      <div class="input-wrap">
+        <span class="input-icon"><i class="fa-solid fa-envelope"></i></span>
+        <input type="email" class="form-control" id="emailInput" placeholder="superadmin@loomindica.com">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Password</label>
+      <div class="input-wrap">
+        <span class="input-icon"><i class="fa-solid fa-key"></i></span>
+        <input type="password" class="form-control" id="passwordInput" placeholder="••••••••••">
+        <button class="eye-toggle" id="eyeToggle" type="button" tabindex="-1">
+          <i class="fa-solid fa-eye" id="eyeIcon"></i>
+        </button>
+      </div>
+    </div>
+
+    <button class="btn-login" id="loginBtn" onclick="handleSuperLogin()">
+      <i class="fa-solid fa-right-to-bracket"></i>
+      Enter Super Admin Panel
+    </button>
+
+    <div class="back-link">
+      Regular admin? <a href="admin-login.html">← Admin login</a>
+    </div>
+
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+  // ============================================================
+  //  SAMPLE API — Replace with real Django endpoint
+  // ============================================================
+
+  // const BASE_URL = 'http://182.70.253.15:8011/api'; // ← Change this to your actual API URL
+  // const BASE_URL = 'http://10.105.81.229:8000/api'; // ← Change this to your actual API URL
+  // const BASE_URL = 'http://192.168.29.60:8000/api'; // ← Change this to your actual API URL  (Maan 5G)
+const BASE_URL = 'http://34.231.15.242:8001/api';
+    const API = {
+    requestOTP:      `${BASE_URL}/auth/request-otp/`,
+    verifyOTPLogin:  `${BASE_URL}/auth/login/`,
+    verifyOTPSignup: `${BASE_URL}/auth/verify-otp-signup/`,
+    };
+  const SUPER_AUTH_API = {
+
+    /**
+     * Super Admin Login
+     * REPLACE WITH: POST /api/auth/superadmin/login/
+     * Body: { email, password }
+     * Returns: { success, token, superadmin: { id, name, email } }
+     */
+    
+    async loginSuperAdmin(email, password) {
+      await new Promise(r => setTimeout(r, 900));
+      
+    
+      const endpoint = API.verifyOTPLogin;
+      try{
+        const res  = await fetch(endpoint, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ email:email,password:password}),
+        });
+        const data = await res.json();
+        console.log('OTP verification response:', data);
+      
+        // return { success: false, message: 'Invalid super admin credentials.' };
+        return {
+          success: true,
+          token: data.data['access_token'],
+          message:data.message,
+          superadmin: { id: data.data.user.id, name: data.data.user.name, email: data.data.user.email, role: data.data.user.role }
+        };
+      }
+      catch(e){
+        console.log(e);
+      }
+
+      // --- MOCK CREDENTIALS (hardcoded in DB on your server, never in frontend) ---
+    //   const SUPER_ADMIN = {
+    //     id: 1,
+    //     name: 'Super Admin',
+    //     email: 'superadmin@loomindica.com',
+    //     password: 'SuperAdmin@123',
+    //     role: 'superadmin'
+    //   };
+
+    //   if (email === SUPER_ADMIN.email && password === SUPER_ADMIN.password) {
+    //     return {
+    //       success: true,
+    //       token: 'superadmin-jwt-' + Date.now(),
+    //       superadmin: { id: SUPER_ADMIN.id, name: SUPER_ADMIN.name, email: SUPER_ADMIN.email, role: SUPER_ADMIN.role }
+    //     };
+    //   }
+
+    //   return { success: false, message: 'Invalid super admin credentials.' };
+    }
+  };
+
+  // ============================================================
+  //  HANDLER
+  // ============================================================
+  async function handleSuperLogin() {
+    const email = document.getElementById('emailInput').value.trim();
+    const password = document.getElementById('passwordInput').value;
+    const btn = document.getElementById('loginBtn');
+
+    if (!email) { showError('Please enter your email.'); return; }
+    if (!password) { showError('Please enter your password.'); return; }
+
+    btn.disabled = true;
+    btn.innerHTML = '<div class="spinner"></div> Authenticating…';
+    hideError();
+
+    try {
+      const result = await SUPER_AUTH_API.loginSuperAdmin(email, password);
+
+      if (result.success) {
+        sessionStorage.setItem('superAdminToken', result.token);
+        localStorage.setItem('superAdminToken',result.token);
+        sessionStorage.setItem('superAdminData', JSON.stringify(result.superadmin));
+
+        btn.innerHTML = '<i class="fa-solid fa-check"></i> Verified! Redirecting…';
+        btn.style.background = 'linear-gradient(135deg, #38a169, #2f855a)';
+
+        showToast('Welcome, Super Admin!', 'Loading your dashboard…', 'success');
+
+        setTimeout(() => { window.location.href = 'superadmin.html'; }, 1000);
+      } else {
+        showError(result.message);
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> Enter Super Admin Panel';
+        document.querySelector('.login-card').style.animation = 'shake 0.4s ease';
+        setTimeout(() => document.querySelector('.login-card').style.animation = '', 400);
+      }
+    } catch (err) {
+      showError('Server error. Please try again.');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> Enter Super Admin Panel';
+    }
+  }
+
+  function showError(msg) {
+    document.getElementById('errorText').textContent = msg;
+    document.getElementById('errorMsg').classList.add('show');
+  }
+
+  function hideError() {
+    document.getElementById('errorMsg').classList.remove('show');
+  }
+
+  function showToast(title, msg, type = 'success') {
+    const icons = { success: '✅', error: '❌' };
+    const tc = document.getElementById('toastContainer');
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.innerHTML = `<span style="font-size:18px;">${icons[type]}</span><div><div style="font-size:13px;font-weight:600;">${title}</div><div style="font-size:12px;color:#6b7c75;margin-top:2px;">${msg}</div></div>`;
+    tc.appendChild(toast);
+    setTimeout(() => toast.remove(), 4000);
+  }
+
+  document.getElementById('eyeToggle').addEventListener('click', () => {
+    const input = document.getElementById('passwordInput');
+    const icon = document.getElementById('eyeIcon');
+    input.type = input.type === 'password' ? 'text' : 'password';
+    icon.className = input.type === 'text' ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye';
+  });
+
+  document.addEventListener('keydown', e => { if (e.key === 'Enter') handleSuperLogin(); });
+  ['emailInput', 'passwordInput'].forEach(id => {
+    document.getElementById(id).addEventListener('input', hideError);
+  });
+
+  console.log('%c Super Admin Credentials (dev):', 'color:#d4a017;font-weight:bold;');
+  console.log('Email: superadmin@loomindica.com | Password: SuperAdmin@123');
+</script>
+</body>
+</html>
