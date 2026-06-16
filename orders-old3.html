@@ -470,7 +470,7 @@ function viewOrder(orderId) {
           </div>
           <div class="step-actions">
             <span class="step-badge pending" id="awbBadge">Pending</span>
-            <button class="btn btn-primary btn-sm" id="awbBtn" onclick="assignAWB()">Assign AWB</button>
+            <button class="btn btn-primary btn-sm" id="awbBtn" onclick="assignAWB()">Assignn AWB</button>
           </div>
         </div>
 
@@ -761,7 +761,7 @@ async function showReturnPanel(order) {
     const retId = order.return_id || currentOrderId;
     const res   = await API.get(`/returns/${retId}/`);
     _ret = res.data || res;
-    console.log('Return details:', res);
+    cosnsole.log('Return details:', res);
     
     renderReturnPanel(order);
   } catch(e) {

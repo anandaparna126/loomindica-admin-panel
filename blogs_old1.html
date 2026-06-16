@@ -796,7 +796,7 @@ function renderGrid() {
       <div class="blog-card ${b.status}" onclick="openPreview(${b.id})">
         <div class="blog-card-thumb">
           ${b.thumbnail
-            ? `<img src="${b.thumbnail}" alt="${b.thumbAlt||''}">`
+            ? `<img src="${b.thumbnail}" alt="${b.thumbAlt||''}"></div>`
             : `<div class="blog-card-thumb-placeholder">📝</div>`
           }
           ${b.thumbnail ? `

@@ -226,7 +226,13 @@
             Showing <strong id="txnShown">—</strong> of <strong id="txnTotal">—</strong>
             · Total collected: <strong id="txnTotalAmt" style="color:var(--success)">—</strong>
           </div>
-          <div class="pagination"></div>
+          <div class="pagination">
+            <button class="page-btn">‹</button>
+            <button class="page-btn active">1</button>
+            <button class="page-btn">2</button>
+            <button class="page-btn">3</button>
+            <button class="page-btn">›</button>
+          </div>
         </div>
       </div>
     </div><!-- /page-content -->
@@ -353,7 +359,6 @@ let filtered      = [];
 let refundTxnId   = null;
 let currentPage   = 1;
 let totalPages    = 1;
-let _pagination   = { page: 1, per_page: 20, total: 0, total_pages: 1 };
 
 function getToken() {
   return localStorage.getItem('adminToken') || sessionStorage.getItem('adminData') || '';
@@ -374,8 +379,6 @@ async function loadTransactions() {
   if (status) params.append('status',    status);
   if (dFrom)  params.append('date_from', dFrom);
   if (dTo)    params.append('date_to',   dTo);
-  document.getElementById('txnBody').innerHTML =
-    `<tr><td colspan="10" style="text-align:center;padding:48px;color:var(--text-muted)">Loading…</td></tr>`;
   try {
     const res  = await fetch(`${API_BASE}/transactions/?${params}`, { headers: authHeaders() });
     console.log('Transactions API response:', res);
@@ -384,13 +387,10 @@ async function loadTransactions() {
     TXNS       = json.data.transactions;
     filtered   = [...TXNS];
     totalPages = json.data.pagination.total_pages;
-    _pagination = json.data.pagination || { page: currentPage, per_page: 20, total: TXNS.length, total_pages: 1 };
     renderStats(json.data.summary);
     renderTable();
     renderPagination(json.data.pagination);
   } catch (e) {
-    document.getElementById('txnBody').innerHTML =
-      `<tr><td colspan="10" style="text-align:center;padding:48px;color:#ef4444;">Failed to load transactions. <a href="#" onclick="loadTransactions();return false;">Retry</a></td></tr>`;
     showToast('error', 'Network Error', 'Could not load transactions.');
   }
 }
@@ -458,12 +458,9 @@ function renderStats(summary) {
   document.getElementById('txnTotalAmt').textContent = '₹' + total.toLocaleString('en-IN');
 }
 function renderTable() {
-  const { page, per_page, total } = _pagination;
-  const from = total === 0 ? 0 : (page - 1) * per_page + 1;
-  const to   = Math.min(page * per_page, total || filtered.length);
   document.getElementById('txnCount').textContent = filtered.length;
-  document.getElementById('txnShown').textContent = total ? `${from}–${to}` : filtered.length;
-  document.getElementById('txnTotal').textContent = total || TXNS.length;
+  document.getElementById('txnShown').textContent = filtered.length;
+  document.getElementById('txnTotal').textContent = TXNS.length;
 
   const canDetail   = perm('transactions', 'view_transaction_detail');
   const canRefund   = perm('transactions', 'process_refund');
@@ -524,28 +521,14 @@ function renderTable() {
 }
 
 function renderPagination(pg) {
-  const container = document.querySelector('.pagination');
-  if (!container) return;
-  if (!pg || !pg.total_pages || pg.total_pages <= 1) { container.innerHTML = ''; return; }
-
-  const { page, total_pages } = pg;
-
-  /* Build page list: always show first, last, current ±2, with ellipsis */
-  const pages = new Set([1, total_pages, page]);
-  for (let i = Math.max(2, page - 2); i <= Math.min(total_pages - 1, page + 2); i++) pages.add(i);
-  const sorted = [...pages].sort((a, b) => a - b);
-
-  let html = `<button class="page-btn" ${page === 1 ? 'disabled' : ''} onclick="gotoPage(${page - 1})">‹</button>`;
-
-  let prev = 0;
-  for (const p of sorted) {
-    if (p - prev > 1) html += `<span class="page-btn" style="pointer-events:none;opacity:.4;">…</span>`;
-    html += `<button class="page-btn ${p === page ? 'active' : ''}" onclick="gotoPage(${p})">${p}</button>`;
-    prev = p;
-  }
-
-  html += `<button class="page-btn" ${page === total_pages ? 'disabled' : ''} onclick="gotoPage(${page + 1})">›</button>`;
-  container.innerHTML = html;
+  if (!pg || pg.total_pages <= 1) return;
+  let html = `<div style="display:flex;align-items:center;gap:8px;justify-content:flex-end;margin-top:16px">`;
+  html += `<button class="btn btn-secondary btn-sm" onclick="gotoPage(${pg.page-1})" ${pg.page<=1?'disabled':''}>‹ Prev</button>`;
+  html += `<span style="font-size:13px;color:var(--text-muted)">Page ${pg.page} of ${pg.total_pages}</span>`;
+  html += `<button class="btn btn-secondary btn-sm" onclick="gotoPage(${pg.page+1})" ${pg.page>=pg.total_pages?'disabled':''}>Next ›</button>`;
+  html += `</div>`;
+  const wrap = document.getElementById('paginationWrap');
+  if (wrap) wrap.innerHTML = html;
 }
 
 function gotoPage(p) {

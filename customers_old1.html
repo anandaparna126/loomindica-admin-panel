@@ -163,7 +163,12 @@
           <span style="font-size:13px;color:var(--text-muted)">
             Showing <strong id="custShown">—</strong> of <strong id="custTotal">—</strong> customers
           </span>
-          <div class="pagination"></div>
+          <div class="pagination">
+            <button class="page-btn">‹</button>
+            <button class="page-btn active">1</button>
+            <button class="page-btn">2</button>
+            <button class="page-btn">›</button>
+          </div>
         </div>
       </div>
     </div>
@@ -258,7 +263,6 @@ let CUSTOMERS = [];  // Load from API
 let filtered = [];
 let viewId = null;
 let STATS = {};
-let _pagination = { page: 1, per_page: 20, total: 0, total_pages: 1 };
 
 /* ── API Helper ─────────────────────────────────────────── */
 if (typeof API === 'undefined') {
@@ -324,56 +328,19 @@ let CAN_VIEW_CUSTOMERS, CAN_VIEW_ORDERS, CAN_EDIT_NOTES, CAN_BLOCK, CAN_EXPORT;
 /* ════════════════════════════════════════════════════════
    Load Customers from API
 ════════════════════════════════════════════════════════ */
-async function loadCustomers(page = 1) {
-  _pagination.page = page;
-  document.getElementById('custBody').innerHTML =
-    `<tr><td colspan="9" style="text-align:center;padding:48px;color:var(--text-muted)">Loading…</td></tr>`;
+async function loadCustomers() {
   try {
-    const result = await API.get(`/customers/?page=${page}&per_page=${_pagination.per_page}`);
+    const result = await API.get('/customers/?page=1&per_page=100');
     CUSTOMERS = result.data.items || [];
     console.log('Loaded customers:', result);
     filtered = [...CUSTOMERS];
     STATS = result.data.stats || {};
-    _pagination = result.data.pagination || {
-      page, per_page: _pagination.per_page,
-      total: result.data.total || CUSTOMERS.length,
-      total_pages: 1
-    };
     renderStats();
     renderTable();
-    renderPagination();
   } catch (e) {
-    document.getElementById('custBody').innerHTML =
-      `<tr><td colspan="9" style="text-align:center;padding:48px;color:#ef4444">Failed to load customers. <a href="#" onclick="loadCustomers(${page});return false;">Retry</a></td></tr>`;
     showToast('error', 'Load Failed', `Could not load customers: ${e.message}`);
     console.error('loadCustomers error:', e);
   }
-}
-
-/* ── Pagination controls ─────────────────────────────────── */
-function renderPagination() {
-  const { page, total_pages } = _pagination;
-  const container = document.querySelector('.pagination');
-  if (!container) return;
-
-  if (!total_pages || total_pages <= 1) { container.innerHTML = ''; return; }
-
-  /* Build page list: always show first, last, current ±2, with ellipsis */
-  const pages = new Set([1, total_pages, page]);
-  for (let i = Math.max(2, page - 2); i <= Math.min(total_pages - 1, page + 2); i++) pages.add(i);
-  const sorted = [...pages].sort((a, b) => a - b);
-
-  let html = `<button class="page-btn" ${page === 1 ? 'disabled' : ''} onclick="loadCustomers(${page - 1})">‹</button>`;
-
-  let prev = 0;
-  for (const p of sorted) {
-    if (p - prev > 1) html += `<span class="page-btn" style="pointer-events:none;opacity:.4;">…</span>`;
-    html += `<button class="page-btn ${p === page ? 'active' : ''}" onclick="loadCustomers(${p})">${p}</button>`;
-    prev = p;
-  }
-
-  html += `<button class="page-btn" ${page === total_pages ? 'disabled' : ''} onclick="loadCustomers(${page + 1})">›</button>`;
-  container.innerHTML = html;
 }
 
 
@@ -436,12 +403,9 @@ function renderStats() {
    Per-row conditional buttons use perm() directly.
 ════════════════════════════════════════════════════════ */
 function renderTable() {
-  const { page, per_page, total } = _pagination;
-  const from = total === 0 ? 0 : (page - 1) * per_page + 1;
-  const to   = Math.min(page * per_page, total || filtered.length);
   document.getElementById('custCount').textContent = filtered.length;
-  document.getElementById('custShown').textContent = total ? `${from}–${to}` : filtered.length;
-  document.getElementById('custTotal').textContent = total || CUSTOMERS.length;
+  document.getElementById('custShown').textContent = filtered.length;
+  document.getElementById('custTotal').textContent = CUSTOMERS.length;
   const b = document.getElementById('custBody');
 
   if (!filtered.length) {

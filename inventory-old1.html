@@ -162,17 +162,6 @@
     }
     .bulk-bar.show { display: flex; }
 
-    .bulk-tab {
-      background: none; border: none; cursor: pointer;
-      padding: 9px 14px; font-size: 13px; font-weight: 600;
-      color: var(--text-muted); border-bottom: 2.5px solid transparent;
-      margin-bottom: -1.5px; white-space: nowrap;
-      transition: color .15s, border-color .15s;
-    }
-    .bulk-tab:hover { color: var(--primary); }
-    .bulk-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
-
-
     .stat-mini {
       text-align: center; padding: 16px;
       background: #fff; border-radius: 12px; border: 1px solid var(--border);
@@ -300,7 +289,7 @@
             Bulk update is a write action — hidden for viewers/limited managers.
             Gated in initPage() via PermGuard.guard().
           -->
-          <button class="btn btn-primary btn-sm" id="bulkStockBtn" onclick="openBulkStockModal()">
+          <button class="btn btn-primary btn-sm" id="bulkStockBtn" onclick="openModal('bulkStockModal'); loadBulkProducts();">
             📦 Bulk Stock Update
           </button>
         </div>
@@ -453,95 +442,41 @@
 
 
 <!-- ═══════════════════════════════════════════════════════════
-     BULK UPDATE MODAL
+     BULK STOCK UPDATE MODAL
      Gate: bulk_stock_update
 ═══════════════════════════════════════════════════════════ -->
 <div class="modal-overlay" id="bulkStockModal">
-  <div class="modal" style="max-width:650px">
+  <div class="modal" style="max-width:500px">
     <div class="modal-header">
-      <h3 id="bulkModalTitle">📦 Bulk Update</h3>
+      <h3>📦 Bulk Stock Update</h3>
       <button class="modal-close" onclick="closeModal('bulkStockModal')">✕</button>
     </div>
     <div class="modal-body">
-
-      <!-- Field tabs -->
-      <div id="bulkFieldTabs" style="display:flex;gap:6px;margin-bottom:16px;border-bottom:1.5px solid var(--border);flex-wrap:wrap">
-        <button class="bulk-tab active" data-tab="stock" onclick="switchBulkTab('stock')">📦 Stock</button>
-        <button class="bulk-tab" data-tab="price" onclick="switchBulkTab('price')">💰 Price</button>
-        <button class="bulk-tab" data-tab="mrp" onclick="switchBulkTab('mrp')">🏷️ MRP</button>
-        <button class="bulk-tab" data-tab="threshold" onclick="switchBulkTab('threshold')">⚠️ Low Stock Alert</button>
-        <button class="bulk-tab" data-tab="publish" onclick="switchBulkTab('publish')">👁️ Publish Status</button>
+      <div style="background:var(--primary-light);border-radius:10px;padding:12px 16px;margin-bottom:20px;font-size:13px">
+        Use this to quickly add/set stock for multiple products. Choose a category to filter first.
       </div>
-
-      <!-- Info banner (text changes per tab) -->
-      <div id="bulkInfoBanner" style="background:var(--primary-light);border-radius:10px;padding:12px 16px;margin-bottom:20px;font-size:13px">
-        Filter by category, then set or add stock values per product. Only rows with a value entered will be updated.
-      </div>
-
-      <!-- Category cascade filter -->
       <div class="form-group">
         <label class="form-label">Filter by Category</label>
-        <div id="bulkCategoryFilters" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center"></div>
+        <select class="form-control" id="bulkCat" onchange="loadBulkProducts()">
+          <option value="">All Products</option>
+        </select>
       </div>
-
-      <!-- Search within results -->
-      <div class="form-group">
-        <input type="text" id="bulkSearch" class="form-control"
-          placeholder="🔍 Search by name or SKU…"
-          oninput="renderBulkList()"
-          style="font-size:13px">
-      </div>
-
-      <!-- Mode row: shown for stock/price/mrp/threshold; hidden for publish -->
-      <div class="form-group" id="bulkModeRow">
-        <label class="form-label" id="bulkModeLabel">Update Mode</label>
-        <div style="display:flex;gap:16px;flex-wrap:wrap">
+      <div id="bulkProductList" style="max-height:320px;overflow-y:auto;display:flex;flex-direction:column;gap:8px"></div>
+      <div class="form-group mt-16">
+        <label class="form-label">Action</label>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
           <label style="display:flex;align-items:center;gap:6px;font-size:13.5px;cursor:pointer">
-            <input type="radio" name="bulkAction" value="set" checked onchange="renderBulkList()"> <span id="bulkModeSetLabel">Set stock to value</span>
+            <input type="radio" name="bulkAction" value="set" checked> Set stock to value
           </label>
-          <label style="display:flex;align-items:center;gap:6px;font-size:13.5px;cursor:pointer" id="bulkModeAddWrap">
-            <input type="radio" name="bulkAction" value="add" onchange="renderBulkList()"> Add to existing stock
+          <label style="display:flex;align-items:center;gap:6px;font-size:13.5px;cursor:pointer">
+            <input type="radio" name="bulkAction" value="add"> Add to existing stock
           </label>
         </div>
       </div>
-
-      <!-- Publish-only control row -->
-      <div class="form-group" id="bulkPublishRow" style="display:none">
-        <label class="form-label">Set Status</label>
-        <div style="display:flex;gap:16px;flex-wrap:wrap">
-          <label style="display:flex;align-items:center;gap:6px;font-size:13.5px;cursor:pointer">
-            <input type="radio" name="bulkPublishVal" value="true" checked onchange="renderBulkList()"> ✅ Publish (visible on website)
-          </label>
-          <label style="display:flex;align-items:center;gap:6px;font-size:13.5px;cursor:pointer">
-            <input type="radio" name="bulkPublishVal" value="false" onchange="renderBulkList()"> 🙈 Hide (not visible)
-          </label>
-        </div>
-      </div>
-
-      <!-- Select-all row -->
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 14px;margin-bottom:6px;background:var(--body-bg);border-radius:8px;border:1px solid var(--border)">
-        <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;cursor:pointer;gap:8px">
-          <input type="checkbox" id="bulkSelectAll" onchange="toggleBulkAll(this)">
-          Select all visible
-        </label>
-        <span id="bulkSelectedCount" style="font-size:12px;color:var(--text-muted)">0 selected</span>
-      </div>
-
-      <!-- Product list -->
-      <div id="bulkProductList" style="max-height:320px;overflow-y:auto;display:flex;flex-direction:column;gap:6px">
-        <div style="text-align:center;padding:32px;color:var(--text-muted);font-size:13px">
-          Choose a category or open the modal to load products
-        </div>
-      </div>
-
-      <!-- Summary footer -->
-      <div id="bulkSummary" style="display:none;margin-top:12px;padding:10px 14px;background:var(--primary-light);border-radius:8px;font-size:13px;color:var(--primary)"></div>
-
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('bulkStockModal')">Cancel</button>
-      <button class="btn btn-primary" id="applyBulkBtn" onclick="applyBulkStock()">✅ Apply Changes</button>
-
+      <button class="btn btn-primary" onclick="applyBulkStock()">✅ Apply Changes</button>
     </div>
   </div>
 </div>
@@ -588,32 +523,51 @@ let totalPages = 1;
 let totalProducts = 0;
 let ROWS_PER_PAGE = 10;
 
-/* ── Stub placeholders replaced by real definitions below ── */
+/* ── Stub functions (will be properly defined later) ────────────── */
+/* These stubs allow HTML event handlers to call them before definition */
+function loadBulkProducts() {}
+function applyBulkStock() {}
 
 /* ── Load inventory from API ─────────────────────────────────────── */
+// async function loadInventory(page = 1) {
+//   try {
+//     const result = await API.get(`/inventory/?page=${page}&per_page=${ROWS_PER_PAGE}`);
+//     console.log('Inventory API result:', result);
+//     INVENTORY = result.data.items || [];
+//     filtered = [...INVENTORY];
+
+//     currentPage = Number(result.data.page) || 1;
+//     totalPages = Number(result.data.total_pages) || 1;
+//     totalProducts = Number(result.data.total) || INVENTORY.length;
+//     renderStats(result.data.stats);
+//     renderTable();
+//     renderPagination();
+//   } catch (e) {
+//     showToast('error', 'Load Failed', `Could not load inventory: ${e.message}`);
+//     console.error('loadInventory error:', e);
+//   }
+// }
+
 async function loadInventory(page = 1) {
   try {
     const q   = document.getElementById('invSearch')?.value.trim() ?? '';
-    const st  = document.getElementById('statusFilter')?.value     ?? '';
-    const cat = getSelectedCategoryId(); // reads deepest selected dynamic dropdown
+    const st  = document.getElementById('statusFilter')?.value ?? '';
+    const cat = document.getElementById('typeFilter')?.value ?? '';
 
-    console.log('Loading inventory with filters:', { page, q, st, cat });
     let url = `/inventory/?page=${page}&per_page=${ROWS_PER_PAGE}`;
     if (q)   url += `&search=${encodeURIComponent(q)}`;
     if (st)  url += `&status=${encodeURIComponent(st)}`;
     if (cat) url += `&category_id=${encodeURIComponent(cat)}`;
 
-    console.log('loadInventory URL:', url);
     const result = await API.get(url);
-    console.log('Inventory API result:', result);
     INVENTORY = result.data.items || [];
-    filtered = [...INVENTORY];
+    filtered  = [...INVENTORY];
 
-    currentPage   = Number(result.data.page)       || 1;
-    totalPages    = Number(result.data.total_pages) || 1;
-    totalProducts = Number(result.data.total)       || INVENTORY.length;
+    currentPage   = Number(result.data.page)        || 1;
+    totalPages    = Number(result.data.total_pages)  || 1;
+    totalProducts = Number(result.data.total)        || INVENTORY.length;
     renderStats(result.data.stats);
-    renderTable();
+    renderTable(1);
     renderPagination();
   } catch (e) {
     showToast('error', 'Load Failed', `Could not load inventory: ${e.message}`);
@@ -1510,288 +1464,25 @@ async function bulkAction(action) {
 
 
 /* ════════════════════════════════════════════════════════════════
-   BULK UPDATE MODAL
+   BULK STOCK MODAL
    Guard: bulk_stock_update
-   - Uses CATEGORY_TREE (already loaded) to build cascading dropdowns
-   - Fetches products from API filtered by selected category
-   - Tabs let the user bulk-edit one field at a time: stock, price,
-     mrp, low_stock_threshold, or publish status
+   Sidebar toggle and other shared UI listeners are in admin.js
 ════════════════════════════════════════════════════════════════ */
+function loadBulkProducts() {
+  if (!perm('inventory', 'bulk_stock_update')) return;
+  const cat   = document.getElementById('bulkCat').value;
+  const prods = cat ? INVENTORY.filter(p => p.category_id && p.category_id.toString() === cat) : INVENTORY;
 
-/* State for bulk modal */
-let BULK_PRODUCTS    = [];   // products fetched for the modal
-let bulkCategoryPath = [];   // [{id, name, subcategories}] for each cascade level
-let bulkActiveTab    = 'stock';
-
-/* Per-tab configuration: drives labels, payload shape, and endpoint */
-const BULK_TAB_CONFIG = {
-  stock: {
-    label: 'Stock',
-    banner: 'Filter by category, then set or add stock values per product. Only rows with a value entered will be updated.',
-    showMode: true,
-    setLabel: 'Set stock to value',
-    addLabel: 'Add to existing stock',
-    inputPlaceholder: (action) => action === 'add' ? '+qty' : 'qty',
-    currentValue: (p) => p.stock,
-    rowNote: (p, action) => action === 'add'
-      ? `Current: <strong>${p.stock}</strong> → will become <strong>${p.stock} + value</strong>`
-      : `Current stock: <strong>${p.stock}</strong>`,
-    endpoint: '/inventory/bulk-stock/',
-    buildPayload: (updates, action) => ({ action, updates }), // updates: [{id, quantity}]
-    updateKey: 'quantity',
-    successVerb: (action) => action === 'add' ? 'increased' : 'set',
-  },
-  price: {
-    label: 'Price',
-    banner: 'Set the selling price for multiple products at once. Only rows with a value entered will be updated.',
-    showMode: false,
-    inputPlaceholder: () => '₹ price',
-    currentValue: (p) => p.price,
-    rowNote: (p) => `Current price: <strong>₹${p.price}</strong>`,
-    endpoint: '/inventory/bulk-price/',
-    buildPayload: (updates) => ({ updates }), // updates: [{id, price}]
-    updateKey: 'price',
-    successVerb: () => 'set',
-  },
-  mrp: {
-    label: 'MRP',
-    banner: 'Set the MRP (listed price before discount) for multiple products at once.',
-    showMode: false,
-    inputPlaceholder: () => '₹ MRP',
-    currentValue: (p) => p.mrp,
-    rowNote: (p) => `Current MRP: <strong>₹${p.mrp}</strong>`,
-    endpoint: '/inventory/bulk-mrp/',
-    buildPayload: (updates) => ({ updates }), // updates: [{id, mrp}]
-    updateKey: 'mrp',
-    successVerb: () => 'set',
-  },
-  threshold: {
-    label: 'Low Stock Alert',
-    banner: 'Set the low-stock alert threshold for multiple products. Products at or below this stock level show as "Low Stock".',
-    showMode: false,
-    inputPlaceholder: () => 'threshold',
-    currentValue: (p) => p.low_stock_threshold,
-    rowNote: (p) => `Current threshold: <strong>${p.low_stock_threshold}</strong>`,
-    endpoint: '/inventory/bulk-threshold/',
-    buildPayload: (updates) => ({ updates }), // updates: [{id, low_stock_threshold}]
-    updateKey: 'low_stock_threshold',
-    successVerb: () => 'set',
-  },
-  publish: {
-    label: 'Publish Status',
-    banner: 'Select products and choose Publish or Hide. This applies to every checked product — no value input needed.',
-    showMode: false,
-    isPublishTab: true,
-    rowNote: (p) => `Currently: <strong>${p.published ? '🟢 Live' : '⚪ Hidden'}</strong>`,
-    endpoint: '/inventory/bulk/',
-    buildPayload: (ids, publishVal) => ({ action: publishVal === 'true' ? 'publish' : 'hide', ids }),
-    successVerb: (publishVal) => publishVal === 'true' ? 'published' : 'hidden',
-  },
-};
-
-/* Called when the "Bulk Stock Update" button is clicked */
-function openBulkStockModal() {
-  if (!perm('inventory', 'bulk_stock_update')) {
-    showToast('error', 'Access Denied', 'No permission to bulk update stock.');
-    return;
-  }
-  // Reset state
-  BULK_PRODUCTS    = [];
-  bulkCategoryPath = [];
-  bulkActiveTab    = 'stock';
-  document.getElementById('bulkSearch').value = '';
-  document.getElementById('bulkSelectAll').checked = false;
-  document.getElementById('bulkSummary').style.display = 'none';
-  document.querySelector('input[name="bulkAction"][value="set"]').checked = true;
-  document.querySelector('input[name="bulkPublishVal"][value="true"]').checked = true;
-
-  switchBulkTab('stock', /*skipReload*/ true);
-
-  // Build level-0 category cascade from the already-loaded CATEGORY_TREE
-  renderBulkCategoryDropdown(CATEGORY_TREE, 0);
-
-  // Load all products initially (no category filter)
-  loadBulkProducts();
-  openModal('bulkStockModal');
-}
-
-/* Switch which field the bulk modal edits */
-function switchBulkTab(tab, skipReload) {
-  bulkActiveTab = tab;
-  const cfg = BULK_TAB_CONFIG[tab];
-
-  document.querySelectorAll('.bulk-tab').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.tab === tab);
-  });
-
-  document.getElementById('bulkInfoBanner').textContent = cfg.banner;
-  document.getElementById('bulkModalTitle').textContent = `📦 Bulk ${cfg.label} Update`;
-
-  // Show/hide mode row (set/add) vs publish row
-  document.getElementById('bulkModeRow').style.display    = cfg.showMode ? 'block' : 'none';
-  document.getElementById('bulkPublishRow').style.display = cfg.isPublishTab ? 'block' : 'none';
-
-  if (cfg.showMode) {
-    document.getElementById('bulkModeLabel').textContent     = `${cfg.label} Update Mode`;
-    document.getElementById('bulkModeSetLabel').textContent  = cfg.setLabel;
-    document.querySelector('input[name="bulkAction"][value="set"]').checked = true;
-  }
-
-  if (!skipReload) renderBulkList();
-}
-
-/* Build one <select> level inside #bulkCategoryFilters */
-function renderBulkCategoryDropdown(categories, level) {
-  const container = document.getElementById('bulkCategoryFilters');
-
-  // Remove deeper levels
-  Array.from(container.children).forEach((child, idx) => {
-    if (idx >= level) child.remove();
-  });
-
-  if (!categories || !categories.length) return;
-
-  const sel = document.createElement('select');
-  sel.className   = 'form-control';
-  sel.style.cssText = 'min-width:140px;max-width:180px;font-size:13px';
-  sel.innerHTML   = `<option value="">${level === 0 ? 'All Categories' : 'All Sub-categories'}</option>`;
-
-  categories.forEach(cat => {
-    sel.innerHTML += `<option value="${cat.id}">${cat.name}</option>`;
-  });
-
-  sel.addEventListener('change', function () {
-    // Trim path to this level then push new selection
-    bulkCategoryPath = bulkCategoryPath.slice(0, level);
-
-    const selectedCat = categories.find(c => String(c.id) === String(this.value));
-    if (selectedCat) {
-      bulkCategoryPath.push(selectedCat);
-      // Render next level if subcategories exist
-      if (selectedCat.subcategories?.length) {
-        renderBulkCategoryDropdown(selectedCat.subcategories, level + 1);
-      } else {
-        // Remove any deeper selects
-        Array.from(container.children).forEach((child, idx) => {
-          if (idx > level) child.remove();
-        });
-      }
-    } else {
-      // "All" chosen — remove deeper selects
-      Array.from(container.children).forEach((child, idx) => {
-        if (idx > level) child.remove();
-      });
-    }
-    loadBulkProducts();
-  });
-
-  container.appendChild(sel);
-}
-
-/* Fetch products from API filtered by deepest selected bulk category */
-async function loadBulkProducts() {
-  const deepestCat = bulkCategoryPath.length
-    ? bulkCategoryPath[bulkCategoryPath.length - 1]
-    : null;
-
-  const listEl = document.getElementById('bulkProductList');
-  listEl.innerHTML = `<div style="text-align:center;padding:24px;color:var(--text-muted);font-size:13px">Loading…</div>`;
-
-  try {
-    let url = `/inventory/?page=1&per_page=500`;
-    if (deepestCat) url += `&category_id=${deepestCat.id}`;
-
-    const result = await API.get(url);
-    BULK_PRODUCTS = result.data.items || [];
-    document.getElementById('bulkSelectAll').checked = false;
-    renderBulkList();
-  } catch (e) {
-    listEl.innerHTML = `<div style="color:var(--danger);padding:16px;font-size:13px">Failed to load products: ${e.message}</div>`;
-    console.error('loadBulkProducts error:', e);
-  }
-}
-
-/* Render filtered product rows inside the modal (client-side search only) */
-function renderBulkList() {
-  const cfg    = BULK_TAB_CONFIG[bulkActiveTab];
-  const q      = (document.getElementById('bulkSearch')?.value ?? '').toLowerCase();
-  const action = document.querySelector('input[name="bulkAction"]:checked')?.value ?? 'set';
-  const prods  = q
-    ? BULK_PRODUCTS.filter(p => (p.name + ' ' + p.sku).toLowerCase().includes(q))
-    : BULK_PRODUCTS;
-
-  const listEl = document.getElementById('bulkProductList');
-
-  if (!prods.length) {
-    listEl.innerHTML = `<div style="text-align:center;padding:32px;color:var(--text-muted);font-size:13px">No products found</div>`;
-    updateBulkSummary();
-    return;
-  }
-
-  listEl.innerHTML = prods.map(p => {
-    const stockPill = p.stock === 0
-      ? `<span class="stock-pill out" style="font-size:11px">Out</span>`
-      : p.stock <= p.low_stock_threshold
-        ? `<span class="stock-pill low" style="font-size:11px">Low</span>`
-        : '';
-
-    // Publish tab needs no input — just a checkbox + current status
-    const inputHtml = cfg.isPublishTab
-      ? ''
-      : `<input type="number" class="inline-edit" style="width:82px;border:1.5px solid var(--border);flex-shrink:0"
-          data-bfield="${p.id}" data-bcurrent="${cfg.currentValue(p)}"
-          placeholder="${cfg.inputPlaceholder(action)}" min="0"
-          oninput="updateBulkSummary()">`;
-
-    return `
-    <div style="display:flex;align-items:center;gap:10px;background:var(--body-bg);padding:10px 14px;border-radius:9px;border:1px solid var(--border)">
-      <input type="checkbox" data-bid="${p.id}" onchange="updateBulkSummary()" style="flex-shrink:0">
-      <div style="flex:1;min-width:0">
-        <div style="font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.name} ${stockPill}</div>
-        <div style="font-size:11.5px;color:var(--text-muted)">${p.sku} · ${p.category || 'No category'} · ${cfg.rowNote(p, action)}</div>
+  document.getElementById('bulkProductList').innerHTML = prods.map(p => `
+    <div style="display:flex;align-items:center;gap:12px;background:var(--body-bg);padding:10px 14px;border-radius:9px;border:1px solid var(--border)">
+      <input type="checkbox" data-bid="${p.id}" checked>
+      <div style="flex:1">
+        <div style="font-weight:600;font-size:13px">${p.name}</div>
+        <div style="font-size:12px;color:var(--text-muted)">Current stock: ${p.stock}</div>
       </div>
-      ${inputHtml}
-    </div>`;
-  }).join('');
-
-  updateBulkSummary();
-}
-
-/* Toggle all visible checkboxes */
-function toggleBulkAll(masterCb) {
-  document.querySelectorAll('#bulkProductList [data-bid]').forEach(cb => {
-    cb.checked = masterCb.checked;
-  });
-  updateBulkSummary();
-}
-
-/* Live summary: how many products will be affected */
-function updateBulkSummary() {
-  const cfg     = BULK_TAB_CONFIG[bulkActiveTab];
-  const checked = [...document.querySelectorAll('#bulkProductList [data-bid]:checked')];
-
-  // Publish tab: every checked row counts (no input field).
-  // Other tabs: only rows where a value was actually entered.
-  const eligible = cfg.isPublishTab
-    ? checked
-    : checked.filter(cb => {
-        const inp = document.querySelector(`[data-bfield="${cb.dataset.bid}"]`);
-        return inp && inp.value !== '' && Number(inp.value) >= 0;
-      });
-
-  const summaryEl = document.getElementById('bulkSummary');
-  const countEl   = document.getElementById('bulkSelectedCount');
-  countEl.textContent = `${checked.length} selected`;
-
-  if (eligible.length > 0) {
-    const action     = document.querySelector('input[name="bulkAction"]:checked')?.value ?? 'set';
-    const publishVal = document.querySelector('input[name="bulkPublishVal"]:checked')?.value ?? 'true';
-    const verb       = cfg.isPublishTab ? cfg.successVerb(publishVal) : cfg.successVerb(action);
-    summaryEl.style.display = 'block';
-    summaryEl.textContent = `✅ ${eligible.length} product(s) will have ${cfg.label.toLowerCase()} ${verb} on Apply.`;
-  } else {
-    summaryEl.style.display = 'none';
-  }
+      <input type="number" class="inline-edit" style="width:80px;border:1.5px solid var(--border)"
+        data-bstock="${p.id}" placeholder="${p.stock}" min="0">
+    </div>`).join('');
 }
 
 async function applyBulkStock() {
@@ -1799,64 +1490,34 @@ async function applyBulkStock() {
     showToast('error', 'Access Denied', 'No permission to bulk update stock.');
     return;
   }
+  const action = document.querySelector('input[name="bulkAction"]:checked').value;
+  const updates = [];
 
-  const cfg = BULK_TAB_CONFIG[bulkActiveTab];
-  const btn = document.getElementById('applyBulkBtn');
+  document.querySelectorAll('[data-bstock]').forEach(input => {
+    const id  = Number(input.dataset.bstock);
+    const cb  = document.querySelector(`[data-bid="${id}"]`);
+    if (!cb?.checked) return;                   // skip unchecked rows
+    if (input.value === '') return;             // skip rows with no input value
+    const val = Number(input.value);
+    if (isNaN(val) || val < 0) return;          // skip invalid values
+    updates.push({ id, quantity: val });        // send raw val; backend handles set/add
+  });
 
-  let requestBody;
-  let affectedCount;
-
-  if (cfg.isPublishTab) {
-    const ids = [...document.querySelectorAll('#bulkProductList [data-bid]:checked')]
-      .map(cb => Number(cb.dataset.bid));
-    if (ids.length === 0) {
-      showToast('warning', 'Nothing to update', 'Check at least one product.');
-      return;
-    }
-    const publishVal = document.querySelector('input[name="bulkPublishVal"]:checked').value;
-    requestBody   = cfg.buildPayload(ids, publishVal);
-    affectedCount = ids.length;
-  } else {
-    const action  = document.querySelector('input[name="bulkAction"]:checked')?.value ?? 'set';
-    const updates = [];
-
-    document.querySelectorAll('[data-bfield]').forEach(input => {
-      const id = Number(input.dataset.bfield);
-      const cb = document.querySelector(`[data-bid="${id}"]`);
-      if (!cb?.checked)       return; // unchecked
-      if (input.value === '') return; // no value entered
-      const val = Number(input.value);
-      if (isNaN(val) || val < 0) return;
-      updates.push({ id, [cfg.updateKey]: val });
-    });
-
-    if (updates.length === 0) {
-      showToast('warning', 'Nothing to update', 'Check at least one product and enter a value.');
-      return;
-    }
-    requestBody   = cfg.buildPayload(updates, action);
-    affectedCount = updates.length;
+  if (updates.length === 0) {
+    showToast('warning', 'Nothing to update', 'Enter a quantity for at least one product.');
+    return;
   }
-
-  btn.disabled = true;
-  btn.textContent = '⏳ Applying…';
 
   try {
-    await API.put(cfg.endpoint, requestBody);
+    await API.put('/inventory/bulk-stock/', { action, updates });
     closeModal('bulkStockModal');
-    await loadInventory();
-    showToast('success', `${cfg.label} Updated`, `${affectedCount} product(s) updated successfully`);
+    await loadInventory();   // reload fresh data from backend
+    showToast('success', 'Stock Updated', `${updates.length} product(s) updated successfully`);
   } catch (e) {
-    showToast('error', 'Error', `Bulk ${cfg.label.toLowerCase()} update failed: ${e.message}`);
+    showToast('error', 'Error', `Bulk stock update failed: ${e.message}`);
     console.error('applyBulkStock error:', e);
-  } finally {
-    btn.disabled = false;
-    btn.textContent = '✅ Apply Changes';
   }
 }
-
-
-
 
 
 /* ════════════════════════════════════════════════════════════════
@@ -1882,8 +1543,25 @@ function exportCSV() {
 /* ════════════════════════════════════════════════════════════════
    FILTERS
 ════════════════════════════════════════════════════════════════ */
+// function applyFilters() {
+//   const q   = document.getElementById('invSearch').value.toLowerCase();
+//   const cat = document.getElementById('typeFilter')?.value ?? '';
+//   const st  = document.getElementById('statusFilter').value;
+
+//   filtered = INVENTORY.filter(p => {
+//     const mQ = !q || (p.name + p.sku).toLowerCase().includes(q);
+//     const mC = !cat || (p.category_id && p.category_id.toString() === cat);
+//     let   mS = true;
+//     if      (st === 'published')    mS = p.published && p.stock > 0;
+//     else if (st === 'hidden')       mS = !p.published;
+//     else if (st === 'out_of_stock') mS = p.stock === 0;
+//     else if (st === 'low_stock')    mS = p.stock > 0 && p.stock <= p.low_stock_threshold;
+//     return mQ && mC && mS;
+//   });
+//   renderTable();
+// }
 function applyFilters() {
-  loadInventory(1);
+  loadInventory(1); // reset to page 1 whenever a filter changes
 }
 
 function quickSearch(q) {
@@ -1892,11 +1570,9 @@ function quickSearch(q) {
 }
 
 function clearFilters() {
-  document.getElementById('invSearch').value    = '';
+  document.getElementById('invSearch').value   = '';
   document.getElementById('statusFilter').value = '';
-  const dynContainer = document.getElementById('dynamicCategoryFilters');
-  if (dynContainer) dynContainer.innerHTML = '';
-  if (CATEGORY_TREE.length) renderCategoryDropdown(CATEGORY_TREE, 0);
+  if (document.getElementById('typeFilter')) document.getElementById('typeFilter').value = '';
   loadInventory(1);
 }
 
@@ -1944,6 +1620,7 @@ document.getElementById('sidebarToggle').addEventListener('click', () => {
    BOOT — initPage() calls loadInventory() which renders
 ════════════════════════════════════════════════════════════════ */
 initPage();
+loadBulkProducts();
 </script>
 </body>
 </html>

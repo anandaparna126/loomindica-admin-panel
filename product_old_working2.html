@@ -38,7 +38,6 @@
     }
     .bulk-bar.show { display: flex; }
     .sidebar.collapsed .brand-text,.sidebar.collapsed .nav-label,.sidebar.collapsed .nav-section-label{opacity:0;pointer-events:none;width:0}
-    @keyframes spin{to{transform:rotate(360deg)}}
     @media(max-width:900px){.filter-bar input{width:180px}}
     @media(max-width:768px){
       .filter-bar{flex-direction:column;align-items:stretch}
@@ -105,7 +104,6 @@
             💡 Pricing &amp; stock → <a href="inventory.html" style="text-decoration:underline">Inventory</a>
           </div>
           <button class="btn btn-primary" id="addProductBtn" onclick="openAddModal()">+ Add Product</button>
-          <button class="btn btn-secondary btn-sm" id="importProductsBtn" onclick="openImportModal()">📤 Import Excel</button>
           <button class="btn btn-secondary btn-sm" id="exportProductsBtn" onclick="exportProducts()">📥 Export</button>
         </div>
       </div>
@@ -161,7 +159,6 @@
                 <!-- <th><input type="checkbox" onchange="document.querySelectorAll('.row-chk').forEach(c=>c.checked=this.checked)"></th> -->
                 <!-- <th id="chkCol"><input type="checkbox" id="selectAll" onchange="toggleAll(this)"></th> -->
                 <th>Product</th>
-                <th>SKU</th>
                 <th>Category</th>
                 <th>Type</th>
                 <th>Brand</th>
@@ -428,88 +425,6 @@
   </div>
 </div>
 
-<!-- IMPORT EXCEL MODAL -->
-<div class="modal-overlay" id="importModal">
-  <div class="modal" style="max-width:520px">
-    <div class="modal-header">
-      <h3>📤 Import Products via Excel</h3>
-      <button class="modal-close" onclick="closeImportModal()">✕</button>
-    </div>
-    <div class="modal-body" style="padding:28px 24px">
-
-      <!-- State: idle / uploading / done -->
-      <div id="importStateIdle">
-        <div style="background:var(--primary-light);border:1.5px dashed var(--primary);border-radius:12px;padding:32px 20px;text-align:center;cursor:pointer;transition:var(--transition)" id="importDropZone"
-          onclick="document.getElementById('importFileInput').click()"
-          ondragover="event.preventDefault();this.style.background='rgba(124,58,237,.12)'"
-          ondragleave="this.style.background=''"
-          ondrop="handleImportDrop(event)">
-          <div style="font-size:40px;margin-bottom:10px">📊</div>
-          <div style="font-weight:700;color:var(--primary);font-size:15px">Click or drag your Excel file here</div>
-          <div style="color:var(--text-muted);font-size:12.5px;margin-top:6px">.xlsx or .xls · max 10 MB</div>
-          <input type="file" id="importFileInput" accept=".xlsx,.xls" hidden onchange="handleImportFile(this.files[0])">
-        </div>
-        <div id="importFileChosen" style="display:none;margin-top:14px;display:none;align-items:center;gap:10px;background:var(--bg-muted,#f6f7f9);border-radius:9px;padding:10px 14px">
-          <span style="font-size:22px">📄</span>
-          <div style="flex:1;min-width:0">
-            <div id="importFileName" style="font-weight:600;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
-            <div id="importFileSize" style="font-size:12px;color:var(--text-muted)"></div>
-          </div>
-          <button class="btn btn-secondary btn-sm btn-icon" onclick="clearImportFile()" title="Remove">✕</button>
-        </div>
-        <div style="margin-top:14px;font-size:12.5px;color:var(--text-muted);line-height:1.7;background:var(--accent-light,#f0f9f4);border-radius:8px;padding:10px 14px">
-          ℹ️ The file will be validated and imported. Any rows that fail will be available to <strong>download as a report</strong> after import.
-        </div>
-      </div>
-
-      <!-- State: uploading -->
-      <div id="importStateUploading" style="display:none;text-align:center;padding:32px 0">
-        <div style="font-size:48px;margin-bottom:14px;animation:spin 1s linear infinite;display:inline-block">⏳</div>
-        <div style="font-weight:700;font-size:15px;color:var(--primary)">Uploading &amp; Processing…</div>
-        <div style="color:var(--text-muted);font-size:13px;margin-top:6px">This may take a moment for large files.</div>
-      </div>
-
-      <!-- State: done -->
-      <div id="importStateDone" style="display:none">
-        <!-- Summary cards -->
-        <div id="importSummaryCards" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px"></div>
-        <!-- Results table -->
-        <div id="importResultsSection" style="display:none">
-          <div style="font-weight:700;font-size:13.5px;margin-bottom:8px;color:var(--text-dark)">Row Details</div>
-          <div style="max-height:220px;overflow-y:auto;border:1.5px solid var(--border);border-radius:9px">
-            <table style="width:100%;border-collapse:collapse;font-size:12.5px">
-              <thead>
-                <tr style="background:var(--bg-muted,#f6f7f9)">
-                  <th style="padding:8px 12px;text-align:left;font-weight:600;white-space:nowrap">Row</th>
-                  <th style="padding:8px 12px;text-align:left;font-weight:600">SKU</th>
-                  <th style="padding:8px 12px;text-align:left;font-weight:600">Name</th>
-                  <th style="padding:8px 12px;text-align:left;font-weight:600">Status</th>
-                  <th style="padding:8px 12px;text-align:left;font-weight:600">Message</th>
-                </tr>
-              </thead>
-              <tbody id="importResultsBody"></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-    </div>
-    <div class="modal-footer" style="justify-content:space-between;gap:10px;flex-wrap:wrap">
-      <div id="importFooterIdle" style="display:contents">
-        <button class="btn btn-secondary" onclick="closeImportModal()">Cancel</button>
-        <button class="btn btn-primary" id="importSubmitBtn" onclick="submitImport()" disabled>Upload &amp; Import</button>
-      </div>
-      <div id="importFooterDone" style="display:none;width:100%;display:none;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-        <button class="btn btn-secondary" onclick="resetImportModal()">← Import Another</button>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn btn-outline-primary btn-sm" id="importDownloadBtn" onclick="downloadImportErrors()" style="display:none">📥 Download Error Report</button>
-          <button class="btn btn-primary" onclick="closeImportModal();loadProducts(currentPage)">Done</button>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
 <!-- DELETE MODAL -->
 <div class="modal-overlay" id="delModal">
   <div class="modal" style="max-width:420px">
@@ -579,7 +494,7 @@ function loadExistingImages(images) {
       mainPreview.innerHTML = `
         <div style="position:relative;display:inline-block">
           <img src="${primaryImg.image_url}" style="width:100px;height:100px;object-fit:cover;border-radius:10px;border:2px solid var(--primary)">
-          <span style="position:absolute;top:-6px;right:-6px;background:var(--primary);color:#fff;border-radius:50%;width:20px;height:20px;font-size:11px;display:flex;align-items:center;justify-content:center;cursor:pointer" title="Remove" onclick="removeExistingMain(this)">✕</span>
+          <span style="position:absolute;top:-6px;right:-6px;background:var(--primary);color:#fff;border-radius:50%;width:20px;height:20px;font-size:11px;display:flex;align-items:center;justify-content:center;cursor:pointer" title="Remove" onclick="removeExistingMain()">✕</span>
           <div style="font-size:11px;color:var(--primary);text-align:center;margin-top:4px;font-weight:600">Current</div>
         </div>`;
     }
@@ -591,55 +506,22 @@ function loadExistingImages(images) {
     const galleryPreview = document.getElementById('galleryPreview');
     if (galleryPreview) {
       galleryPreview.innerHTML = galleryImgs.map((img, idx) => `
-        <div style="position:relative;display:inline-block;margin-right:8px" id="gallery-img-wrap-${img.id}">
+        <div style="position:relative;display:inline-block;margin-right:8px">
           <img src="${img.image_url}" style="width:100px;height:100px;object-fit:cover;border-radius:10px;border:1px solid var(--border)">
-          <span id="gallery-img-btn-${img.id}" style="position:absolute;top:-6px;right:-6px;background:var(--danger);color:#fff;border-radius:50%;width:20px;height:20px;font-size:11px;display:flex;align-items:center;justify-content:center;cursor:pointer" title="Remove" onclick="removeExistingGallery(${idx}, ${img.id}, this)">✕</span>
+          <span style="position:absolute;top:-6px;right:-6px;background:var(--danger);color:#fff;border-radius:50%;width:20px;height:20px;font-size:11px;display:flex;align-items:center;justify-content:center;cursor:pointer" title="Remove" onclick="removeExistingGallery(${idx})">✕</span>
           <div style="font-size:11px;color:var(--text-muted);text-align:center;margin-top:4px">Current</div>
         </div>`).join('');
     }
   }
 }
 
-/* ── Helper: call DELETE /api/products/images/<id>/ ── */
-async function deleteImageFromServer(imageId) {
-  await API.delete(`/products/images/${imageId}/`);
-}
-
-async function removeExistingMain(btnEl) {
-  const img = EXISTING_MAIN_IMAGE;
-  if (!img) return;
-
-  if (btnEl) { btnEl.textContent = '…'; btnEl.style.pointerEvents = 'none'; }
-
-  if (img.id) {
-    try {
-      await deleteImageFromServer(img.id);
-    } catch (e) {
-      showToast('error', 'Remove Failed', 'Could not delete image from server.');
-      if (btnEl) { btnEl.textContent = '✕'; btnEl.style.pointerEvents = ''; }
-      return;
-    }
-  }
-
+function removeExistingMain() {
   EXISTING_MAIN_IMAGE = null;
   const mainPreview = document.getElementById('mainImgPreview');
   if (mainPreview) mainPreview.innerHTML = '';
 }
 
-async function removeExistingGallery(idx, imageId, btnEl) {
-  // Disable the button while the API call runs
-  if (btnEl) { btnEl.textContent = '…'; btnEl.style.pointerEvents = 'none'; }
-
-  if (imageId) {
-    try {
-      await deleteImageFromServer(imageId);
-    } catch (e) {
-      showToast('error', 'Remove Failed', 'Could not delete image from server.');
-      if (btnEl) { btnEl.textContent = '✕'; btnEl.style.pointerEvents = ''; }
-      return;
-    }
-  }
-
+function removeExistingGallery(idx) {
   EXISTING_GALLERY_IMAGES.splice(idx, 1);
   loadExistingImages([
     ...(EXISTING_MAIN_IMAGE ? [EXISTING_MAIN_IMAGE] : []),
@@ -693,7 +575,7 @@ function setUserInfo() {
 }
 
 function applyProductPermissions() {
-  if (!CAN_ADD) { document.getElementById('addProductBtn').style.display = 'none'; document.getElementById('invHint').style.display = 'none'; document.getElementById('importProductsBtn').style.display = 'none'; }
+  if (!CAN_ADD) { document.getElementById('addProductBtn').style.display = 'none'; document.getElementById('invHint').style.display = 'none'; }
   if (!CAN_EXPORT) document.getElementById('exportProductsBtn').style.display = 'none';
   if (!(CAN_EDIT || CAN_DELETE)) document.getElementById('thActions').style.display = 'none';
 }
@@ -1335,8 +1217,6 @@ function renderProducts() {
       ? `<img src="${p.primary_image}" style="width:42px;height:42px;border-radius:8px;object-fit:cover;border:1px solid var(--border)">`
       : `<div style="width:42px;height:42px;border-radius:8px;background:var(--primary-light);display:flex;align-items:center;justify-content:center;font-size:20px">🛍️</div>`;
 
-    const sku = p.sku || '—';
-
     const priceRange = p.price_min
       ? (p.price_min === p.price_max
           ? `₹${p.price_min}`
@@ -1356,7 +1236,6 @@ function renderProducts() {
         <strong>${p.name}</strong>
         <span style="font-size:11.5px;color:var(--text-muted)">${p.slug}</span>
       </div></div></td>
-      <td><span class="badge badge-blue">${p.sku || '—'}</span></td>
       <td><span class="badge badge-purple">${p.category_name || '—'}</span></td>
       <td><span class="badge badge-gray">${p.product_type || '—'}</span></td>
       <td>${p.brand || '<span style="color:var(--text-muted)">—</span>'}</td>
@@ -1895,184 +1774,6 @@ function showToast(type, title, msg) {
   t.innerHTML = `<span style="font-size:18px">${icons[type]||'ℹ️'}</span><div><div style="font-size:13px;font-weight:600">${title}</div><div style="font-size:12px;color:#6b7c75;margin-top:2px">${msg}</div></div>`;
   tc.appendChild(t);
   setTimeout(() => t.remove(), 4000);
-}
-
-/* ── Excel Import ── */
-let _importFile = null;
-let _importDownloadUrl = null;
-let _importHasErrors = false;
-
-function openImportModal() {
-  resetImportModal();
-  openModal('importModal');
-}
-
-function closeImportModal() {
-  closeModal('importModal');
-}
-
-function resetImportModal() {
-  _importFile = null;
-  _importDownloadUrl = null;
-  _importHasErrors = false;
-  // reset UI panels
-  showImportState('idle');
-  // clear file selection UI
-  document.getElementById('importFileInput').value = '';
-  document.getElementById('importFileChosen').style.display = 'none';
-  document.getElementById('importSubmitBtn').disabled = true;
-  // clear results
-  document.getElementById('importSummaryCards').innerHTML = '';
-  document.getElementById('importResultsBody').innerHTML = '';
-  document.getElementById('importResultsSection').style.display = 'none';
-  document.getElementById('importDownloadBtn').style.display = 'none';
-}
-
-function showImportState(state) {
-  document.getElementById('importStateIdle').style.display      = state === 'idle'      ? '' : 'none';
-  document.getElementById('importStateUploading').style.display = state === 'uploading'  ? '' : 'none';
-  document.getElementById('importStateDone').style.display      = state === 'done'       ? '' : 'none';
-  document.getElementById('importFooterIdle').style.display     = state === 'idle'       ? 'contents' : 'none';
-  document.getElementById('importFooterDone').style.display     = state === 'done'       ? 'flex' : 'none';
-}
-
-function handleImportDrop(e) {
-  e.preventDefault();
-  document.getElementById('importDropZone').style.background = '';
-  const file = e.dataTransfer?.files?.[0];
-  if (file) handleImportFile(file);
-}
-
-function handleImportFile(file) {
-  if (!file) return;
-  const ext = file.name.split('.').pop().toLowerCase();
-  if (!['xlsx','xls'].includes(ext)) {
-    showToast('error','Invalid File','Only .xlsx or .xls files are allowed.');
-    return;
-  }
-  if (file.size > 10 * 1024 * 1024) {
-    showToast('error','File Too Large','File must be under 10 MB.');
-    return;
-  }
-  _importFile = file;
-  // Show chosen file chip
-  const chosen = document.getElementById('importFileChosen');
-  document.getElementById('importFileName').textContent = file.name;
-  document.getElementById('importFileSize').textContent = (file.size / 1024).toFixed(1) + ' KB';
-  chosen.style.display = 'flex';
-  document.getElementById('importSubmitBtn').disabled = false;
-}
-
-function clearImportFile() {
-  _importFile = null;
-  document.getElementById('importFileInput').value = '';
-  document.getElementById('importFileChosen').style.display = 'none';
-  document.getElementById('importSubmitBtn').disabled = true;
-}
-
-async function submitImport() {
-  if (!_importFile) return;
-  showImportState('uploading');
-  try {
-    const formData = new FormData();
-    formData.append('excel_file', _importFile);
-    const token = admin?.token || localStorage.getItem('adminToken') || '';
-    const res = await fetch('http://34.231.15.242:8001/api/products/import/', {
-      method: 'POST',
-      headers: token ? { 'Authorization': 'Bearer ' + token } : {},
-      body: formData
-    });
-    const json = await res.json();
-    console.log('Import response:', json);
-    console.log('Import response status:', res.status, 'success:', res.ok, 'json:', json.data?.status);
-    if (!res.ok || json.data.status !== 'success') {
-      showImportState('idle');
-      showToast('error', 'Import Failed', json.message || 'Unknown error');
-      return;
-    }
-    renderImportResult(json.data);
-    showImportState('done');
-  } catch (e) {
-    showImportState('idle');
-    showToast('error', 'Network Error', e.message || 'Failed to connect to server');
-  }
-}
-
-function renderImportResult(data) {
-  const s = data.summary;
-  const hasErrors = (s.errors || 0) > 0 || (s.skipped || 0) > 0;
-  _importHasErrors = hasErrors;
-  _importDownloadUrl = 'http://34.231.15.242:8001' + (data.download_url || null);
-
-  // Summary cards
-  const cards = [
-    { label: 'Total Rows',       value: s.total_rows,        color: 'var(--primary)' },
-    { label: 'Products Created', value: s.products_created,  color: 'var(--success)' },
-    { label: 'Reused',           value: s.products_reused,   color: 'var(--info,#0ea5e9)' },
-    { label: 'Variants Created', value: s.variants_created,  color: 'var(--success)' },
-    { label: 'Skipped',          value: s.skipped,           color: 'var(--warning,#f59e0b)' },
-    { label: 'Errors',           value: s.errors,            color: 'var(--danger)' },
-  ];
-  document.getElementById('importSummaryCards').style.gridTemplateColumns = 'repeat(3,1fr)';
-  document.getElementById('importSummaryCards').innerHTML = cards.map(c => `
-    <div style="background:var(--bg-muted,#f6f7f9);border-radius:10px;padding:12px 10px;text-align:center">
-      <div style="font-size:20px;font-weight:800;color:${c.color}">${c.value ?? 0}</div>
-      <div style="font-size:11px;color:var(--text-muted);margin-top:3px;font-weight:600">${c.label}</div>
-    </div>`).join('');
-
-  // Row-level results table
-  const results = data.result?.results || [];
-  if (results.length) {
-    const statusStyle = {
-      success: 'color:var(--success);font-weight:700',
-      error:   'color:var(--danger);font-weight:700',
-      skipped: 'color:var(--warning,#f59e0b);font-weight:700',
-    };
-    document.getElementById('importResultsBody').innerHTML = results.map(r => `
-      <tr style="border-top:1px solid var(--border)">
-        <td style="padding:7px 12px">${r.row}</td>
-        <td style="padding:7px 12px;font-family:monospace">${r.sku || '—'}</td>
-        <td style="padding:7px 12px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.name||''}">${r.name || '—'}</td>
-        <td style="padding:7px 12px"><span style="${statusStyle[r.status]||''}">${r.status}</span></td>
-        <td style="padding:7px 12px;color:var(--text-muted)">${r.error || r.message || '—'}</td>
-      </tr>`).join('');
-    document.getElementById('importResultsSection').style.display = '';
-  }
-
-  // Show download button only if there are errors/skips AND a URL is provided
-  const dlBtn = document.getElementById('importDownloadBtn');
-  if (hasErrors && _importDownloadUrl) {
-    dlBtn.style.display = '';
-  } else {
-    dlBtn.style.display = 'none';
-  }
-
-  // Toast summary
-  if (s.errors === 0 && s.skipped === 0) {
-    showToast('success', 'Import Complete', `${s.products_created} products & ${s.variants_created} variants created.`);
-  } else {
-    showToast('warning', 'Import Done with Issues', `${s.errors} error(s), ${s.skipped} skipped. Download the report for details.`);
-  }
-}
-
-async function downloadImportErrors() {
-  if (!_importDownloadUrl) return;
-  try {
-    const token = admin?.token || localStorage.getItem('adminToken') || '';
-    const res = await fetch(_importDownloadUrl, {
-      headers: token ? { 'Authorization': 'Bearer ' + token } : {}
-    });
-    if (!res.ok) { showToast('error','Download Failed','Could not download the error report.'); return; }
-    const blob = await res.blob();
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = _importDownloadUrl.split('/').pop() || 'import_errors.json';
-    a.click();
-    URL.revokeObjectURL(a.href);
-    showToast('success','Downloaded','Error report saved.');
-  } catch(e) {
-    showToast('error','Download Failed', e.message || 'Network error');
-  }
 }
 
 document.getElementById('sidebarToggle').addEventListener('click', () => {
