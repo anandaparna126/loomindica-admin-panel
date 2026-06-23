@@ -497,10 +497,10 @@
         <label class="form-label" id="bulkModeLabel">Update Mode</label>
         <div style="display:flex;gap:16px;flex-wrap:wrap">
           <label style="display:flex;align-items:center;gap:6px;font-size:13.5px;cursor:pointer">
-            <input type="radio" name="bulkAction" value="set" checked onchange="updateBulkSummary()"> <span id="bulkModeSetLabel">Set stock to value</span>
+            <input type="radio" name="bulkAction" value="set" checked onchange="renderBulkList()"> <span id="bulkModeSetLabel">Set stock to value</span>
           </label>
           <label style="display:flex;align-items:center;gap:6px;font-size:13.5px;cursor:pointer" id="bulkModeAddWrap">
-            <input type="radio" name="bulkAction" value="add" onchange="updateBulkSummary()"> Add to existing stock
+            <input type="radio" name="bulkAction" value="add" onchange="renderBulkList()"> Add to existing stock
           </label>
         </div>
       </div>
@@ -510,21 +510,11 @@
         <label class="form-label">Set Status</label>
         <div style="display:flex;gap:16px;flex-wrap:wrap">
           <label style="display:flex;align-items:center;gap:6px;font-size:13.5px;cursor:pointer">
-            <input type="radio" name="bulkPublishVal" value="true" checked onchange="updateBulkSummary()"> ✅ Publish (visible on website)
+            <input type="radio" name="bulkPublishVal" value="true" checked onchange="renderBulkList()"> ✅ Publish (visible on website)
           </label>
           <label style="display:flex;align-items:center;gap:6px;font-size:13.5px;cursor:pointer">
-            <input type="radio" name="bulkPublishVal" value="false" onchange="updateBulkSummary()"> 🙈 Hide (not visible)
+            <input type="radio" name="bulkPublishVal" value="false" onchange="renderBulkList()"> 🙈 Hide (not visible)
           </label>
-        </div>
-      </div>
-
-      <!-- Single shared value — applied to EVERY checked product at once (no more per-row inputs). Hidden for the Publish tab, which uses the radio choice above instead. -->
-      <div class="form-group" id="bulkValueRow">
-        <label class="form-label" id="bulkValueLabel">Value to apply</label>
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-          <input type="number" class="form-control" id="bulkValueInput" min="0"
-            placeholder="e.g. 50" oninput="updateBulkSummary()" style="max-width:200px">
-          <span style="font-size:12.5px;color:var(--text-muted)" id="bulkValueHint">This single value is applied to every checked product below.</span>
         </div>
       </div>
 
@@ -1066,14 +1056,24 @@ function renderTable() {
         onfocus="this.style.borderColor='var(--primary)'"
         onblur="this.style.borderColor='transparent'">`;
 
+    // const gstSelect = canEditPricing
+    //   ? `<select style="border:1.5px solid var(--border);border-radius:7px;padding:5px 8px;font-size:12.5px;background:#fff;cursor:pointer" onchange="updateField(${p.id},'tax_rate',this.value)">
+    //       <option ${p.tax_rate===5?'selected':''}>5</option>
+    //       <option ${p.tax_rate===12?'selected':''}>12</option>
+    //       <option ${p.tax_rate===18?'selected':''}>18</option>
+    //       <option ${p.tax_rate===28?'selected':''}>28</option>
+    //      </select>%`
+    //   : `<span style="font-size:13px;color:var(--text-muted)">${p.tax_rate||0}%</span>`;
+
     const gstSelect = canEditPricing
-      ? `<select style="border:1.5px solid var(--border);border-radius:7px;padding:5px 8px;font-size:12.5px;background:#fff;cursor:pointer" onchange="updateField(${p.id},'tax_rate',this.value)">
-          <option ${p.tax_rate===5?'selected':''}>5</option>
-          <option ${p.tax_rate===12?'selected':''}>12</option>
-          <option ${p.tax_rate===18?'selected':''}>18</option>
-          <option ${p.tax_rate===28?'selected':''}>28</option>
-         </select>%`
-      : `<span style="font-size:13px;color:var(--text-muted)">${p.tax_rate||0}%</span>`;
+  ? `<select style="border:1.5px solid var(--border);border-radius:7px;padding:5px 8px;font-size:12.5px;background:#fff;cursor:pointer" onchange="updateField(${p.id},'tax_rate',this.value)">
+      <option value="0"  ${p.tax_rate===0?'selected':''}>0%</option>
+      <option value="5"  ${p.tax_rate===5?'selected':''}>5%</option>
+      <option value="12" ${p.tax_rate===12?'selected':''}>12%</option>
+      <option value="18" ${p.tax_rate===18?'selected':''}>18%</option>
+      <option value="28" ${p.tax_rate===28?'selected':''}>28%</option>
+     </select>%`
+  : `<span style="font-size:13px;color:var(--text-muted)">${p.tax_rate||0}%</span>`;
 
     const stockInput = `
       <input class="inline-edit" type="number" value="${p.stock}" min="0"
@@ -1198,7 +1198,8 @@ async function updateField(id, field, value) {
     payload.low_stock_threshold = newValue;
     prod.low_stock_threshold = newValue;
   } else if (field === 'tax_rate') {
-    prod.tax_rate = newValue;
+      payload.tax_rate = newValue;  // ← yeh line add karo
+      prod.tax_rate = newValue;
   }
 
   try {
@@ -1217,6 +1218,29 @@ async function updateField(id, field, value) {
    PUBLISH TOGGLE
    Guard: publish_product (products module) or edit_stock (inventory)
 ════════════════════════════════════════════════════════════════ */
+// async function togglePublish(id, val) {
+//   const canPublish = perm('products', 'publish_product') || perm('inventory', 'edit_stock');
+//   if (!canPublish) {
+//     showToast('error', 'Access Denied', 'No permission to publish/unpublish products.');
+//     return;
+//   }
+//   const p = INVENTORY.find(x => x.id === id);
+//   if (!p) return;
+//   p.published = val;
+
+//   try {
+//     await API.put(`/inventory/${id}/`, { published: val });
+//     showToast(val ? 'success' : 'info', val ? 'Published' : 'Hidden',
+//       `${p.name} is now ${val ? 'live on website' : 'hidden from website'}`);
+//     renderStats();
+//     renderTable();
+//   } catch (e) {
+//     showToast('error', 'Error', `Failed to update: ${e.message}`);
+//     console.error('togglePublish error:', e);
+//   }
+// }
+
+
 async function togglePublish(id, val) {
   const canPublish = perm('products', 'publish_product') || perm('inventory', 'edit_stock');
   if (!canPublish) {
@@ -1402,8 +1426,9 @@ async function saveInvEdit() {
   try {
     await API.put(`/inventory/${editingId}/`, payload);
     closeModal('editInvModal');
-    renderStats();
-    renderTable();
+    // renderStats();
+    // renderTable();
+    await loadInventory(currentPage);
     showToast('success', 'Inventory Updated', 'All changes saved successfully');
   } catch(e) {
     showToast('error', 'Error', `Failed to save: ${e.message}`);
@@ -1427,6 +1452,26 @@ function confirmRemove(id, name) {
   }
 }
 
+// async function removeProd() {
+//  if (!perm('inventory', 'edit_stock')) {
+ //   showToast('error', 'Access Denied', 'No permission to remove products.');
+//    closeModal('editInvModal');
+ //   return;
+//  }
+//  try {
+ //   await API.delete(`/inventory/${editingId}/`);
+//INVENTORY = INVENTORY.filter(p => p.id !== editingId);
+  //  filtered  = filtered.filter(p => p.id !== editingId);
+  //  closeModal('editInvModal');
+  //  renderStats();
+  //  renderTable();
+ //   showToast('success', 'Removed', 'Product removed from inventory');
+  //} catch {
+ //   showToast('error', 'Error', 'Failed to remove. Please try again.');
+// }
+//}
+
+
 async function removeProd() {
   if (!perm('inventory', 'edit_stock')) {
     showToast('error', 'Access Denied', 'No permission to remove products.');
@@ -1442,7 +1487,6 @@ async function removeProd() {
     showToast('error', 'Error', 'Failed to remove. Please try again.');
   }
 }
-
 
 /* ════════════════════════════════════════════════════════════════
    BULK ACTIONS
@@ -1608,7 +1652,6 @@ function openBulkStockModal() {
   document.getElementById('bulkSearch').value = '';
   document.getElementById('bulkSelectAll').checked = false;
   document.getElementById('bulkSummary').style.display = 'none';
-  document.getElementById('bulkValueInput').value = '';
   document.querySelector('input[name="bulkAction"][value="set"]').checked = true;
   document.querySelector('input[name="bulkPublishVal"][value="true"]').checked = true;
 
@@ -1634,27 +1677,14 @@ function switchBulkTab(tab, skipReload) {
   document.getElementById('bulkInfoBanner').textContent = cfg.banner;
   document.getElementById('bulkModalTitle').textContent = `📦 Bulk ${cfg.label} Update`;
 
-  // Show/hide mode row (set/add) vs publish row vs shared-value row
+  // Show/hide mode row (set/add) vs publish row
   document.getElementById('bulkModeRow').style.display    = cfg.showMode ? 'block' : 'none';
   document.getElementById('bulkPublishRow').style.display = cfg.isPublishTab ? 'block' : 'none';
-  document.getElementById('bulkValueRow').style.display    = cfg.isPublishTab ? 'none' : 'block';
 
   if (cfg.showMode) {
     document.getElementById('bulkModeLabel').textContent     = `${cfg.label} Update Mode`;
     document.getElementById('bulkModeSetLabel').textContent  = cfg.setLabel;
     document.querySelector('input[name="bulkAction"][value="set"]').checked = true;
-  }
-
-  // Configure the single shared value input for this tab
-  if (!cfg.isPublishTab) {
-    const action = document.querySelector('input[name="bulkAction"]:checked')?.value ?? 'set';
-    document.getElementById('bulkValueLabel').textContent = `${cfg.label} value to apply`;
-    document.getElementById('bulkValueInput').placeholder = cfg.inputPlaceholder(action);
-    document.getElementById('bulkValueInput').value = '';
-    document.getElementById('bulkValueHint').textContent =
-      cfg.showMode
-        ? 'This single value is set on (or added to) every checked product below.'
-        : 'This single value is applied to every checked product below.';
   }
 
   if (!skipReload) renderBulkList();
@@ -1731,9 +1761,7 @@ async function loadBulkProducts() {
   }
 }
 
-/* Render filtered product rows inside the modal (client-side search only).
-   No per-row inputs anymore — every checked row will receive the SAME
-   single value from #bulkValueInput (or the publish radio) on Apply. */
+/* Render filtered product rows inside the modal (client-side search only) */
 function renderBulkList() {
   const cfg    = BULK_TAB_CONFIG[bulkActiveTab];
   const q      = (document.getElementById('bulkSearch')?.value ?? '').toLowerCase();
@@ -1757,13 +1785,22 @@ function renderBulkList() {
         ? `<span class="stock-pill low" style="font-size:11px">Low</span>`
         : '';
 
+    // Publish tab needs no input — just a checkbox + current status
+    const inputHtml = cfg.isPublishTab
+      ? ''
+      : `<input type="number" class="inline-edit" style="width:82px;border:1.5px solid var(--border);flex-shrink:0"
+          data-bfield="${p.id}" data-bcurrent="${cfg.currentValue(p)}"
+          placeholder="${cfg.inputPlaceholder(action)}" min="0"
+          oninput="updateBulkSummary()">`;
+
     return `
     <div style="display:flex;align-items:center;gap:10px;background:var(--body-bg);padding:10px 14px;border-radius:9px;border:1px solid var(--border)">
-      <input type="checkbox" data-bid="${p.id}" data-bcurrent="${cfg.isPublishTab ? '' : cfg.currentValue(p)}" onchange="updateBulkSummary()" style="flex-shrink:0">
+      <input type="checkbox" data-bid="${p.id}" onchange="updateBulkSummary()" style="flex-shrink:0">
       <div style="flex:1;min-width:0">
         <div style="font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.name} ${stockPill}</div>
         <div style="font-size:11.5px;color:var(--text-muted)">${p.sku} · ${p.category || 'No category'} · ${cfg.rowNote(p, action)}</div>
       </div>
+      ${inputHtml}
     </div>`;
   }).join('');
 
@@ -1778,19 +1815,19 @@ function toggleBulkAll(masterCb) {
   updateBulkSummary();
 }
 
-/* Live summary: how many products will be affected, using the ONE shared value */
+/* Live summary: how many products will be affected */
 function updateBulkSummary() {
   const cfg     = BULK_TAB_CONFIG[bulkActiveTab];
   const checked = [...document.querySelectorAll('#bulkProductList [data-bid]:checked')];
 
-  const sharedVal = document.getElementById('bulkValueInput')?.value ?? '';
-  const hasValidValue = sharedVal !== '' && !isNaN(Number(sharedVal)) && Number(sharedVal) >= 0;
-
-  // Publish tab: every checked row counts (no value input).
-  // Other tabs: all checked rows count, but ONLY if a valid shared value was entered.
+  // Publish tab: every checked row counts (no input field).
+  // Other tabs: only rows where a value was actually entered.
   const eligible = cfg.isPublishTab
     ? checked
-    : (hasValidValue ? checked : []);
+    : checked.filter(cb => {
+        const inp = document.querySelector(`[data-bfield="${cb.dataset.bid}"]`);
+        return inp && inp.value !== '' && Number(inp.value) >= 0;
+      });
 
   const summaryEl = document.getElementById('bulkSummary');
   const countEl   = document.getElementById('bulkSelectedCount');
@@ -1801,9 +1838,7 @@ function updateBulkSummary() {
     const publishVal = document.querySelector('input[name="bulkPublishVal"]:checked')?.value ?? 'true';
     const verb       = cfg.isPublishTab ? cfg.successVerb(publishVal) : cfg.successVerb(action);
     summaryEl.style.display = 'block';
-    summaryEl.textContent = cfg.isPublishTab
-      ? `✅ ${eligible.length} product(s) will have ${cfg.label.toLowerCase()} ${verb} on Apply.`
-      : `✅ ${eligible.length} product(s) will have ${cfg.label.toLowerCase()} ${action === 'add' ? `increased by ${sharedVal}` : `${verb} to ${sharedVal}`} on Apply.`;
+    summaryEl.textContent = `✅ ${eligible.length} product(s) will have ${cfg.label.toLowerCase()} ${verb} on Apply.`;
   } else {
     summaryEl.style.display = 'none';
   }
@@ -1832,24 +1867,23 @@ async function applyBulkStock() {
     requestBody   = cfg.buildPayload(ids, publishVal);
     affectedCount = ids.length;
   } else {
-    const action    = document.querySelector('input[name="bulkAction"]:checked')?.value ?? 'set';
-    const sharedVal = Number(document.getElementById('bulkValueInput').value);
+    const action  = document.querySelector('input[name="bulkAction"]:checked')?.value ?? 'set';
+    const updates = [];
 
-    if (document.getElementById('bulkValueInput').value === '' || isNaN(sharedVal) || sharedVal < 0) {
-      showToast('warning', 'Value required', `Enter a ${cfg.label.toLowerCase()} value to apply.`);
+    document.querySelectorAll('[data-bfield]').forEach(input => {
+      const id = Number(input.dataset.bfield);
+      const cb = document.querySelector(`[data-bid="${id}"]`);
+      if (!cb?.checked)       return; // unchecked
+      if (input.value === '') return; // no value entered
+      const val = Number(input.value);
+      if (isNaN(val) || val < 0) return;
+      updates.push({ id, [cfg.updateKey]: val });
+    });
+
+    if (updates.length === 0) {
+      showToast('warning', 'Nothing to update', 'Check at least one product and enter a value.');
       return;
     }
-
-    // Every checked product gets the SAME value — one field updates them all at once.
-    const ids = [...document.querySelectorAll('#bulkProductList [data-bid]:checked')]
-      .map(cb => Number(cb.dataset.bid));
-
-    if (ids.length === 0) {
-      showToast('warning', 'Nothing to update', 'Check at least one product.');
-      return;
-    }
-
-    const updates = ids.map(id => ({ id, [cfg.updateKey]: sharedVal }));
     requestBody   = cfg.buildPayload(updates, action);
     affectedCount = updates.length;
   }

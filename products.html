@@ -18,7 +18,11 @@
     .highlight-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
     .highlight-row input{flex:1}
     .step-indicator{display:flex;align-items:center;margin-bottom:28px;overflow-x:auto;padding-bottom:4px}
-    .step-item{display:flex;align-items:center;gap:8px;flex-shrink:0}
+    .step-item{display:flex;align-items:center;gap:8px;flex-shrink:0;transition:var(--transition)}
+    .step-item.clickable{cursor:pointer}
+    .step-item.clickable:hover .step-num{transform:scale(1.1);box-shadow:0 0 0 4px rgba(124,58,237,.15)}
+    .step-item.clickable:hover .step-label{color:var(--primary)}
+    .step-item.locked{cursor:not-allowed;opacity:.5}
     .step-num{width:30px;height:30px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--text-muted);flex-shrink:0;transition:var(--transition)}
     .step-item.active .step-num{background:var(--primary);border-color:var(--primary);color:#fff}
     .step-item.done  .step-num{background:var(--success);border-color:var(--success);color:#fff}
@@ -187,7 +191,13 @@
 <!-- ADD/EDIT MODAL -->
 <div class="modal-overlay" id="addProductModal">
   <div class="modal modal-xl">
-    <div class="modal-header"><h3 id="modalTitle">Add New Product</h3><button class="modal-close" onclick="closeModal('addProductModal')">✕</button></div>
+    <div class="modal-header">
+      <h3 id="modalTitle">Add New Product</h3>
+      <div style="display:flex;align-items:center;gap:10px">
+        <button id="jumpToImagesBtn" onclick="goToStep(4)" style="display:none;font-size:12px;padding:4px 14px;border:1.5px solid var(--primary);border-radius:20px;background:var(--primary-light);color:var(--primary);cursor:pointer;font-weight:600;white-space:nowrap">🖼️ Jump to Images</button>
+        <button class="modal-close" onclick="closeModal('addProductModal')">✕</button>
+      </div>
+    </div>
     <div class="modal-body">
       <div class="step-indicator" id="stepIndicator">
         <div class="step-item active" id="si1"><div class="step-num">1</div><div class="step-label">Basic Info</div></div>
@@ -627,7 +637,6 @@ async function removeExistingMain(btnEl) {
 }
 
 async function removeExistingGallery(idx, imageId, btnEl) {
-  // Disable the button while the API call runs
   if (btnEl) { btnEl.textContent = '…'; btnEl.style.pointerEvents = 'none'; }
 
   if (imageId) {
@@ -640,11 +649,11 @@ async function removeExistingGallery(idx, imageId, btnEl) {
     }
   }
 
+  // Remove this image from state and its DOM node directly — don't call loadExistingImages
+  // which would reset innerHTML and wipe any new-file thumbs the user has already picked
   EXISTING_GALLERY_IMAGES.splice(idx, 1);
-  loadExistingImages([
-    ...(EXISTING_MAIN_IMAGE ? [EXISTING_MAIN_IMAGE] : []),
-    ...EXISTING_GALLERY_IMAGES
-  ]);
+  const wrap = document.getElementById(`gallery-img-wrap-${imageId}`);
+  if (wrap) wrap.remove();
 }
 
 /* ── Debounce helper (for search input) ── */
@@ -659,6 +668,7 @@ const slugify = (s)  => s.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^a
 /* ── State ── */
 let PRODUCTS = [], CATEGORIES = [], deleteId = null, editingId = null, currentStep = 1, attrCount = 2;
 const STEPS = 4;
+let maxReachedStep = 1; // tracks the furthest unlocked step for click navigation
 // Server-side pagination state
 const ROWS_PER_PAGE = 10;
 let currentPage  = 1;   // current server page
@@ -799,56 +809,78 @@ function initializeImageUploads() {
     renderMainPreview(file);
   });
 
-  // GALLERY CHANGE
+  // GALLERY CHANGE — accumulate, never overwrite
   galleryInput.addEventListener('change', (e) => {
-
-    const files = Array.from(e.target.files);
-
-    GALLERY_IMAGES = files;
-
-    renderGalleryPreview(files);
+    const newFiles = Array.from(e.target.files);
+    if (!newFiles.length) return;
+    GALLERY_IMAGES = [...GALLERY_IMAGES, ...newFiles];
+    galleryInput.value = ''; // reset so the same file can be picked again if needed
+    renderGalleryPreview(newFiles); // only pass the new batch; existing thumbs stay untouched
   });
 }
 
 function renderMainPreview(file) {
-
-  const preview =
-    document.getElementById('mainImgPreview');
-
+  const preview = document.getElementById('mainImgPreview');
   preview.innerHTML = '';
+
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'position:relative;display:inline-block';
 
   const img = document.createElement('img');
-
   img.src = URL.createObjectURL(file);
+  img.style.cssText = 'width:100px;height:100px;object-fit:cover;border-radius:10px;border:2px solid var(--primary);display:block';
 
-  img.style.width = '100px';
-  img.style.height = '100px';
-  img.style.objectFit = 'cover';
-  img.style.borderRadius = '10px';
+  const btn = document.createElement('span');
+  btn.textContent = '✕';
+  btn.title = 'Remove';
+  btn.style.cssText = 'position:absolute;top:-6px;right:-6px;background:var(--primary);color:#fff;border-radius:50%;width:20px;height:20px;font-size:11px;display:flex;align-items:center;justify-content:center;cursor:pointer;line-height:1;z-index:2';
+  btn.onclick = () => {
+    MAIN_IMAGE = null;
+    document.getElementById('mainImgInput').value = '';
+    preview.innerHTML = '';
+  };
 
-  preview.appendChild(img);
+  const lbl = document.createElement('div');
+  lbl.textContent = 'New';
+  lbl.style.cssText = 'font-size:11px;color:var(--primary);text-align:center;margin-top:4px;font-weight:600';
+
+  wrap.appendChild(img);
+  wrap.appendChild(btn);
+  wrap.appendChild(lbl);
+  preview.appendChild(wrap);
 }
 
-function renderGalleryPreview(files) {
+function renderGalleryPreview(newFiles) {
+  const preview = document.getElementById('galleryPreview');
 
-  const preview =
-    document.getElementById('galleryPreview');
-
-  preview.innerHTML = '';
-
-  files.forEach(file => {
+  // Just append new thumbs — never remove existing ones (server thumbs or previous picks)
+  newFiles.forEach(file => {
+    const wrap = document.createElement('div');
+    wrap.className = 'new-gallery-thumb';
+    wrap.style.cssText = 'position:relative;display:inline-block;margin-right:8px;margin-bottom:8px;vertical-align:top';
 
     const img = document.createElement('img');
-
     img.src = URL.createObjectURL(file);
+    img.style.cssText = 'width:100px;height:100px;object-fit:cover;border-radius:10px;border:1.5px solid var(--border);display:block';
 
-    img.style.width = '100px';
-    img.style.height = '100px';
-    img.style.objectFit = 'cover';
-    img.style.borderRadius = '10px';
-    img.style.marginRight = '10px';
+    const btn = document.createElement('span');
+    btn.textContent = '✕';
+    btn.title = 'Remove';
+    btn.style.cssText = 'position:absolute;top:-6px;right:-6px;background:#ef4444;color:#fff;border-radius:50%;width:20px;height:20px;font-size:11px;display:flex;align-items:center;justify-content:center;cursor:pointer;line-height:1;z-index:2';
+    btn.onclick = () => {
+      const idx = GALLERY_IMAGES.indexOf(file);
+      if (idx > -1) GALLERY_IMAGES.splice(idx, 1);
+      wrap.remove();
+    };
 
-    preview.appendChild(img);
+    const lbl = document.createElement('div');
+    lbl.textContent = 'New';
+    lbl.style.cssText = 'font-size:11px;color:var(--text-muted);text-align:center;margin-top:4px';
+
+    wrap.appendChild(img);
+    wrap.appendChild(btn);
+    wrap.appendChild(lbl);
+    preview.appendChild(wrap);
   });
 }
 
@@ -1457,7 +1489,8 @@ async function viewProduct(id) {
 /* ── Add Modal ── */
 function openAddModal() {
   if (!CAN_ADD) { showToast('error','No Permission','You do not have permission to add products'); return; }
-  editingId = null; currentStep = 1; updateStepUI();
+  editingId = null; currentStep = 1; maxReachedStep = 1; updateStepUI();
+  document.getElementById('jumpToImagesBtn').style.display = 'none';
   document.getElementById('modalTitle').textContent = 'Add New Product';
   ['pName','pSlug','pShortDesc','pLongDesc','pBrand','pHSN','pTax','vSKU','vName','vColor','vSize','vPrice','vSalePrice','vStock','vMinQty','vMaxQty','vWeight','vLength','imgURL','imgAlt'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
@@ -1540,7 +1573,8 @@ async function editProduct(id) {
     const p = res?.data.product;
     console.log('Product data for editing:', p);
 
-    editingId = id; currentStep = 1; updateStepUI();
+    editingId = id; currentStep = 1; maxReachedStep = STEPS; updateStepUI();
+    document.getElementById('jumpToImagesBtn').style.display = 'inline-block';
     document.getElementById('modalTitle').textContent = 'Edit: ' + p.name;
 
     // ── Step 1: Basic Info ──
@@ -1648,70 +1682,45 @@ async function saveProduct() {
 
   const payload = {
     name,
-    slug: document.getElementById('pSlug').value.trim() || undefined,
-    // product_type: pType,
-    // category_id: catId ? parseInt(catId) : null,
-     category_id: categoryData.category_id,
-
-     category_path: categoryData.category_path,
-
-     category_slug_path: categoryData.category_slug_path,
-
-    category_full_path: categoryData.category_full_path,
-
-    category_full_slug: categoryData.category_full_slug,
-
-    category_ancestor_ids: categoryData.category_ancestor_ids,
-
-    category_depth: categoryData.category_depth,
-  
-    short_description: document.getElementById('pShortDesc').value.trim(),
-    description: document.getElementById('pLongDesc').value.trim(),
-    brand: document.getElementById('pBrand').value.trim(),
-    hsn_code: document.getElementById('pHSN').value.trim(),
-    tax_rate: document.getElementById('pTax').value || null,
-    is_active: document.getElementById('pIsActive').checked,
+    slug:                   document.getElementById('pSlug').value.trim() || undefined,
+    category_id:            categoryData.category_id,
+    category_path:          categoryData.category_path,
+    category_slug_path:     categoryData.category_slug_path,
+    category_full_path:     categoryData.category_full_path,
+    category_full_slug:     categoryData.category_full_slug,
+    category_ancestor_ids:  categoryData.category_ancestor_ids,
+    category_depth:         categoryData.category_depth,
+    short_description:      document.getElementById('pShortDesc').value.trim(),
+    description:            document.getElementById('pLongDesc').value.trim(),
+    brand:                  document.getElementById('pBrand').value.trim(),
+    hsn_code:               document.getElementById('pHSN').value.trim(),
+    tax_rate:               document.getElementById('pTax').value || null,
+    is_active:              document.getElementById('pIsActive').checked,
     attributes,
-    variant: null, // placeholder for variant data to be added conditionally
-
-    // addding new details to payload
-      sku: document.getElementById('vSKU').value.trim(),
-      variant_name: document.getElementById('vName').value.trim(),
-      color: document.getElementById('vColor').value.trim(),
-      size: document.getElementById('vSize').value.trim(),
-      unit_type: document.getElementById('vUnit').value,
-      price: parseFloat(document.getElementById('vPrice').value),
-      sale_price: document.getElementById('vSalePrice').value || null,
-      stock_quantity: parseFloat(document.getElementById('vStock').value) || 0,
-      min_order_qty: parseFloat(document.getElementById('vMinQty').value) || 1,
-      max_order_qty: document.getElementById('vMaxQty').value || null,
-      weight: document.getElementById('vWeight').value || null,
-      length_per_piece: document.getElementById('vLength').value || null,
+    variant: null,
   };
 
-  // Variant payload (only for new product)
-  console.log('Variant payload:', payload.variant);
+  // Build variant — required fields validated only on add, sent on both add and edit
+  const vSKU   = document.getElementById('vSKU').value.trim();
+  const vPrice = parseFloat(document.getElementById('vPrice').value);
   if (!editingId) {
-    const vSKU = document.getElementById('vSKU').value.trim();
-    const vPrice = parseFloat(document.getElementById('vPrice').value);
-    if (!vSKU) { showToast('warning','Required','Variant SKU is required'); return; }
-    if (!vPrice) { showToast('warning','Required','Variant price is required'); return; }
-
-    payload.variant = {
-      sku: vSKU,
-      variant_name: document.getElementById('vName').value.trim(),
-      color: document.getElementById('vColor').value.trim(),
-      size: document.getElementById('vSize').value.trim(),
-      unit_type: document.getElementById('vUnit').value,
-      price: vPrice,
-      sale_price: document.getElementById('vSalePrice').value || null,
-      stock_quantity: parseFloat(document.getElementById('vStock').value) || 0,
-      min_order_qty: parseFloat(document.getElementById('vMinQty').value) || 1,
-      max_order_qty: document.getElementById('vMaxQty').value || null,
-      weight: document.getElementById('vWeight').value || null,
-      length_per_piece: document.getElementById('vLength').value || null,
-    };
+    if (!vSKU)   { showToast('warning', 'Required', 'Variant SKU is required');   return; }
+    if (!vPrice) { showToast('warning', 'Required', 'Variant price is required'); return; }
   }
+  payload.variant = {
+    sku:              vSKU,
+    variant_name:     document.getElementById('vName').value.trim(),
+    color:            document.getElementById('vColor').value.trim(),
+    size:             document.getElementById('vSize').value.trim(),
+    unit_type:        document.getElementById('vUnit').value,
+    price:            vPrice   || undefined,
+    sale_price:       document.getElementById('vSalePrice').value  || null,
+    stock_quantity:   parseFloat(document.getElementById('vStock').value)   || 0,
+    min_order_qty:    parseFloat(document.getElementById('vMinQty').value)  || 1,
+    max_order_qty:    document.getElementById('vMaxQty').value   || null,
+    weight:           document.getElementById('vWeight').value   || null,
+    length_per_piece: document.getElementById('vLength').value   || null,
+  };
 
   const btnSave = document.getElementById('btnSave');
   btnSave.disabled = true; btnSave.textContent = 'Saving...';
@@ -1731,38 +1740,36 @@ async function saveProduct() {
     }
 
     // --- SEQUENTIAL IMAGE UPLOAD ---
-    console.log('Starting image upload. Product ID:', productId, 'Main image:', MAIN_IMAGE, 'Gallery images:', GALLERY_IMAGES,"the existing gallery images:",EXISTING_GALLERY_IMAGES);
     if (productId) {
-      // 1. MAIN IMAGE
+      // 1. MAIN IMAGE — only if user picked a new file
       if (MAIN_IMAGE) {
         showToast('info', 'Uploading', 'Uploading main image...');
-        const formData = new FormData();
-        formData.append('image', MAIN_IMAGE);
-        formData.append('is_primary', true);
-        await API.post(`/products/${productId}/images/`, formData);
+        const fd = new FormData();
+        fd.append('image', MAIN_IMAGE);
+        fd.append('is_primary', true);
+        await API.post(`/products/${productId}/images/`, fd);
       }
 
-      GALLERY_IMAGES = EXISTING_GALLERY_IMAGES;
-
-      // 2. GALLERY IMAGES
-      if (GALLERY_IMAGES.length > 0) {
-        showToast('info', 'Uploading', `Uploading ${GALLERY_IMAGES.length} gallery images...`);
-        for (const img of GALLERY_IMAGES) {
-          const formData = new FormData();
-          console.log('Uploading gallery image:', img);
-          formData.append('image', img);
-          formData.append('is_primary', false);
-          await API.post(`/products/${productId}/images/`, formData);
+      // 2. NEW GALLERY FILES — only File objects the user just picked
+      //    EXISTING_GALLERY_IMAGES are already on the server, never re-upload them
+      const newGalleryFiles = GALLERY_IMAGES.filter(f => f instanceof File);
+      if (newGalleryFiles.length > 0) {
+        showToast('info', 'Uploading', `Uploading ${newGalleryFiles.length} gallery image(s)...`);
+        for (const file of newGalleryFiles) {
+          const fd = new FormData();
+          fd.append('image', file);
+          fd.append('is_primary', false);
+          await API.post(`/products/${productId}/images/`, fd);
         }
       }
 
-      // 3. URL-based Image (Legacy fallback)
+      // 3. URL-based image (legacy fallback — add mode only, no file picked)
       const imgUrl = document.getElementById('imgURL').value.trim();
       if (imgUrl && !MAIN_IMAGE && !editingId) {
         await API.post(`/products/${productId}/images/`, {
           image_url: imgUrl,
-          alt_text: document.getElementById('imgAlt').value.trim(),
-          is_primary: true
+          alt_text:  document.getElementById('imgAlt').value.trim(),
+          is_primary: true,
         });
       }
     }
@@ -1826,31 +1833,55 @@ function exportProducts() {
 /* ── Step Navigation ── */
 function updateStepUI() {
   document.querySelectorAll('.modal-step').forEach((s, i) => s.classList.toggle('active', i + 1 === currentStep));
+
   for (let i = 1; i <= STEPS; i++) {
     const el = document.getElementById('si' + i);
-    el.classList.remove('active','done');
-    if (i < currentStep) el.classList.add('done');
+    el.classList.remove('active', 'done', 'clickable', 'locked');
+
+    if (i < currentStep)        el.classList.add('done');
     else if (i === currentStep) el.classList.add('active');
+
+    if (i <= maxReachedStep) {
+      // Already visited — make it clickable
+      el.classList.add('clickable');
+      el.title = i === currentStep ? 'Current step' : `Go to step ${i}`;
+      el.onclick = ((step) => () => goToStep(step))(i);
+    } else {
+      // Not yet reached — locked
+      el.classList.add('locked');
+      el.title = 'Complete previous steps first';
+      el.onclick = null;
+    }
   }
+
   for (let i = 1; i < STEPS; i++) {
     const l = document.getElementById('sl' + i);
     if (l) l.style.background = i < currentStep ? 'var(--success)' : 'var(--border)';
   }
-  document.getElementById('btnPrev').style.display = currentStep > 1 ? 'inline-flex' : 'none';
-  document.getElementById('btnNext').style.display = currentStep < STEPS ? 'inline-flex' : 'none';
+
+  document.getElementById('btnPrev').style.display = currentStep > 1      ? 'inline-flex' : 'none';
+  document.getElementById('btnNext').style.display = currentStep < STEPS  ? 'inline-flex' : 'none';
   document.getElementById('btnSave').style.display = currentStep === STEPS ? 'inline-flex' : 'none';
+}
+
+/* ── Direct step jump (only to already-unlocked steps) ── */
+function goToStep(step) {
+  if (step < 1 || step > STEPS || step > maxReachedStep) return;
+  currentStep = step;
+  updateStepUI();
 }
 
 function nextStep() {
   if (currentStep === 1) {
-    if (!document.getElementById('pName').value.trim()) { showToast('warning','Required','Product name is required'); return; }
-    // if (!document.getElementById('pType').value)        { showToast('warning','Required','Product type is required'); return; }
-    if (!getSelectedProductCategoryId())        { showToast('warning','Required','Product category is required'); return; }
-    if(!document.getElementById('pShortDesc').value.trim()){
-      showToast('warning','Required','Short Description is required');return;
-    }
+    if (!document.getElementById('pName').value.trim())      { showToast('warning','Required','Product name is required'); return; }
+    if (!getSelectedProductCategoryId())                     { showToast('warning','Required','Product category is required'); return; }
+    if (!document.getElementById('pShortDesc').value.trim()) { showToast('warning','Required','Short Description is required'); return; }
   }
-  if (currentStep < STEPS) { currentStep++; updateStepUI(); }
+  if (currentStep < STEPS) {
+    currentStep++;
+    if (currentStep > maxReachedStep) maxReachedStep = currentStep; // unlock this step
+    updateStepUI();
+  }
 }
 function prevStep() { if (currentStep > 1) { currentStep--; updateStepUI(); } }
 
